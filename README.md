@@ -28,7 +28,7 @@ Rust Racers will include a custom networking system that allows players to compe
 
 ### AI Racers
 
-**TODO**: DESCRIPTION HERE
+Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to attack players/other CPUs. As a part of the powerup stretch goal, the CPUs will be able to use the various powerups and integrate them into their attack style 
 
 ## Midterm Goals
 
