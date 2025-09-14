@@ -18,13 +18,13 @@ by Six Seven Studios
 
 ## Game Description
 
-Rust Racers is a top down, 2d racing game. Players can queue up in a lobby to start the race. During the race, players can control their cars with WASD and will drive around pre-created tracks. Rust Racers will support up to 8 players and will fill in non-player slots with AI racers.
+Rust Racers is a top down, 2D racing game. Players can queue up in a lobby to start the race. During the race, players can control their cars with WASD and will drive around pre-created tracks. Rust Racers will support up to 8 players and will fill in non-player slots with AI racers.
 
 ## Advanced Topic Description
 
 ### Multiplayer Networking
 
-**TODO**: DESCRIPTION HERE
+Rust Racers will include a custom networking system that allows players to compete together in real time. The game will feature a lobby where players can create or join rooms before starting a race, supporting up to eight participants in a single session. Once the race begins, the networking logic will synchronize game state across all connected players to ensure a consistent experience. The system will handle the transmission of player inputs and game events, maintaining smooth gameplay while minimizing any desynchronization.
 
 ### AI Racers
 
@@ -59,7 +59,10 @@ Rust Racers is a top down, 2d racing game. Players can queue up in a lobby to st
   * Players can drift their cars around turns for a small boost
   * Certain driving features are disabled when the player selects simple controls.
 
-## Stretch Goals **TODO**
+## Stretch Goals
 
-* GOAL1HERE
-* GOAL2HERE
+* Powerups
+  * Players and CPUs can collect items (e.g. speed boosts, projectiles) to gain advantages or disrupt others
+  * Powerups integrate into both racing-focused and aggressive AI behavior
+* Drifting
+  * Add drifting mechanics that reward precise timing and skillful cornering
