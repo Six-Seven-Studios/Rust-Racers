@@ -28,7 +28,7 @@ Rust Racers will include a custom networking system that allows players to compe
 
 ### AI Racers
 
-Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to attack players/other CPUs. As a part of the powerup stretch goal, the CPUs will be able to use the various powerups and integrate them into their attack style 
+Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to attack players/other CPUs. As a part of the powerup stretch goal, the CPUs will be able to use the various powerups and integrate them into their attack style. 
 
 ## Midterm Goals
 
@@ -45,19 +45,19 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 * 50%: Networked Multiplayer and AI CPUs
   * A homescreen with create and join room options
   * Players can choose from multiple cars
-  * Players can race alongside a max of 8 players via a networked connection
+  * Players can race alongside a max of 7 players via a networked connection
   * Empty spots within a lobby are filled by AI CPUs
   * Players can also choose to race alone alongside AI CPUs (singleplayer)
-  * AI CPUs have dynamic racing behavior that reacts to their surroundings.
+  * AI CPUs have dynamic racing behavior that reacts to their surroundings
     * Aggressive Driving Lines
     * Reversing
     * Attacking Players / Other CPUs
 
 * 15%: Two Maps
-  * Players can choose between two maps to race on.
+  * Players can choose between two maps to race on
 * 15%: Drifting AND Simple and Complex control styles
   * Players can drift their cars around turns for a small boost
-  * Certain driving features are disabled when the player selects simple controls.
+  * Certain driving features are disabled when the player selects simple controls
 
 ## Stretch Goals
 
