@@ -1,3 +1,50 @@
+use bevy::{prelude::*, window::PresentMode};
+
+#[derive(Component, Deref, DerefMut)]
+struct PopupTimer(Timer);
+
 fn main() {
-    println!("Hello, world!");
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Rust Racers".into(),
+                resolution: (640., 480.).into(),
+                present_mode: PresentMode::AutoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_systems(Startup, setup_credits)
+        .add_systems(Update, show_credits)
+        .run();
+}
+
+fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    commands.spawn(Sprite::from_image(asset_server.load("credits/rust-racers.png")));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/developed-by.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(2., TimerMode::Once)),
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/kameren-jouhal.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(4., TimerMode::Once)),
+    ));
+}
+
+fn show_credits(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform)>) {
+    for (mut timer, mut transform) in popup.iter_mut() {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.translation.z = 2.;
+        }
+    }
 }
