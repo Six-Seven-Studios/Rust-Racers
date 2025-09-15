@@ -66,3 +66,4 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 * Drifting + Simple driving
   * Players can drift their cars around turns for a small boost
   * Simple setting makes drifting easier when the player enables it
+  
