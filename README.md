@@ -42,27 +42,27 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 
 ## Final Goals
 
-* 50%: Networked Multiplayer and AI CPUs
+* 35%: Networked Multiplayer
   * A homescreen with create and join room options
   * Players can choose from multiple cars
   * Players can race alongside a max of 7 players via a networked connection
-  * Empty spots within a lobby are filled by AI CPUs
-  * Players can also choose to race alone alongside AI CPUs (singleplayer)
-  * AI CPUs have dynamic racing behavior that reacts to their surroundings
-    * Aggressive Driving Lines
-    * Reversing
-    * Attacking Players / Other CPUs
 
-* 15%: Two Maps
+* 35%: AI CPU's
+   * Empty spots within a lobby are filled by AI CPUs
+   * Players can also choose to race alone alongside AI CPUs (singleplayer)
+   * AI CPUs have dynamic racing behavior that reacts to their surroundings
+   * Aggressive Driving Lines
+   * Reversing
+   * Attacking Players / Other CPUs
+
+* 10%: Two Maps
   * Players can choose between two maps to race on
-* 15%: Drifting AND Simple and Complex control styles
-  * Players can drift their cars around turns for a small boost
-  * Certain driving features are disabled when the player selects simple controls
 
 ## Stretch Goals
 
 * Powerups
   * Players and CPUs can collect items (e.g. speed boosts, projectiles) to gain advantages or disrupt others
   * Powerups integrate into both racing-focused and aggressive AI behavior
-* Drifting
-  * Add drifting mechanics that reward precise timing and skillful cornering
+* Drifting + Simple driving
+  * Players can drift their cars around turns for a small boost
+  * Simple setting makes drifting easier when the player enables it
