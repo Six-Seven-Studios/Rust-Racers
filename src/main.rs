@@ -3,12 +3,15 @@ use bevy::{prelude::*, window::PresentMode};
 #[derive(Component, Deref, DerefMut)]
 struct PopupTimer(Timer);
 
+const WIN_W: f32 = 1280.;
+const WIN_H: f32 = 720.;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Rust Racers".into(),
-                resolution: (640., 480.).into(),
+                resolution: (WIN_W, WIN_H).into(),
                 present_mode: PresentMode::AutoVsync,
                 ..default()
             }),
