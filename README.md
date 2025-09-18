@@ -30,11 +30,9 @@ Rust Racers will include a custom networking system that allows players to compe
 The system will use a client-server model. Player inputs and car physics updates will be transmitted between clients to maintain synchronized gameplay.
 
 **Lag Compensation Strategy:**
-To address network latency issues common in real-time multiplayer games, we will implement several lag compensation techniques:
+To address network latency issues common in real-time multiplayer games, we will implement client-side prediction as our lag compensation technique:
 
-- **Client-side prediction**: Players' own cars will respond immediately to input without waiting for server confirmation, so the game feels responsive
-- **State reconciliation**: When the server sends corrections, car positions will be smoothly adjusted to maintain consistency
-- **Interpolation**: Other players' cars will be rendered with smooth movement between received position updates, reducing the amount of jittery movement caused by network delays
+- **Client-side prediction**: Players' own cars will respond immediately to input without waiting for server confirmation, so the game feels responsive. Additionally, we will handle server corrections smoothly to avoid snappy adjustements in car positions.
 
 ### AI Racers
 
@@ -59,8 +57,8 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 
 * 35% - Networked Multiplayer
   * 5% - A homescreen with create and join room options
-  * 15% - Players can race alongside a max of 3 players via a networked connection
-  * 15% - Lag compensation (client-side prediction, state reconciliation, interpolation)
+  * 20% - Players can race alongside a max of 3 players via a networked connection
+  * 10% - Lag compensation (client-side prediction)
 
 * 35% - AI CPUs
    * Empty spots within a lobby are filled by AI CPUs
