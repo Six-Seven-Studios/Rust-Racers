@@ -48,10 +48,10 @@ Users will be able to fill in empty player slots with AI computer racers. These 
     * When cars collide, they will bounce apart, gaining a small instant change in velocity away from the other car
   * Different types of terrain
     * This will include the track and grass which will slow down the cars
-* Camera tracking
-* One track and one car model
+    * Slow down and speed up on different terrain
   * The track will be sized such that it takes about 30 seconds to do one lap
-
+  * We will have at least one car model
+    * By car model we mean a car skin
 
 ## Final Goals
 
@@ -61,16 +61,16 @@ Users will be able to fill in empty player slots with AI computer racers. These 
   * 10% - Lag compensation (client-side prediction)
 
 * 35% - AI CPUs
-   * Empty spots within a lobby are filled by AI CPUs
-   * Players can also choose to race alone alongside AI CPUs (singleplayer)
-   * AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm
-   * Aggressive Driving Lines
-   * Reversing
-   * Attacking Players / Other CPUs
+  * Empty spots within a lobby are filled by AI CPUs
+  * Players can also choose to race alone alongside AI CPUs (singleplayer)
+  * AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm
+  * Aggressive Driving Lines
+  * Reversing
+  * Attacking Players / Other CPUs
 
-* 10% - Two Maps
-  * Players can choose between two maps to race on
-
+* 10% - Secondary Map
+  * Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorperating all of our terrain types.
+  * We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
 
