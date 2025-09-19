@@ -65,7 +65,22 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         PopupTimer(Timer::from_seconds(10., TimerMode::Once)),
     ));
-    
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/jonathan-coulter.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(12., TimerMode::Once)),
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/jeremy-luu.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(14., TimerMode::Once)),
+    ));
 }
 
 fn show_credits(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform)>) {
