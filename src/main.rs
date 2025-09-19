@@ -81,6 +81,14 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         PopupTimer(Timer::from_seconds(14., TimerMode::Once)),
     ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/david-shi.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(16., TimerMode::Once)),
+    ));
 }
 
 fn show_credits(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform)>) {
