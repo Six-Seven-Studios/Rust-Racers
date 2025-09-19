@@ -63,7 +63,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 * 35% - AI CPUs
    * Empty spots within a lobby are filled by AI CPUs
    * Players can also choose to race alone alongside AI CPUs (singleplayer)
-   * AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the A* algorithm
+   * AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm
    * Aggressive Driving Lines
    * Reversing
    * Attacking Players / Other CPUs
