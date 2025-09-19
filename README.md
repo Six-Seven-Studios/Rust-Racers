@@ -49,7 +49,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
   * 2 Different types of terrain: track and grass
     * Grass which will slow down the cars
     * Driving on track will be faster than driving on grass
-  * The track will be sized such that it takes about ~20 seconds to do one lap
+  * One map of size 5000px x 5000px
   * We will have at least one car model
     * By car model we mean a car skin
 
@@ -67,7 +67,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
   * 10% - Attacking Players / Other CPUs
 
 * 10% - Secondary Map and Skins
-  * 5% - Players can choose between two maps to race on: The original ~20 second map, and a larger, more difficult ~30 second map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
+  * 5% - Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
   * 5% - We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
