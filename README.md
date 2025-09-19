@@ -37,7 +37,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
   * Acceleration
   * Collisions
   * Slow down and speed up on different terrain
-* One map of size 5000px x 5000px and one car model
+* One map of size 5000px x 5000px and at least one car model
   * By car model we mean a car skin
 
 ## Final Goals
@@ -56,7 +56,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 
 * 10%: Secondary Map
   * Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorperating all of our terrain types.
-  * We will also add a second car model/skin for players to choose
+  * We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
 
