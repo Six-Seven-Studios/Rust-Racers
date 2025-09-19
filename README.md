@@ -32,11 +32,11 @@ The system will use a client-server model. Player inputs and car physics updates
 **Lag Compensation Strategy:**
 To address network latency issues common in real-time multiplayer games, we will implement client-side prediction as our lag compensation technique:
 
-- **Client-side prediction**: Players' own cars will respond immediately to input without waiting for server confirmation, so the game feels responsive. Additionally, we will handle server corrections smoothly to avoid snappy adjustements in car positions.
+**Client-side prediction**: Players' own cars will respond immediately to input without waiting for server confirmation, so the game feels responsive. Additionally, we will handle server corrections smoothly to avoid snappy adjustments in car positions.
 
 ### AI Racers
 
-Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to disrupt players/other CPUs. As a part of the powerup stretch goal, the CPUs will be able to use the powerups and integrate them into their play style.
+Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to disrupt players/other CPUs. As a part of the power-up stretch goal, the CPUs will be able to use the power-ups and integrate them into their play style.
 
 ## Midterm Goals
 
@@ -46,35 +46,33 @@ Users will be able to fill in empty player slots with AI computer racers. These 
   * Acceleration
   * Collisions
     * When cars collide, they will bounce apart, gaining a small instant change in velocity away from the other car
-  * Different types of terrain
-    * This will include the track and grass which will slow down the cars
-    * Slow down and speed up on different terrain
-  * The track will be sized such that it takes about 30 seconds to do one lap
+  * 2 Different types of terrain: track and grass
+    * Grass which will slow down the cars
+    * Driving on track will be faster than driving on grass
+  * The track will be sized such that it takes about ~20 seconds to do one lap
   * We will have at least one car model
     * By car model we mean a car skin
 
 ## Final Goals
 
 * 35% - Networked Multiplayer
-  * 5% - A homescreen with create and join room options
+  * 5% - A home-screen with create and join room options
   * 20% - Players can race alongside a max of 3 players via a networked connection
   * 10% - Lag compensation (client-side prediction)
 
 * 35% - AI CPUs
-  * Empty spots within a lobby are filled by AI CPUs
-  * Players can also choose to race alone alongside AI CPUs (singleplayer)
-  * AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm
-  * Aggressive Driving Lines
-  * Reversing
-  * Attacking Players / Other CPUs
+  * 5% - Empty spots within a lobby are filled by AI CPUs
+  * 5% - Players can also choose to race alone alongside AI CPUs (single-player)
+  * 15% - AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm, including reversing when needed and aggressive driving lines.
+  * 10% - Attacking Players / Other CPUs
 
-* 10% - Secondary Map
-  * Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorperating all of our terrain types.
-  * We will also have one car model/skin for each member of our team
+* 10% - Secondary Map and Skins
+  * 5% - Players can choose between two maps to race on: The original ~20 second map, and a larger, more difficult ~30 second map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
+  * 5% - We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
 
-* Powerups
+* Power-ups
   * Add one item you can collect as you race (likely a speed boost)
   * Racers may only have 1 power up at a time and can activate it with a key press
 * Drifting + Simple driving
