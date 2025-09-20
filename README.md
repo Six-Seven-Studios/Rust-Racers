@@ -38,6 +38,13 @@ To address network latency issues common in real-time multiplayer games, we will
 
 Users will be able to fill in empty player slots with AI computer racers. These racers will have customizable difficulty in order to accommodate for different player skill levels. The CPU players will be able to navigate around the maps, avoid obstacles and drift around corners. Additionally, there will be multiple types of CPU behavior. Some will focus on racing while others will gang up and try to disrupt players/other CPUs. As a part of the power-up stretch goal, the CPUs will be able to use the power-ups and integrate them into their play style.
 
+**Advanced AI Algorithm:**
+Using the Theta* algorithm, our CPU racers will be able to provide a real challenge to our human players. We chose Theta* because it has a good balance of performance, and adaptability to the track conditions. This algorithm will be able to adjust driving angles on the fly in order to give the CPUs extremely competitive driving lines. 
+
+**Power-Up Usage:**
+Using a finite state machine, our CPUs will be able to quickly adjust between driving normally  and using power-ups for an advantage.  
+
+
 ## Midterm Goals
 
 * Basic Movement
