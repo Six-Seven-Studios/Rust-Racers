@@ -82,12 +82,20 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
         PopupTimer(Timer::from_seconds(14., TimerMode::Once)),
     ));
     commands.spawn((
-        Sprite::from_image(asset_server.load("credits/Daniel.png")),
+        Sprite::from_image(asset_server.load("credits/david-shi.png")),
         Transform {
             translation: Vec3::new(0., 0., -1.),
             ..default()
         },
         PopupTimer(Timer::from_seconds(16., TimerMode::Once)),
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("credits/Daniel.png")),
+        Transform {
+            translation: Vec3::new(0., 0., -1.),
+            ..default()
+        },
+        PopupTimer(Timer::from_seconds(18., TimerMode::Once)),
     ));
 }
 
