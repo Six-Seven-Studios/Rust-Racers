@@ -36,7 +36,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/kameren-jouhal.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.9),
             ..default()
         },
         PopupTimer(Timer::from_seconds(4., TimerMode::Once)),
@@ -44,7 +44,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/greyson-barsotti.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.8),
             ..default()
         },
         PopupTimer(Timer::from_seconds(6., TimerMode::Once)),
@@ -52,7 +52,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/ethan-defilippi.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.7),
             ..default()
         },
         PopupTimer(Timer::from_seconds(8., TimerMode::Once)),
@@ -60,7 +60,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/carson-gollinger.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.6),
             ..default()
         },
         PopupTimer(Timer::from_seconds(10., TimerMode::Once)),
@@ -68,7 +68,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/jonathan-coulter.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.5),
             ..default()
         },
         PopupTimer(Timer::from_seconds(12., TimerMode::Once)),
@@ -76,7 +76,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/jeremy-luu.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.4),
             ..default()
         },
         PopupTimer(Timer::from_seconds(14., TimerMode::Once)),
@@ -84,7 +84,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/david-shi.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.3),
             ..default()
         },
         PopupTimer(Timer::from_seconds(16., TimerMode::Once)),
@@ -92,7 +92,7 @@ fn setup_credits(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/Daniel.png")),
         Transform {
-            translation: Vec3::new(0., 0., -1.),
+            translation: Vec3::new(0., 0., -0.2),
             ..default()
         },
         PopupTimer(Timer::from_seconds(18., TimerMode::Once)),
