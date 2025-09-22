@@ -42,7 +42,7 @@ Users will be able to fill in empty player slots with AI computer racers. These 
 Using the Theta* algorithm, our CPU racers will be able to provide a real challenge to our human players. We chose Theta* because it has a good balance of performance, and adaptability to the track conditions. This algorithm will be able to adjust driving angles on the fly in order to give the CPUs extremely competitive driving lines. 
 
 **Power-Up Usage:**
-Using a finite state machine, our CPUs will be able to quickly adjust between driving normally  and using power-ups for an advantage.  
+Using a decision tree, our CPUs will be able to quickly adjust between driving normally  and using power-ups for an advantage.  
 
 
 ## Midterm Goals
@@ -71,7 +71,7 @@ Using a finite state machine, our CPUs will be able to quickly adjust between dr
   * 5% - Empty spots within a lobby are filled by AI CPUs
   * 5% - Players can also choose to race alone alongside AI CPUs (single-player)
   * 15% - AI CPUs have dynamic racing behavior that reacts to their surroundings implemented with the Theta* algorithm, including reversing when needed and aggressive driving lines.
-  * 10% - Attacking Players / Other CPUs
+  * 10% - Attacking players / other CPUs decided by a decision tree
 
 * 10% - Secondary Map and Skins
   * 5% - Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
