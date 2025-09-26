@@ -31,9 +31,7 @@ const LEVEL_W: f32 = 1920.;
 const LEVEL_H: f32 = 1080.;
 
 #[derive(Component)]
-struct Car {
-    hitbox_radius: f32,
-}
+struct Car;
 
 #[derive(Component)]
 struct Background;
