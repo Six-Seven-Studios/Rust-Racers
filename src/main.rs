@@ -158,7 +158,10 @@ fn setup(
 fn move_car(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
+    player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
+    other_cars: Query<&Transform, (With<Car>, Without<PlayerControlled>)>,
 ) {
+    let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
@@ -206,6 +209,29 @@ fn move_car(
 
     // Rotate car to match orientation
     transform.rotation = Quat::from_rotation_z(orientation.angle);
+
+    // Calculate new position
+    let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
+    
+    // Check collision with other cars
+    let car_radius = CAR_SIZE as f32 / 2.0;
+    let mut collision = false;
+    
+    for other_car_transform in other_cars.iter() {
+        let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
+        if distance < car_radius * 2.0 {
+            collision = true;
+            break;
+        }
+    }
+    
+    // Only update position if no collision
+    if !collision {
+        transform.translation = new_position;
+    } else {
+        // Stop the car if collision would occur
+        **velocity = Vec2::ZERO;
+    }
 }
 
 fn move_camera(
