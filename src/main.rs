@@ -34,6 +34,9 @@ const LEVEL_H: f32 = 1080.;
 struct Car;
 
 #[derive(Component)]
+struct PlayerControlled;
+
+#[derive(Component)]
 struct Background;
 
 #[derive(Component)]
@@ -62,6 +65,7 @@ impl Velocity {
             velocity: Vec2::ZERO,
         }
     }
+    
 }
 
 impl From<Vec2> for Velocity {
@@ -113,9 +117,10 @@ fn setup(
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
 
+    // Spawn player car
     commands.spawn((
         Sprite::from_atlas_image(
-            car_sheet_handle,
+            car_sheet_handle.clone(),
             TextureAtlas {
                 layout: car_layout_handle.clone(),
                 index: 0,
@@ -128,15 +133,35 @@ fn setup(
         Velocity::new(),
         Orientation::new(0.0),
         Car,
+        PlayerControlled,
+    ));
+
+    // Spawn second car
+    commands.spawn((
+        Sprite::from_atlas_image(
+            car_sheet_handle,
+            TextureAtlas {
+                layout: car_layout_handle,
+                index: 0,
+            },
+        ),
+        Transform {
+            translation: Vec3::new(200., 200., 50.),
+            ..default()
+        },
+        Velocity::new(),
+        Orientation::new(1.57), 
+        Car,
     ));
 }
 
 fn move_car(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<Car>, Without<Background>)>,
+    player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
+    other_cars: Query<&Transform, (With<Car>, Without<PlayerControlled>)>,
 ) {
-    let (mut transform, mut velocity, mut orientation) = car.into_inner();
+    let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
@@ -185,17 +210,37 @@ fn move_car(
     // Rotate car to match orientation
     transform.rotation = Quat::from_rotation_z(orientation.angle);
 
-    // Update car position
-    transform.translation = (transform.translation + change.extend(0.)).clamp(min, max);
+    // Calculate new position
+    let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
+    
+    // Check collision with other cars
+    let car_radius = CAR_SIZE as f32 / 2.0;
+    let mut collision = false;
+    
+    for other_car_transform in other_cars.iter() {
+        let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
+        if distance < car_radius * 2.0 {
+            collision = true;
+            break;
+        }
+    }
+    
+    // Only update position if no collision
+    if !collision {
+        transform.translation = new_position;
+    } else {
+        // Stop the car if collision would occur
+        **velocity = Vec2::ZERO;
+    }
 }
 
 fn move_camera(
-    car: Single<&Transform, With<Car>>,
-    mut camera: Single<&mut Transform, (With<Camera>, Without<Car>)>,
+    player_car: Single<&Transform, With<PlayerControlled>>,
+    mut camera: Single<&mut Transform, (With<Camera>, Without<PlayerControlled>)>,
 ) {
     let max = Vec3::new(LEVEL_W / 2. - WIN_W / 2., LEVEL_H / 2. - WIN_H / 2., 0.);
     let min = -max.clone();
-    camera.translation = car.translation.clamp(min, max);
+    camera.translation = player_car.translation.clamp(min, max);
 }
 
 fn check_for_credits_input(
@@ -215,12 +260,14 @@ fn reset_camera_for_credits(mut camera: Single<&mut Transform, With<Camera>>) {
 fn setup_credits(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
-    mut car: Single<&mut Visibility, (With<Car>, Without<Background>)>,
+    mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>,
     mut background: Single<&mut Visibility, (With<Background>, Without<Car>)>,
 ) {
     commands.insert_resource(CreditsTimer(Timer::from_seconds(20.0, TimerMode::Once)));
     
-    **car = Visibility::Hidden;
+    for mut car_visibility in cars.iter_mut() {
+        *car_visibility = Visibility::Hidden;
+    }
     **background = Visibility::Hidden;
     
     commands.spawn((
