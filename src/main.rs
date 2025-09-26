@@ -33,7 +33,7 @@ const LEVEL_H: f32 = 1080.;
 #[derive(Component)]
 struct Car {
     hitbox_radius: f32,
-};
+}
 
 #[derive(Component)]
 struct Background;
