@@ -62,6 +62,7 @@ impl Velocity {
             velocity: Vec2::ZERO,
         }
     }
+    
 }
 
 impl From<Vec2> for Velocity {
