@@ -1,3 +1,8 @@
+mod map;
+mod terrain;
+
+use map::{load_map_from_file, GameMap};
+use terrain::{TILES};
 use bevy::{prelude::*, window::PresentMode};
 
 #[derive(Component, Deref, DerefMut)]
@@ -18,17 +23,12 @@ struct CreditsTimer(Timer);
 
 const WIN_W: f32 = 1280.;
 const WIN_H: f32 = 720.;
-
 const PLAYER_SPEED: f32 = 350.;
 const ACCEL_RATE: f32 = 700.;
 const FRICTION: f32 = 0.95;
-
 const TURNING_RATE: f32 = 3.5;
-
 const CAR_SIZE: u32 = 64;
-
-const LEVEL_W: f32 = 1920.;
-const LEVEL_H: f32 = 1080.;
+const TILE_SIZE: u32 = 64;  //Tentative
 
 #[derive(Component)]
 struct Car;
@@ -101,8 +101,8 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-) {
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>)
+{
     commands.spawn(Camera2d);
 
     let track_texture_handle = asset_server.load("track.png");
@@ -112,6 +112,9 @@ fn setup(
         Transform::from_translation(Vec3::ZERO),
         Background,
     ));
+
+    let game_map = load_map_from_file("assets/map.txt");
+    commands.insert_resource(game_map);
 
     let car_sheet_handle = asset_server.load("car.png");
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
@@ -156,6 +159,7 @@ fn setup(
 }
 
 fn move_car(
+    game_map: Res<GameMap>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
@@ -197,13 +201,13 @@ fn move_car(
     let change = **velocity * deltat;
 
     let min = Vec3::new(
-        -LEVEL_W / 2. + (CAR_SIZE as f32) / 2.,
-        -LEVEL_H / 2. + (CAR_SIZE as f32) / 2.,
+        -game_map.width / 2. + (CAR_SIZE as f32) / 2.,
+        -game_map.height / 2. + (CAR_SIZE as f32) / 2.,
         900.,
     );
     let max = Vec3::new(
-        LEVEL_W / 2. - (CAR_SIZE as f32) / 2.,
-        LEVEL_H / 2. - (CAR_SIZE as f32) / 2.,
+        game_map.width / 2. - (CAR_SIZE as f32) / 2.,
+        game_map.height / 2. - (CAR_SIZE as f32) / 2.,
         900.,
     );
 
@@ -235,10 +239,11 @@ fn move_car(
 }
 
 fn move_camera(
+    game_map: Res<GameMap>,
     player_car: Single<&Transform, With<PlayerControlled>>,
     mut camera: Single<&mut Transform, (With<Camera>, Without<PlayerControlled>)>,
 ) {
-    let max = Vec3::new(LEVEL_W / 2. - WIN_W / 2., LEVEL_H / 2. - WIN_H / 2., 0.);
+    let max = Vec3::new(game_map.width / 2. - WIN_W / 2., game_map.width / 2. - WIN_H / 2., 0.);
     let min = -max.clone();
     camera.translation = player_car.translation.clamp(min, max);
 }
