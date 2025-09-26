@@ -85,3 +85,4 @@ Using a decision tree, our CPUs will be able to quickly adjust between driving n
 * Drifting + Simple driving
   * Players can drift their cars around turns for a small boost
   * Simple setting makes drifting easier when the player enables it
+
