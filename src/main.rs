@@ -170,12 +170,31 @@ fn move_car(
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
+    /*
+    PLACEHOLDER LOGIC FOR TILE COLLISIONS
+
+    // Get the current tile
+    let pos = transform.translation.truncate();
+    let tile_id = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32) as usize;
+    let terrain = &TILES[tile_id];
+    
+    // Modifiers from terrain
+    let fric_mod  = terrain.friction_modifier;
+    let speed_mod = terrain.speed_modifier;
+    let turn_mod  = terrain.turn_modifier;
+    */
+
+    // Placeholder modifiers
+    let turn_mod = 1.0;
+    let speed_mod = 1.0;
+    let fric_mod = 1.0;
+
     // Turning
     if input.pressed(KeyCode::KeyA) {
-        orientation.angle += TURNING_RATE * deltat;
+        orientation.angle += TURNING_RATE * deltat * turn_mod;
     }
     if input.pressed(KeyCode::KeyD) {
-        orientation.angle -= TURNING_RATE * deltat;
+        orientation.angle -= TURNING_RATE * deltat * turn_mod;
     }
 
     // Accelerate forward in the direction of car orientation
@@ -183,6 +202,7 @@ fn move_car(
         let forward = orientation.forward_vector() * accel;
         **velocity += forward;
         **velocity = velocity.clamp_length_max(PLAYER_SPEED);
+        **velocity *= speed_mod;
     }
 
     // Accelerate in the direction opposite of orientation
@@ -190,11 +210,12 @@ fn move_car(
         let backward = -orientation.forward_vector() * accel;
         **velocity += backward;
         **velocity = velocity.clamp_length_max(PLAYER_SPEED);
+        **velocity *= speed_mod;
     }
 
     // Friction when not accelerating
     if !input.any_pressed([KeyCode::KeyW, KeyCode::KeyS]) {
-        **velocity *= FRICTION;
+        **velocity *= FRICTION * fric_mod;
     }
 
     // Updated position
