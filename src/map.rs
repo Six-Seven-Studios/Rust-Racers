@@ -36,3 +36,22 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
                     height: height as f32,
                     tile_grid: tiles}
 }
+
+impl GameMap {
+    // Tiler Getter
+    pub fn get_tile(&self, world_x: f32, world_y: f32, tile_size: f32) -> u8 {
+        let half_w = self.width * 0.5;
+        let half_h = self.height * 0.5;
+
+        // Shift so (0,0) is the top-left of the map
+        let local_x = world_x + half_w;
+        let local_y = world_y + half_h;
+
+        // Convert to tile indices
+        let tile_x = (local_x / tile_size).floor() as usize;
+        let tile_y = (local_y / tile_size).floor() as usize;
+
+        // Return tile number
+        self.tile_grid[tile_y][tile_x]
+    }
+}
