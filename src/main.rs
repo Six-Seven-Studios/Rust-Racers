@@ -239,12 +239,11 @@ fn move_car(
     let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
     
     // Check collision with other cars
-    let car_radius = CAR_SIZE as f32 / 2.0;
     let mut collision = false;
     
     for other_car_transform in other_cars.iter() {
         let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
-        if distance < car_radius * 2.0 {
+        if distance < CAR_SIZE as f32 {
             collision = true;
             break;
         }
