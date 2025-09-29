@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use bevy::prelude::*;
 use crate::Resource;
 
 #[derive(Resource)]
