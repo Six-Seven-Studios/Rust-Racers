@@ -170,9 +170,6 @@ fn move_car(
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
-    /*
-    PLACEHOLDER LOGIC FOR TILE COLLISIONS
-
     // Get the current tile
     let pos = transform.translation.truncate();
     let tile_id = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32) as usize;
@@ -182,12 +179,6 @@ fn move_car(
     let fric_mod  = terrain.friction_modifier;
     let speed_mod = terrain.speed_modifier;
     let turn_mod  = terrain.turn_modifier;
-    */
-
-    // Placeholder modifiers
-    let turn_mod = 1.0;
-    let speed_mod = 1.0;
-    let fric_mod = 1.0;
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
