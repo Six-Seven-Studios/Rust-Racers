@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::map::GameMap;
+use crate::TILE_SIZE;
 
 // Car-related constants
 pub const PLAYER_SPEED: f32 = 350.;
@@ -65,24 +66,23 @@ pub fn move_car(
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
-    /*
-    PLACEHOLDER LOGIC FOR TILE COLLISIONS
+
+    // PLACEHOLDER LOGIC FOR TILE COLLISIONS
 
     // Get the current tile
     let pos = transform.translation.truncate();
-    let tile_id = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32) as usize;
-    let terrain = &TILES[tile_id];
+    let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+    info!(tile.tile_id);
     
     // Modifiers from terrain
-    let fric_mod  = terrain.friction_modifier;
-    let speed_mod = terrain.speed_modifier;
-    let turn_mod  = terrain.turn_modifier;
-    */
+    let fric_mod  = tile.friction_modifier;
+    let speed_mod = tile.speed_modifier;
+    let turn_mod  = tile.turn_modifier;
 
     // Placeholder modifiers
-    let turn_mod = 1.0;
-    let speed_mod = 1.0;
-    let fric_mod = 1.0;
+    //let turn_mod = 1.0;
+    //let speed_mod = 1.0;
+    //let fric_mod = 1.0;
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
