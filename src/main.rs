@@ -4,27 +4,33 @@ mod car;
 mod camera;
 mod credits;
 
-use map::{load_map_from_file};
+use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{GameState, check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
+use bevy::render::camera::{Projection, ScalingMode};
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Rust Racers".into(),
-                resolution: (WIN_W, WIN_H).into(),
-                present_mode: PresentMode::AutoVsync,
-                ..default()
-            }),
+        .add_plugins(DefaultPlugins
+            .set(ImagePlugin::default_nearest())
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Rust Racers".into(),
+                    resolution: (WIN_W, WIN_H).into(),
+                    present_mode: PresentMode::AutoVsync,
+                    resizable: false, // making the window not resizable for now, since resizing it causes some tiling issues
+                    
+                    ..default()
+                }),
             ..default()
         }))
         .init_state::<GameState>()
-        .add_systems(Startup, setup)
+        .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
+        .add_systems(Startup, (setup, spawn_map))
         .add_systems(Update, (
             check_for_credits_input,
             move_car.run_if(in_state(GameState::Playing)),
@@ -41,19 +47,18 @@ fn setup(
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>)
 {
-    commands.spawn(Camera2d);
+    // create a projection
+    let mut projection = OrthographicProjection::default_2d();
 
-    let track_texture_handle = asset_server.load("track.png");
+    // modify the fields
+    projection.scaling_mode = ScalingMode::WindowSize;
+    projection.scale = 1.0;
 
-    commands.spawn((
-        Sprite::from_image(track_texture_handle.clone()),
-        Transform::from_translation(Vec3::ZERO),
-        Background,
-    ));
-
-    let game_map = load_map_from_file("assets/map.txt");
-    commands.insert_resource(game_map);
-
+    // spawn with the custom projection
+    commands.spawn(Camera2d::default())
+        .insert(Projection::Orthographic(projection));
+    
     // Spawn cars using the car module
     spawn_cars(commands, asset_server, texture_atlases);
-}
+
+}   
