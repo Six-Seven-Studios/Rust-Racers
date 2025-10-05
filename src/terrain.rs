@@ -20,8 +20,8 @@ pub const TILES: [TerrainTile; 6] = [
     TerrainTile { tile_id: 0, friction_modifier: 1.0, speed_modifier: 1.0, turn_modifier: 1.0},
     TerrainTile { tile_id: 1, friction_modifier: 0.8, speed_modifier: 1.0, turn_modifier: 1.0},
     TerrainTile { tile_id: 2, friction_modifier: 0.68, speed_modifier: 0.9, turn_modifier: 0.7},
-    TerrainTile { tile_id: 3, friction_modifier: 0.5, speed_modifier: 0.7, turn_modifier: 0.4},
-    TerrainTile { tile_id: 4, friction_modifier: 0.2, speed_modifier: 0.4, turn_modifier: 0.2},
+    TerrainTile { tile_id: 3, friction_modifier: 0.8, speed_modifier: 0.9, turn_modifier: 0.8},
+    TerrainTile { tile_id: 4, friction_modifier: 0.7, speed_modifier: 0.8, turn_modifier: 0.7},
     TerrainTile { tile_id: 5, friction_modifier: 0.1, speed_modifier: 1.0, turn_modifier: 0.1},
     //TerrainTile {tile_type: WALL, friction_modifier: 1.0, speed_modifier: 1.0, turn_modifier: 1.0, passable: false},
 ];

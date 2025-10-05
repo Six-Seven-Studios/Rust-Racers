@@ -72,7 +72,6 @@ pub fn move_car(
     // Get the current tile
     let pos = transform.translation.truncate();
     let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-    info!(tile.tile_id);
     
     // Modifiers from terrain
     let fric_mod  = tile.friction_modifier;
