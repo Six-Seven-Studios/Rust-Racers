@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::car::{Car, Background};
+use crate::GameState;
 
 // Credits-related components and resources
 #[derive(Component, Deref, DerefMut)]
@@ -10,14 +11,6 @@ pub struct CreditsEntity;
 
 #[derive(Resource)]
 pub struct CreditsTimer(pub Timer);
-
-// Game state enum (shared with main)
-#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub enum GameState {
-    #[default]
-    Playing,
-    Credits,
-}
 
 // Check for input to transition to credits
 pub fn check_for_credits_input(
