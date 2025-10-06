@@ -3,6 +3,7 @@ mod terrain;
 mod car;
 mod camera;
 mod credits;
+mod server;
 
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
@@ -10,6 +11,7 @@ use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{GameState, check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
+use server::ServerPlugin;
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -28,6 +30,7 @@ fn main() {
                 }),
             ..default()
         }))
+        .add_plugins(ServerPlugin)
         .init_state::<GameState>()
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
         .add_systems(Startup, (setup, spawn_map))
