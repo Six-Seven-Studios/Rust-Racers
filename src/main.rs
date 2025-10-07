@@ -4,6 +4,7 @@ mod car;
 mod camera;
 mod credits;
 mod title_screen;
+mod server;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
@@ -12,6 +13,7 @@ use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
+use server::ServerPlugin;
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -38,6 +40,7 @@ fn main() {
                 }),
             ..default()
         }))
+        .add_plugins(ServerPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap

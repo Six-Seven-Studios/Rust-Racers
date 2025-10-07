@@ -2,6 +2,7 @@
 name = "rust_racers"
 version = "0.1.0"
 edition = "2024"
+default-run = "rust_racers"
 
 # Apply basic optimiations to our code in dev builds
 [profile.dev]
@@ -13,3 +14,7 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.16.1"
+
+[[bin]]
+name = "client"
+path = "src/client/client.rs"
