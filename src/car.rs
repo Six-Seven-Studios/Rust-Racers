@@ -108,7 +108,7 @@ pub fn move_car(
 
     // Friction when not accelerating
     if !input.any_pressed([KeyCode::KeyW, KeyCode::KeyS]) {
-        let decel_rate = decel_mod * fric_mod * deltat; // adjust 200.0 to taste
+        let decel_rate = decel_mod * fric_mod * deltat;
         let curr_speed =  velocity.length();
         if curr_speed > 0.0 {
             let new_speed = (curr_speed - decel_rate).max(0.0);
