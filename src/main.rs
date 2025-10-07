@@ -5,7 +5,7 @@ mod camera;
 mod credits;
 mod title_screen;
 
-use title_screen::{check_for_title_input};
+use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
@@ -39,9 +39,9 @@ fn main() {
             ..default()
         }))
         .init_state::<GameState>()
-
+        .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
-        .add_systems(Startup, camera_setup)
+        .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
         .add_systems(Update, (
             check_for_title_input,
