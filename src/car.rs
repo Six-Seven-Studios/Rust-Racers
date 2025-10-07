@@ -78,6 +78,7 @@ pub fn move_car(
     let fric_mod  = tile.friction_modifier;
     let speed_mod = tile.speed_modifier;
     let turn_mod  = tile.turn_modifier;
+    let decel_mod = tile.decel_modifier;
 
     // Placeholder modifiers
     //let turn_mod = 1.0;
@@ -96,21 +97,24 @@ pub fn move_car(
     if input.pressed(KeyCode::KeyW) {
         let forward = orientation.forward_vector() * accel;
         **velocity += forward;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED);
-        **velocity *= speed_mod;
+        **velocity = velocity.clamp_length_max(PLAYER_SPEED*speed_mod);
     }
 
     // Accelerate in the direction opposite of orientation
     if input.pressed(KeyCode::KeyS) {
         let backward = -orientation.forward_vector() * accel;
         **velocity += backward;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED);
-        **velocity *= speed_mod;
+        **velocity = velocity.clamp_length_max(PLAYER_SPEED*speed_mod);
     }
 
     // Friction when not accelerating
     if !input.any_pressed([KeyCode::KeyW, KeyCode::KeyS]) {
-        **velocity *= FRICTION * fric_mod;
+        let decel_rate = decel_mod * fric_mod * deltat; // adjust 200.0 to taste
+        let curr_speed =  velocity.length();
+        if curr_speed > 0.0 {
+            let new_speed = (curr_speed - decel_rate).max(0.0);
+            **velocity = velocity.normalize() * new_speed;
+        }
     }
 
     // Updated position
