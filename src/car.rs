@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::map::GameMap;
+use crate::terrain::TILES;
 use crate::TILE_SIZE;
 
 // Car-related constants
@@ -66,23 +67,15 @@ pub fn move_car(
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
-
-    // PLACEHOLDER LOGIC FOR TILE COLLISIONS
-
     // Get the current tile
     let pos = transform.translation.truncate();
-    let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-    //info!(tile.tile_id);
-    
-    // Modifiers from terrain
-    let fric_mod  = tile.friction_modifier;
-    let speed_mod = tile.speed_modifier;
-    let turn_mod  = tile.turn_modifier;
+    let terrain = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+    //let terrain = &TILES[tile_id];
 
-    // Placeholder modifiers
-    //let turn_mod = 1.0;
-    //let speed_mod = 1.0;
-    //let fric_mod = 1.0;
+    // Modifiers from terrain
+    let fric_mod  = terrain.friction_modifier;
+    let speed_mod = terrain.speed_modifier;
+    let turn_mod  = terrain.turn_modifier;
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
@@ -100,57 +93,6 @@ pub fn move_car(
         **velocity *= speed_mod;
     }
 
-    // Accelerate in the direction opposite of orientation
-    if input.pressed(KeyCode::KeyS) {
-        let backward = -orientation.forward_vector() * accel;
-        **velocity += backward;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED);
-        **velocity *= speed_mod;
-    }
-
-    // Friction when not accelerating
-    if !input.any_pressed([KeyCode::KeyW, KeyCode::KeyS]) {
-        **velocity *= FRICTION * fric_mod;
-    }
-
-    // Updated position
-    let change = **velocity * deltat;
-
-    let min = Vec3::new(
-        -game_map.width / 2. + (CAR_SIZE as f32) / 2.,
-        -game_map.height / 2. + (CAR_SIZE as f32) / 2.,
-        900.,
-    );
-    let max = Vec3::new(
-        game_map.width / 2. - (CAR_SIZE as f32) / 2.,
-        game_map.height / 2. - (CAR_SIZE as f32) / 2.,
-        900.,
-    );
-
-    // Rotate car to match orientation
-    transform.rotation = Quat::from_rotation_z(orientation.angle);
-
-    // Calculate new position
-    let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
-    
-    // Check collision with other cars
-    let mut collision = false;
-    
-    for other_car_transform in other_cars.iter() {
-        let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
-        if distance < CAR_SIZE as f32 {
-            collision = true;
-            break;
-        }
-    }
-    
-    // Only update position if no collision
-    if !collision {
-        transform.translation = new_position;
-    } else {
-        // Stop the car if collision would occur
-        **velocity = Vec2::ZERO;
-    }
 }
 
 // Car spawning functionality
@@ -196,7 +138,7 @@ pub fn spawn_cars(
             ..default()
         },
         Velocity::new(),
-        Orientation::new(1.57), 
+        Orientation::new(1.57),
         Car,
     ));
 }
