@@ -1,8 +1,12 @@
-use std::io::{BufRead, BufReader};
+use std::io::{self, BufRead, BufReader};
 use std::net::TcpStream;
 
 fn main() {
-    let addr = "127.0.0.1:4000";
+    println!("Enter server IP:");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let addr = format!("{}:4000", input.trim());
+    
     println!("Connecting to {addr}...");
     match TcpStream::connect(addr) {
         Ok(stream) => {

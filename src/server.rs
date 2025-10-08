@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::io::Write;
 use std::net::TcpListener;
 use std::thread;
+use crate::get_ip::get_local_ip;
 
 /// Plugin that starts a background TCP listener
 pub struct ServerPlugin;
@@ -16,7 +17,14 @@ fn server_listener() {
     // Run the TCP listener in a background thread so Bevy can render normally
     thread::spawn(move || {
         let listener = TcpListener::bind(("0.0.0.0", 4000)).expect("Expected to bind to port 4000 successfully");
-        println!("Listening on 0.0.0.0:4000");
+        
+        // Get lan ID, else local
+        if let Ok(ip) = get_local_ip() {
+            println!("Listening on {}:4000", ip);
+        } else {
+            println!("Listening on 0.0.0.0:4000");
+        }
+        
         let mut next_id: u32 = 1;
 
         for stream in listener.incoming() {

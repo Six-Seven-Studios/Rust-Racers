@@ -5,6 +5,7 @@ mod camera;
 mod credits;
 mod title_screen;
 mod server;
+mod get_ip;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
