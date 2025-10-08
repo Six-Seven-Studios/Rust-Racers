@@ -101,9 +101,9 @@ pub fn move_car(
 
     // Accelerate in the direction opposite of orientation
     if input.pressed(KeyCode::KeyS) {
-        let backward = -orientation.forward_vector() * accel;
+        let backward = -orientation.forward_vector() * (accel / 2.0);
         **velocity += backward;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED*speed_mod);
+        **velocity = velocity.clamp_length_max(PLAYER_SPEED*(speed_mod / 2.0));
     }
 
     // Friction when not accelerating
