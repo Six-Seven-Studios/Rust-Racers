@@ -6,6 +6,7 @@ mod credits;
 mod title_screen;
 mod server;
 mod get_ip;
+mod networking;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
@@ -15,6 +16,7 @@ use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use server::ServerPlugin;
+use networking::NetworkingPlugin;
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -42,6 +44,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(ServerPlugin)
+        .add_plugins(NetworkingPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
