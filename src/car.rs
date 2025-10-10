@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::map::GameMap;
+use crate::networking::LocalPlayer;
 use crate::TILE_SIZE;
 
 // Car-related constants
@@ -183,6 +184,7 @@ pub fn spawn_cars(
         Orientation::new(0.0),
         Car,
         PlayerControlled,
+        LocalPlayer { player_id: 1 },
     ));
 
     // Spawn second car

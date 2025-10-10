@@ -70,6 +70,62 @@ impl Plugin for NetworkingPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<NetworkClient>()
-            .init_resource::<NetworkServer>();
+            .init_resource::<NetworkServer>()
+            .add_systems(Update, (
+                connect_to_server.run_if(in_state(crate::GameState::Playing)),
+            ));
+    }
+}
+
+fn connect_to_server(
+    mut network_client: ResMut<NetworkClient>,
+    mut local_player: Query<&mut LocalPlayer>,
+) {
+    if network_client.connection_attempted {
+        return;
+    }
+
+    let is_connected = {
+        if let Ok(stream_guard) = network_client.stream.lock() {
+            stream_guard.is_some()
+        } else {
+            false
+        }
+    };
+
+    if is_connected {
+        return;
+    }
+
+    network_client.connection_attempted = true;
+    network_client.last_connection_attempt = Some(Instant::now());
+
+    match TcpStream::connect("127.0.0.1:4000") {
+        Ok(stream) => {
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut line = String::new();
+            if let Ok(_) = reader.read_line(&mut line) {
+                if line.starts_with("WELCOME PLAYER") {
+                    if let Ok(id) = line.split_whitespace().nth(2).unwrap_or("1").parse::<u32>() {
+                        network_client.player_id = Some(id);
+
+                        if let Ok(mut player) = local_player.single_mut() {
+                            player.player_id = id;
+                        }
+                    }
+                }
+            }
+
+            if stream.set_nonblocking(true).is_err() {
+                return;
+            }
+
+            if let Ok(mut stream_guard) = network_client.stream.lock() {
+                *stream_guard = Some(stream);
+            }
+        }
+        Err(_) => {
+            // connection failed (no server running)
+        }
     }
 }

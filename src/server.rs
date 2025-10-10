@@ -8,7 +8,7 @@ use crate::get_ip::get_local_ip;
 use crate::networking::{CarPosition, NetworkMessage};
 use serde_json;
 
-/// Plugin that starts a background TCP listener
+// Plugin that starts a background TCP listener
 pub struct ServerPlugin;
 
 impl Plugin for ServerPlugin {
