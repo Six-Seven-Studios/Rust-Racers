@@ -73,6 +73,7 @@ impl Plugin for NetworkingPlugin {
             .init_resource::<NetworkServer>()
             .add_systems(Update, (
                 connect_to_server.run_if(in_state(crate::GameState::Playing)),
+                send_position_to_server.run_if(in_state(crate::GameState::Playing)),
             ));
     }
 }
@@ -126,6 +127,56 @@ fn connect_to_server(
         }
         Err(_) => {
             // connection failed (no server running)
+        }
+    }
+}
+
+fn send_position_to_server(
+    mut network_client: ResMut<NetworkClient>,
+    player_query: Query<(&Transform, &crate::car::Orientation), (With<crate::car::PlayerControlled>, With<LocalPlayer>)>,
+) {
+    let now = Instant::now();
+    if let Some(last_send) = network_client.last_position_send {
+        if now.duration_since(last_send) < Duration::from_millis(50) {
+            return;
+        }
+    }
+
+    if let Ok((transform, orientation)) = player_query.single() {
+        if let Some(player_id) = network_client.player_id {
+            let position = CarPosition {
+                player_id,
+                x: transform.translation.x,
+                y: transform.translation.y,
+                angle: orientation.angle,
+            };
+
+            let message = NetworkMessage::Position(position);
+            if let Ok(serialized) = serde_json::to_string(&message) {
+                let write_success = {
+                    if let Ok(mut stream_guard) = network_client.stream.lock() {
+                        if let Some(ref mut stream) = *stream_guard {
+                            if writeln!(stream, "{}", serialized).is_err() {
+                                *stream_guard = None;
+                                false
+                            } else {
+                                let _ = stream.flush();
+                                true
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+
+                if write_success {
+                    network_client.last_position_send = Some(now);
+                } else {
+                    network_client.player_id = None;
+                }
+            }
         }
     }
 }
