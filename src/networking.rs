@@ -74,6 +74,7 @@ impl Plugin for NetworkingPlugin {
             .add_systems(Update, (
                 connect_to_server.run_if(in_state(crate::GameState::Playing)),
                 send_position_to_server.run_if(in_state(crate::GameState::Playing)),
+                receive_positions_from_server.run_if(in_state(crate::GameState::Playing)),
             ));
     }
 }
@@ -178,5 +179,65 @@ fn send_position_to_server(
                 }
             }
         }
+    }
+}
+
+fn receive_positions_from_server(
+    mut network_client: ResMut<NetworkClient>,
+    network_server: ResMut<NetworkServer>,
+) {
+    let connection_lost = {
+        if let Ok(mut stream_guard) = network_client.stream.lock() {
+            if let Some(ref mut stream) = *stream_guard {
+                let mut buffer = [0; 1024];
+                match stream.peek(&mut buffer) {
+                    Ok(0) => {
+                        *stream_guard = None;
+                        true
+                    }
+                    Ok(_) => {
+                        let mut reader = BufReader::new(stream.try_clone().unwrap());
+                        let mut line = String::new();
+
+                        match reader.read_line(&mut line) {
+                            Ok(0) => {
+                                *stream_guard = None;
+                                true
+                            }
+                            Ok(_) => {
+                                if let Ok(message) = serde_json::from_str::<NetworkMessage>(line.trim()) {
+                                    match message {
+                                        NetworkMessage::AllPositions(positions) => {
+                                            if let Ok(mut server_positions) = network_server.car_positions.lock() {
+                                                server_positions.clear();
+                                                for pos in positions {
+                                                    server_positions.insert(pos.player_id, pos);
+                                                }
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                false
+                            }
+                            Err(_) => {
+                                false
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        false
+                    }
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    };
+
+    if connection_lost {
+        network_client.player_id = None;
     }
 }
