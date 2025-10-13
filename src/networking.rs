@@ -76,6 +76,7 @@ impl Plugin for NetworkingPlugin {
                 send_position_to_server.run_if(in_state(crate::GameState::Playing)),
                 receive_positions_from_server.run_if(in_state(crate::GameState::Playing)),
                 spawn_remote_cars.run_if(in_state(crate::GameState::Playing)),
+                update_remote_car_positions.run_if(in_state(crate::GameState::Playing)),
             ));
     }
 }
@@ -284,6 +285,22 @@ fn spawn_remote_cars(
                     crate::car::Car,
                     NetworkedCar { player_id: *player_id },
                 ));
+            }
+        }
+    }
+}
+
+fn update_remote_car_positions(
+    network_server: Res<NetworkServer>,
+    mut remote_cars: Query<(&mut Transform, &mut crate::car::Orientation, &NetworkedCar), Without<LocalPlayer>>,
+) {
+    if let Ok(positions_guard) = network_server.car_positions.lock() {
+        for (mut transform, mut orientation, networked_car) in remote_cars.iter_mut() {
+            if let Some(position) = positions_guard.get(&networked_car.player_id) {
+                transform.translation.x = position.x;
+                transform.translation.y = position.y;
+                orientation.angle = position.angle;
+                transform.rotation = Quat::from_rotation_z(position.angle);
             }
         }
     }
