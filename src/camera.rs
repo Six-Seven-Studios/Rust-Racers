@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::map::GameMap;
-use crate::car::PlayerControlled;
+use crate::car::{Car, Background, PlayerControlled};
 
 // Camera-related constants
 pub const WIN_W: f32 = 1280.;
@@ -26,6 +26,16 @@ pub fn move_camera(
 }
 
 // Reset camera position for credits screen
-pub fn reset_camera_for_credits(mut camera: Single<&mut Transform, With<Camera>>) {
+pub fn reset_camera_for_credits(
+    mut camera: Single<&mut Transform, With<Camera>>, 
+    mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>, 
+    mut background: Single<&mut Visibility, (With<Background>, Without<Car>)>,
+) {
     camera.translation = Vec3::ZERO;
+
+    for mut car_visibility in cars.iter_mut() {
+        *car_visibility = Visibility::Hidden;
+    }
+
+    **background = Visibility::Hidden;
 }
