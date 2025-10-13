@@ -14,10 +14,16 @@ pub struct CarPosition {
     pub angle: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LobbyState {
+    pub player_ids: Vec<u32>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkMessage {
     Position(CarPosition),
     AllPositions(Vec<CarPosition>),
+    LobbySync(LobbyState),
 }
 
 #[derive(Component)]
@@ -37,6 +43,7 @@ pub struct NetworkClient {
     pub last_connection_attempt: Option<Instant>,
     pub connection_attempted: bool,
     pub last_position_send: Option<Instant>,
+    pub target_ip: Option<String>,
 }
 
 impl Default for NetworkClient {
@@ -47,6 +54,7 @@ impl Default for NetworkClient {
             last_connection_attempt: None,
             connection_attempted: false,
             last_position_send: None,
+            target_ip: None,
         }
     }
 }
@@ -54,12 +62,14 @@ impl Default for NetworkClient {
 #[derive(Resource)]
 pub struct NetworkServer {
     pub car_positions: Arc<Mutex<HashMap<u32, CarPosition>>>,
+    pub lobby_state: Arc<Mutex<Option<LobbyState>>>,
 }
 
 impl Default for NetworkServer {
     fn default() -> Self {
         Self {
             car_positions: Arc::new(Mutex::new(HashMap::new())),
+            lobby_state: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -72,9 +82,9 @@ impl Plugin for NetworkingPlugin {
             .init_resource::<NetworkClient>()
             .init_resource::<NetworkServer>()
             .add_systems(Update, (
-                connect_to_server.run_if(in_state(crate::GameState::Playing)),
+                connect_to_server.run_if(in_state(crate::GameState::Lobby).or(in_state(crate::GameState::Playing))),
                 send_position_to_server.run_if(in_state(crate::GameState::Playing)),
-                receive_positions_from_server.run_if(in_state(crate::GameState::Playing)),
+                receive_positions_from_server.run_if(in_state(crate::GameState::Lobby).or(in_state(crate::GameState::Playing))),
                 spawn_remote_cars.run_if(in_state(crate::GameState::Playing)),
                 update_remote_car_positions.run_if(in_state(crate::GameState::Playing)),
             ));
@@ -101,17 +111,28 @@ fn connect_to_server(
         return;
     }
 
+    if network_client.target_ip.is_none() {
+        return;
+    }
+
+    let target_addr = format!("{}:4000", network_client.target_ip.as_ref().unwrap());
+
     network_client.connection_attempted = true;
     network_client.last_connection_attempt = Some(Instant::now());
 
-    match TcpStream::connect("127.0.0.1:4000") {
+    println!("Attempting to connect to {}", target_addr);
+
+    match TcpStream::connect(&target_addr) {
         Ok(stream) => {
+            println!("Connected to server!");
             let mut reader = BufReader::new(stream.try_clone().unwrap());
             let mut line = String::new();
             if let Ok(_) = reader.read_line(&mut line) {
+                println!("Received: {}", line.trim());
                 if line.starts_with("WELCOME PLAYER") {
                     if let Ok(id) = line.split_whitespace().nth(2).unwrap_or("1").parse::<u32>() {
                         network_client.player_id = Some(id);
+                        println!("Assigned player ID: {}", id);
 
                         if let Ok(mut player) = local_player.single_mut() {
                             player.player_id = id;
@@ -121,6 +142,7 @@ fn connect_to_server(
             }
 
             if stream.set_nonblocking(true).is_err() {
+                println!("Failed to set stream to non-blocking");
                 return;
             }
 
@@ -128,8 +150,8 @@ fn connect_to_server(
                 *stream_guard = Some(stream);
             }
         }
-        Err(_) => {
-            // connection failed (no server running)
+        Err(e) => {
+            println!("Connection failed: {}", e);
         }
     }
 }
@@ -216,6 +238,12 @@ fn receive_positions_from_server(
                                                 for pos in positions {
                                                     server_positions.insert(pos.player_id, pos);
                                                 }
+                                            }
+                                        }
+                                        NetworkMessage::LobbySync(lobby_state) => {
+                                            println!("Received lobby sync: {:?}", lobby_state.player_ids);
+                                            if let Ok(mut server_lobby) = network_server.lobby_state.lock() {
+                                                *server_lobby = Some(lobby_state);
                                             }
                                         }
                                         _ => {}
