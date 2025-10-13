@@ -74,9 +74,9 @@ impl Plugin for NetworkingPlugin {
             .init_resource::<NetworkClient>()
             .init_resource::<NetworkServer>()
             .add_systems(Update, (
-                connect_to_server.run_if(in_state(crate::GameState::Playing)),
+                connect_to_server.run_if(in_state(crate::GameState::Lobby).or(in_state(crate::GameState::Playing))),
                 send_position_to_server.run_if(in_state(crate::GameState::Playing)),
-                receive_positions_from_server.run_if(in_state(crate::GameState::Playing)),
+                receive_positions_from_server.run_if(in_state(crate::GameState::Lobby).or(in_state(crate::GameState::Playing))),
                 spawn_remote_cars.run_if(in_state(crate::GameState::Playing)),
                 update_remote_car_positions.run_if(in_state(crate::GameState::Playing)),
             ));
@@ -103,27 +103,32 @@ fn connect_to_server(
         return;
     }
 
-    // If no target IP is specified, don't attempt connection
-    let target_addr = if let Some(ref ip) = network_client.target_ip {
-        format!("{}:4000", ip)
-    } else {
-        // Default to localhost if no IP specified (for hosting)
-        "127.0.0.1:4000".to_string()
-    };
+    // If no target IP is specified, don't attempt connection (for hosts who don't need to connect)
+    if network_client.target_ip.is_none() {
+        return;
+    }
+
+    let target_addr = format!("{}:4000", network_client.target_ip.as_ref().unwrap());
 
     network_client.connection_attempted = true;
     network_client.last_connection_attempt = Some(Instant::now());
 
+    println!("Attempting to connect to {}", target_addr);
+
     match TcpStream::connect(&target_addr) {
         Ok(stream) => {
+            println!("Connected to server!");
             let mut reader = BufReader::new(stream.try_clone().unwrap());
             let mut line = String::new();
             if let Ok(_) = reader.read_line(&mut line) {
+                println!("Received: {}", line.trim());
                 if line.starts_with("WELCOME PLAYER") {
                     if let Ok(id) = line.split_whitespace().nth(2).unwrap_or("1").parse::<u32>() {
                         network_client.player_id = Some(id);
+                        println!("Assigned player ID: {}", id);
 
-                        if let Ok(mut player) = local_player.single_mut() {
+                        // Only update LocalPlayer if it exists (when in Playing state)
+                        if let Ok(mut player) = local_player.get_single_mut() {
                             player.player_id = id;
                         }
                     }
@@ -131,6 +136,7 @@ fn connect_to_server(
             }
 
             if stream.set_nonblocking(true).is_err() {
+                println!("Failed to set stream to non-blocking");
                 return;
             }
 
@@ -138,8 +144,8 @@ fn connect_to_server(
                 *stream_guard = Some(stream);
             }
         }
-        Err(_) => {
-            // connection failed (no server running)
+        Err(e) => {
+            println!("Connection failed: {}", e);
         }
     }
 }
