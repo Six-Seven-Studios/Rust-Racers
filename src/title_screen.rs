@@ -3,12 +3,10 @@ use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use crate::GameState;
 use crate::get_ip::get_local_ip;
+use crate::lobby::{LobbyState, setup_lobby};
 
 #[derive(Component)]
 pub struct MainScreenEntity;
-
-#[derive(Component)]
-pub struct LobbyScreenEntity;
 
 #[derive(Component)]
 pub struct JoinScreenEntity;
@@ -20,21 +18,7 @@ pub struct SettingsScreenEntity;
 pub struct CustomizingScreenEntity;
 
 #[derive(Component)]
-pub struct PlayerSlot {
-    pub slot_index: usize,
-}
-
-#[derive(Component)]
-pub struct LobbyCodeText;
-
-#[derive(Component)]
 pub struct IpInputText;
-
-#[derive(Resource, Default)]
-pub struct LobbyState {
-    pub connected_players: Vec<String>,
-    pub server_ip: String,
-}
 
 #[derive(Resource, Default)]
 pub struct IpInputState {
@@ -48,7 +32,7 @@ pub fn check_for_title_input(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     title_query: Query<Entity, With<MainScreenEntity>>,
-    lobby_query: Query<Entity, With<LobbyScreenEntity>>,
+    lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
     join_query: Query<Entity, With<JoinScreenEntity>>,
     settings_query: Query<Entity, With<SettingsScreenEntity>>,
     customize_query: Query<Entity, With<CustomizingScreenEntity>>,
@@ -268,135 +252,6 @@ pub fn setup_title_screen(
 
 }
 
-fn setup_lobby(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    lobby_state: &LobbyState,
-){
-    commands.spawn((
-        Text2d::new("Lobby"),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(0., 300., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 50.0,
-            ..default()
-        },
-        LobbyScreenEntity,
-    ));
-    commands.spawn((
-        Text2d::new(format!("IP: {}", lobby_state.server_ip)),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(450., 300., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 30.0,
-            ..default()
-        },
-        LobbyScreenEntity,
-        LobbyCodeText,
-    ));
-    commands.spawn((
-        Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
-        Transform {
-            translation: Vec3::new(-570., 300., 1.),
-            ..default()
-        },
-        LobbyScreenEntity
-    ));
-    commands.spawn((
-        Sprite::from_image(asset_server.load("title_screen/keys/keyEsc.png")),
-        Transform {
-            translation: Vec3::new(-570., 220., 1.),
-            ..default()
-        },
-        LobbyScreenEntity
-    ));
-    commands.spawn((
-        Sprite::from_image(asset_server.load("title_screen/slantedButton.png")),
-        Transform {
-            translation: Vec3::new(0., -300., 1.),
-            ..default()
-        },
-        LobbyScreenEntity
-    ));
-    commands.spawn((
-        Text2d::new("GO!"),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(0., -300., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 50.0,
-            ..default()
-        },
-        LobbyScreenEntity,
-    ));
-    commands.spawn((
-        Sprite::from_image(asset_server.load("title_screen/keys/key1.png")),
-        Transform {
-            translation: Vec3::new(-250., -300., 1.),
-            ..default()
-        },
-        LobbyScreenEntity
-    ));
-
-    // Spawn player slots dynamically based on connected players
-    let player_icons = [
-        "player-icons/human1.png",
-        "player-icons/human2.png",
-        "player-icons/human3.png",
-        "player-icons/human4.png",
-    ];
-
-    for (i, player_name) in lobby_state.connected_players.iter().enumerate().take(4) {
-        let y_pos = 150. - (i as f32 * 100.);
-
-        // Nameplate
-        commands.spawn((
-            Sprite::from_image(asset_server.load("title_screen/namePlate.png")),
-            Transform {
-                translation: Vec3::new(25., y_pos, 1.),
-                ..default()
-            },
-            LobbyScreenEntity,
-            PlayerSlot { slot_index: i },
-        ));
-
-        // Player icon
-        commands.spawn((
-            Sprite::from_image(asset_server.load(player_icons[i])),
-            Transform {
-                translation: Vec3::new(-225., y_pos, 1.),
-                ..default()
-            },
-            LobbyScreenEntity,
-            PlayerSlot { slot_index: i },
-        ));
-
-        // Player name
-        commands.spawn((
-            Text2d::new(player_name.clone()),
-            TextColor(Color::BLACK),
-            Transform {
-                translation: Vec3::new(0., y_pos, 1.),
-                ..default()
-            },
-            TextFont {
-                font_size: 40.0,
-                ..default()
-            },
-            LobbyScreenEntity,
-            PlayerSlot { slot_index: i },
-        ));
-    }
-}
-
 fn setup_join(
     mut commands: Commands,
     asset_server: Res<AssetServer>){
@@ -594,104 +449,6 @@ pub fn destroy_screen<CurrentScreen: Component>(
 ) {
     for entity in query {
         commands.entity(entity).despawn();
-    }
-}
-
-pub fn update_lobby_players(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut lobby_state: ResMut<LobbyState>,
-    connected_clients: Res<crate::server::ConnectedClients>,
-    network_server: Res<crate::networking::NetworkServer>,
-    network_client: Res<crate::networking::NetworkClient>,
-    current_state: Res<State<GameState>>,
-    existing_slots: Query<Entity, With<PlayerSlot>>,
-) {
-    if *current_state.get() != GameState::Lobby {
-        return;
-    }
-
-    let mut new_players = Vec::new();
-    let my_player_id = network_client.player_id;
-
-    if let Ok(server_lobby) = network_server.lobby_state.lock() {
-        if let Some(ref sync_lobby) = *server_lobby {
-            for &player_id in &sync_lobby.player_ids {
-                let player_number = player_id + 1;
-                let player_name = if Some(player_id) == my_player_id {
-                    format!("Player {} (You)", player_number)
-                } else {
-                    format!("Player {}", player_number)
-                };
-                new_players.push(player_name);
-            }
-        } else if network_client.target_ip.is_none() {
-            if let Ok(client_ids) = connected_clients.client_ids.lock() {
-                new_players.push("Player 1 (You)".to_string());
-                for client_id in client_ids.iter() {
-                    let player_number = client_id + 1;
-                    new_players.push(format!("Player {}", player_number));
-                }
-            }
-        } else {
-            if lobby_state.connected_players.is_empty() || lobby_state.connected_players[0] == "Connecting..." {
-                return;
-            }
-        }
-    }
-
-    if new_players != lobby_state.connected_players && !new_players.is_empty() {
-        for entity in existing_slots.iter() {
-            commands.entity(entity).despawn();
-        }
-
-        lobby_state.connected_players = new_players;
-
-        let player_icons = [
-            "player-icons/human1.png",
-            "player-icons/human2.png",
-            "player-icons/human3.png",
-            "player-icons/human4.png",
-        ];
-
-        for (i, player_name) in lobby_state.connected_players.iter().enumerate().take(4) {
-            let y_pos = 150. - (i as f32 * 100.);
-
-            commands.spawn((
-                Sprite::from_image(asset_server.load("title_screen/namePlate.png")),
-                Transform {
-                    translation: Vec3::new(25., y_pos, 1.),
-                    ..default()
-                },
-                LobbyScreenEntity,
-                PlayerSlot { slot_index: i },
-            ));
-
-            commands.spawn((
-                Sprite::from_image(asset_server.load(player_icons[i])),
-                Transform {
-                    translation: Vec3::new(-225., y_pos, 1.),
-                    ..default()
-                },
-                LobbyScreenEntity,
-                PlayerSlot { slot_index: i },
-            ));
-
-            commands.spawn((
-                Text2d::new(player_name.clone()),
-                TextColor(Color::BLACK),
-                Transform {
-                    translation: Vec3::new(0., y_pos, 1.),
-                    ..default()
-                },
-                TextFont {
-                    font_size: 40.0,
-                    ..default()
-                },
-                LobbyScreenEntity,
-                PlayerSlot { slot_index: i },
-            ));
-        }
     }
 }
 

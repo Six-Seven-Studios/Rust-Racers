@@ -5,12 +5,14 @@ mod collisions;
 mod camera;
 mod credits;
 mod title_screen;
+mod lobby;
 mod server;
 mod intro;
 mod get_ip;
 mod networking;
 
-use title_screen::{check_for_title_input, setup_title_screen, handle_ip_input, update_lobby_players, LobbyState, IpInputState};
+use title_screen::{check_for_title_input, setup_title_screen, handle_ip_input, IpInputState};
+use lobby::{update_lobby_players, LobbyState};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
