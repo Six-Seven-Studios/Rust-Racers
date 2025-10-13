@@ -117,8 +117,16 @@ pub fn check_for_title_input(
                 network_client.target_ip = Some(ip_input_state.input.clone());
                 network_client.connection_attempted = false;
 
-                next_state.set(GameState::Playing);
+                // Go to lobby instead of directly to playing
+                next_state.set(GameState::Lobby);
                 destroy_screen(&mut commands, &join_query);
+
+                // Initialize lobby state for client
+                lobby_state.connected_players.clear();
+                lobby_state.connected_players.push("Connecting...".to_string());
+                lobby_state.server_ip = ip_input_state.input.clone();
+
+                setup_lobby(commands, asset_server, &lobby_state);
             }
         }
         GameState::Customizing => {
@@ -592,6 +600,108 @@ pub fn destroy_screen<CurrentScreen: Component>(
     }
 }
 
+pub fn update_lobby_players(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut lobby_state: ResMut<LobbyState>,
+    network_server: Res<crate::networking::NetworkServer>,
+    network_client: Res<crate::networking::NetworkClient>,
+    current_state: Res<State<GameState>>,
+    existing_slots: Query<Entity, With<PlayerSlot>>,
+) {
+    if *current_state.get() != GameState::Lobby {
+        return;
+    }
+
+    // Get the list of connected players from the server
+    let mut new_players = Vec::new();
+
+    if let Ok(positions_guard) = network_server.car_positions.lock() {
+        // If we're the host or if we have players in the server data
+        if !positions_guard.is_empty() {
+            // Add host first if not already there
+            if lobby_state.connected_players.is_empty() || !lobby_state.connected_players[0].contains("Host") {
+                new_players.push("Host (You)".to_string());
+            } else {
+                new_players.push(lobby_state.connected_players[0].clone());
+            }
+
+            // Add connected players
+            for player_id in positions_guard.keys() {
+                if let Some(local_id) = network_client.player_id {
+                    if *player_id != local_id {
+                        new_players.push(format!("Player {}", player_id));
+                    }
+                }
+            }
+        } else if !lobby_state.connected_players.is_empty() {
+            // Keep existing players if server hasn't updated yet
+            return;
+        }
+    }
+
+    // Only update if the player list has changed
+    if new_players != lobby_state.connected_players && !new_players.is_empty() {
+        // Remove old player slot entities
+        for entity in existing_slots.iter() {
+            commands.entity(entity).despawn();
+        }
+
+        // Update the lobby state
+        lobby_state.connected_players = new_players;
+
+        // Spawn new player slots
+        let player_icons = [
+            "player-icons/human1.png",
+            "player-icons/human2.png",
+            "player-icons/human3.png",
+            "player-icons/human4.png",
+        ];
+
+        for (i, player_name) in lobby_state.connected_players.iter().enumerate().take(4) {
+            let y_pos = 150. - (i as f32 * 100.);
+
+            // Nameplate
+            commands.spawn((
+                Sprite::from_image(asset_server.load("title_screen/namePlate.png")),
+                Transform {
+                    translation: Vec3::new(25., y_pos, 1.),
+                    ..default()
+                },
+                LobbyScreenEntity,
+                PlayerSlot { slot_index: i },
+            ));
+
+            // Player icon
+            commands.spawn((
+                Sprite::from_image(asset_server.load(player_icons[i])),
+                Transform {
+                    translation: Vec3::new(-225., y_pos, 1.),
+                    ..default()
+                },
+                LobbyScreenEntity,
+                PlayerSlot { slot_index: i },
+            ));
+
+            // Player name
+            commands.spawn((
+                Text2d::new(player_name.clone()),
+                TextColor(Color::BLACK),
+                Transform {
+                    translation: Vec3::new(0., y_pos, 1.),
+                    ..default()
+                },
+                TextFont {
+                    font_size: 40.0,
+                    ..default()
+                },
+                LobbyScreenEntity,
+                PlayerSlot { slot_index: i },
+            ));
+        }
+    }
+}
+
 pub fn handle_ip_input(
     input: Res<ButtonInput<KeyCode>>,
     mut ip_input_state: ResMut<IpInputState>,
@@ -599,6 +709,11 @@ pub fn handle_ip_input(
     current_state: Res<State<GameState>>,
 ) {
     if *current_state.get() != GameState::Joining {
+        return;
+    }
+
+    // Don't handle input if Enter or Escape is pressed (let the state transition handler deal with it)
+    if input.just_pressed(KeyCode::Enter) || input.just_pressed(KeyCode::Escape) {
         return;
     }
 
@@ -616,7 +731,7 @@ pub fn handle_ip_input(
         changed = true;
     }
 
-    // Handle digit input
+    // Handle digit input (exclude Digit1 and Digit2 which conflict with join/escape)
     let digit_keys = [
         (KeyCode::Digit0, '0'), (KeyCode::Digit1, '1'), (KeyCode::Digit2, '2'),
         (KeyCode::Digit3, '3'), (KeyCode::Digit4, '4'), (KeyCode::Digit5, '5'),
