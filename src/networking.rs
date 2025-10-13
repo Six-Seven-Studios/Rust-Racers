@@ -138,9 +138,10 @@ fn send_position_to_server(
     mut network_client: ResMut<NetworkClient>,
     player_query: Query<(&Transform, &crate::car::Orientation), (With<crate::car::PlayerControlled>, With<LocalPlayer>)>,
 ) {
+    // limit sending rate to 60Hz
     let now = Instant::now();
     if let Some(last_send) = network_client.last_position_send {
-        if now.duration_since(last_send) < Duration::from_millis(50) {
+        if now.duration_since(last_send) < Duration::from_millis(16) {
             return;
         }
     }
