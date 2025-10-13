@@ -8,7 +8,7 @@ use crate::get_ip::get_local_ip;
 use crate::networking::{CarPosition, NetworkMessage};
 use serde_json;
 
-// Resource to track connected clients
+// Track connected clients
 #[derive(Resource)]
 pub struct ConnectedClients {
     pub client_ids: Arc<Mutex<Vec<u32>>>,

@@ -111,7 +111,6 @@ fn connect_to_server(
         return;
     }
 
-    // If no target IP is specified, don't attempt connection (for hosts who don't need to connect)
     if network_client.target_ip.is_none() {
         return;
     }
@@ -135,8 +134,7 @@ fn connect_to_server(
                         network_client.player_id = Some(id);
                         println!("Assigned player ID: {}", id);
 
-                        // Only update LocalPlayer if it exists (when in Playing state)
-                        if let Ok(mut player) = local_player.get_single_mut() {
+                        if let Ok(mut player) = local_player.single_mut() {
                             player.player_id = id;
                         }
                     }

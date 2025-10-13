@@ -63,7 +63,6 @@ pub fn check_for_title_input(
                 next_state.set(GameState::Lobby);
                 destroy_screen(&mut commands, &title_query);
 
-                // Initialize lobby with host player and get server IP
                 lobby_state.connected_players.clear();
                 lobby_state.connected_players.push("Player 1 (You)".to_string());
                 if let Ok(ip) = get_local_ip() {
@@ -72,7 +71,6 @@ pub fn check_for_title_input(
                     lobby_state.server_ip = "0.0.0.0".to_string();
                 }
 
-                // Host is always player 0
                 network_client.player_id = Some(0);
 
                 setup_lobby(commands, asset_server, &lobby_state);
@@ -81,7 +79,6 @@ pub fn check_for_title_input(
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
-                // Initialize IP input with default value
                 ip_input_state.input = "127.0.0.1".to_string();
 
                 setup_join(commands, asset_server);
@@ -116,15 +113,12 @@ pub fn check_for_title_input(
                 setup_title_screen(commands, asset_server);
             }
             else if input.just_pressed(KeyCode::Enter){
-                // Store the IP address and connect
                 network_client.target_ip = Some(ip_input_state.input.clone());
                 network_client.connection_attempted = false;
 
-                // Go to lobby instead of directly to playing
                 next_state.set(GameState::Lobby);
                 destroy_screen(&mut commands, &join_query);
 
-                // Initialize lobby state for client
                 lobby_state.connected_players.clear();
                 lobby_state.connected_players.push("Connecting...".to_string());
                 lobby_state.server_ip = ip_input_state.input.clone();
@@ -620,12 +614,10 @@ pub fn update_lobby_players(
     let mut new_players = Vec::new();
     let my_player_id = network_client.player_id;
 
-    // Check if we have synchronized lobby state from server
     if let Ok(server_lobby) = network_server.lobby_state.lock() {
         if let Some(ref sync_lobby) = *server_lobby {
-            // Use synchronized lobby state (for clients)
             for &player_id in &sync_lobby.player_ids {
-                let player_number = player_id + 1; // Display as 1-indexed
+                let player_number = player_id + 1;
                 let player_name = if Some(player_id) == my_player_id {
                     format!("Player {} (You)", player_number)
                 } else {
@@ -634,36 +626,27 @@ pub fn update_lobby_players(
                 new_players.push(player_name);
             }
         } else if network_client.target_ip.is_none() {
-            // We're the host and haven't received sync yet - show host view
             if let Ok(client_ids) = connected_clients.client_ids.lock() {
-                // Host is always Player 1
                 new_players.push("Player 1 (You)".to_string());
-
-                // Add connected clients as Player 2, 3, 4...
                 for client_id in client_ids.iter() {
                     let player_number = client_id + 1;
                     new_players.push(format!("Player {}", player_number));
                 }
             }
         } else {
-            // Client waiting for lobby sync
             if lobby_state.connected_players.is_empty() || lobby_state.connected_players[0] == "Connecting..." {
-                return; // Keep showing "Connecting..."
+                return;
             }
         }
     }
 
-    // Only update if the player list has changed
     if new_players != lobby_state.connected_players && !new_players.is_empty() {
-        // Remove old player slot entities
         for entity in existing_slots.iter() {
             commands.entity(entity).despawn();
         }
 
-        // Update the lobby state
         lobby_state.connected_players = new_players;
 
-        // Spawn new player slots
         let player_icons = [
             "player-icons/human1.png",
             "player-icons/human2.png",
@@ -674,7 +657,6 @@ pub fn update_lobby_players(
         for (i, player_name) in lobby_state.connected_players.iter().enumerate().take(4) {
             let y_pos = 150. - (i as f32 * 100.);
 
-            // Nameplate
             commands.spawn((
                 Sprite::from_image(asset_server.load("title_screen/namePlate.png")),
                 Transform {
@@ -685,7 +667,6 @@ pub fn update_lobby_players(
                 PlayerSlot { slot_index: i },
             ));
 
-            // Player icon
             commands.spawn((
                 Sprite::from_image(asset_server.load(player_icons[i])),
                 Transform {
@@ -696,7 +677,6 @@ pub fn update_lobby_players(
                 PlayerSlot { slot_index: i },
             ));
 
-            // Player name
             commands.spawn((
                 Text2d::new(player_name.clone()),
                 TextColor(Color::BLACK),
@@ -725,26 +705,22 @@ pub fn handle_ip_input(
         return;
     }
 
-    // Don't handle input if Enter or Escape is pressed (let the state transition handler deal with it)
     if input.just_pressed(KeyCode::Enter) || input.just_pressed(KeyCode::Escape) {
         return;
     }
 
     let mut changed = false;
 
-    // Handle backspace
     if input.just_pressed(KeyCode::Backspace) {
         ip_input_state.input.pop();
         changed = true;
     }
 
-    // Handle period/dot
     if input.just_pressed(KeyCode::Period) && ip_input_state.input.len() < 15 {
         ip_input_state.input.push('.');
         changed = true;
     }
 
-    // Handle digit input (exclude Digit1 and Digit2 which conflict with join/escape)
     let digit_keys = [
         (KeyCode::Digit0, '0'), (KeyCode::Digit1, '1'), (KeyCode::Digit2, '2'),
         (KeyCode::Digit3, '3'), (KeyCode::Digit4, '4'), (KeyCode::Digit5, '5'),
@@ -760,7 +736,6 @@ pub fn handle_ip_input(
         }
     }
 
-    // Update the text display if changed
     if changed {
         if let Ok(mut text) = text_query.single_mut() {
             if ip_input_state.input.is_empty() {
