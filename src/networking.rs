@@ -75,6 +75,7 @@ impl Plugin for NetworkingPlugin {
                 connect_to_server.run_if(in_state(crate::GameState::Playing)),
                 send_position_to_server.run_if(in_state(crate::GameState::Playing)),
                 receive_positions_from_server.run_if(in_state(crate::GameState::Playing)),
+                spawn_remote_cars.run_if(in_state(crate::GameState::Playing)),
             ));
     }
 }
@@ -239,5 +240,51 @@ fn receive_positions_from_server(
 
     if connection_lost {
         network_client.player_id = None;
+    }
+}
+
+fn spawn_remote_cars(
+    mut commands: Commands,
+    network_server: Res<NetworkServer>,
+    network_client: Res<NetworkClient>,
+    existing_cars: Query<&NetworkedCar>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    if let Ok(positions_guard) = network_server.car_positions.lock() {
+        for (player_id, position) in positions_guard.iter() {
+            if let Some(local_id) = network_client.player_id {
+                if *player_id == local_id {
+                    continue;
+                }
+            }
+
+            let car_exists = existing_cars.iter().any(|car| car.player_id == *player_id);
+
+            if !car_exists {
+                let car_sheet_handle = asset_server.load("car.png");
+                let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(crate::car::CAR_SIZE), 2, 2, None, None);
+                let car_layout_handle = texture_atlases.add(car_layout);
+
+                commands.spawn((
+                    Sprite::from_atlas_image(
+                        car_sheet_handle,
+                        TextureAtlas {
+                            layout: car_layout_handle,
+                            index: 0,
+                        },
+                    ),
+                    Transform {
+                        translation: Vec3::new(position.x, position.y, 50.),
+                        rotation: Quat::from_rotation_z(position.angle),
+                        ..default()
+                    },
+                    crate::car::Velocity::new(),
+                    crate::car::Orientation::new(position.angle),
+                    crate::car::Car,
+                    NetworkedCar { player_id: *player_id },
+                ));
+            }
+        }
     }
 }

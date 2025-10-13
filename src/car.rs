@@ -187,21 +187,4 @@ pub fn spawn_cars(
         LocalPlayer { player_id: 1 },
     ));
 
-    // Spawn second car
-    commands.spawn((
-        Sprite::from_atlas_image(
-            car_sheet_handle,
-            TextureAtlas {
-                layout: car_layout_handle,
-                index: 0,
-            },
-        ),
-        Transform {
-            translation: Vec3::new(200., 200., 50.),
-            ..default()
-        },
-        Velocity::new(),
-        Orientation::new(1.57), 
-        Car,
-    ));
 }
