@@ -71,6 +71,9 @@ fn server_listener(connected_clients: Res<ConnectedClients>) {
                         println!("Connected clients: {:?}", client_ids);
                     }
 
+                    // Broadcast updated lobby state to all clients
+                    broadcast_lobby_state(&clients, &connected_clients_clone);
+
                     // send existing player positions to new client
                     if let Ok(positions_guard) = car_positions.lock() {
                         if !positions_guard.is_empty() {
@@ -122,6 +125,10 @@ fn handle_client(
                     client_ids.retain(|&id| id != client_id);
                     println!("Connected clients: {:?}", client_ids);
                 }
+
+                // Broadcast updated lobby state to remaining clients
+                broadcast_lobby_state(&clients, &connected_clients);
+
                 break;
             }
             Ok(_) => {
@@ -153,6 +160,36 @@ fn broadcast_positions(
     if let (Ok(positions_guard), Ok(mut clients_guard)) = (positions.lock(), clients.lock()) {
         let all_positions: Vec<CarPosition> = positions_guard.values().cloned().collect();
         let message = NetworkMessage::AllPositions(all_positions);
+
+        if let Ok(serialized) = serde_json::to_string(&message) {
+            let mut disconnected_clients = Vec::new();
+
+            for (client_id, stream) in clients_guard.iter_mut() {
+                if let Err(_) = writeln!(stream, "{}", serialized) {
+                    disconnected_clients.push(*client_id);
+                }
+            }
+
+            for client_id in disconnected_clients {
+                clients_guard.remove(&client_id);
+            }
+        }
+    }
+}
+
+fn broadcast_lobby_state(
+    clients: &Arc<Mutex<HashMap<u32, TcpStream>>>,
+    connected_clients: &Arc<Mutex<Vec<u32>>>,
+) {
+    if let (Ok(client_ids), Ok(mut clients_guard)) = (connected_clients.lock(), clients.lock()) {
+        // Host is player 0, others are 1, 2, 3...
+        let mut player_ids = vec![0]; // Host is always player 0
+        player_ids.extend(client_ids.iter().copied());
+
+        let lobby_state = crate::networking::LobbyState { player_ids: player_ids.clone() };
+        let message = NetworkMessage::LobbySync(lobby_state);
+
+        println!("Broadcasting lobby state: {:?}", player_ids);
 
         if let Ok(serialized) = serde_json::to_string(&message) {
             let mut disconnected_clients = Vec::new();

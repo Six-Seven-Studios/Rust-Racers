@@ -14,10 +14,16 @@ pub struct CarPosition {
     pub angle: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LobbyState {
+    pub player_ids: Vec<u32>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum NetworkMessage {
     Position(CarPosition),
     AllPositions(Vec<CarPosition>),
+    LobbySync(LobbyState),
 }
 
 #[derive(Component)]
@@ -56,12 +62,14 @@ impl Default for NetworkClient {
 #[derive(Resource)]
 pub struct NetworkServer {
     pub car_positions: Arc<Mutex<HashMap<u32, CarPosition>>>,
+    pub lobby_state: Arc<Mutex<Option<LobbyState>>>,
 }
 
 impl Default for NetworkServer {
     fn default() -> Self {
         Self {
             car_positions: Arc::new(Mutex::new(HashMap::new())),
+            lobby_state: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -232,6 +240,12 @@ fn receive_positions_from_server(
                                                 for pos in positions {
                                                     server_positions.insert(pos.player_id, pos);
                                                 }
+                                            }
+                                        }
+                                        NetworkMessage::LobbySync(lobby_state) => {
+                                            println!("Received lobby sync: {:?}", lobby_state.player_ids);
+                                            if let Ok(mut server_lobby) = network_server.lobby_state.lock() {
+                                                *server_lobby = Some(lobby_state);
                                             }
                                         }
                                         _ => {}

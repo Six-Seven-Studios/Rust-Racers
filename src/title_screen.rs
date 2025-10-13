@@ -65,12 +65,15 @@ pub fn check_for_title_input(
 
                 // Initialize lobby with host player and get server IP
                 lobby_state.connected_players.clear();
-                lobby_state.connected_players.push("Host (You)".to_string());
+                lobby_state.connected_players.push("Player 1 (You)".to_string());
                 if let Ok(ip) = get_local_ip() {
                     lobby_state.server_ip = ip;
                 } else {
                     lobby_state.server_ip = "0.0.0.0".to_string();
                 }
+
+                // Host is always player 0
+                network_client.player_id = Some(0);
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
@@ -605,6 +608,7 @@ pub fn update_lobby_players(
     asset_server: Res<AssetServer>,
     mut lobby_state: ResMut<LobbyState>,
     connected_clients: Res<crate::server::ConnectedClients>,
+    network_server: Res<crate::networking::NetworkServer>,
     network_client: Res<crate::networking::NetworkClient>,
     current_state: Res<State<GameState>>,
     existing_slots: Query<Entity, With<PlayerSlot>>,
@@ -613,26 +617,40 @@ pub fn update_lobby_players(
         return;
     }
 
-    // Get the list of connected players
     let mut new_players = Vec::new();
+    let my_player_id = network_client.player_id;
 
-    // If we're the host (no target_ip), show host + connected clients
-    if network_client.target_ip.is_none() {
-        new_players.push("Host (You)".to_string());
+    // Check if we have synchronized lobby state from server
+    if let Ok(server_lobby) = network_server.lobby_state.lock() {
+        if let Some(ref sync_lobby) = *server_lobby {
+            // Use synchronized lobby state (for clients)
+            for &player_id in &sync_lobby.player_ids {
+                let player_number = player_id + 1; // Display as 1-indexed
+                let player_name = if Some(player_id) == my_player_id {
+                    format!("Player {} (You)", player_number)
+                } else {
+                    format!("Player {}", player_number)
+                };
+                new_players.push(player_name);
+            }
+        } else if network_client.target_ip.is_none() {
+            // We're the host and haven't received sync yet - show host view
+            if let Ok(client_ids) = connected_clients.client_ids.lock() {
+                // Host is always Player 1
+                new_players.push("Player 1 (You)".to_string());
 
-        if let Ok(client_ids) = connected_clients.client_ids.lock() {
-            for client_id in client_ids.iter() {
-                new_players.push(format!("Player {}", client_id));
+                // Add connected clients as Player 2, 3, 4...
+                for client_id in client_ids.iter() {
+                    let player_number = client_id + 1;
+                    new_players.push(format!("Player {}", player_number));
+                }
+            }
+        } else {
+            // Client waiting for lobby sync
+            if lobby_state.connected_players.is_empty() || lobby_state.connected_players[0] == "Connecting..." {
+                return; // Keep showing "Connecting..."
             }
         }
-    } else {
-        // If we're a client, show the existing lobby state
-        // The client will see their own view (could be enhanced later)
-        if lobby_state.connected_players.is_empty() || lobby_state.connected_players[0] == "Connecting..." {
-            // Still connecting, keep the connecting message
-            return;
-        }
-        return;
     }
 
     // Only update if the player list has changed
