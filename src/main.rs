@@ -1,6 +1,7 @@
 mod map;
 mod terrain;
 mod car;
+mod collisions;
 mod camera;
 mod credits;
 mod title_screen;
