@@ -52,7 +52,7 @@ fn main() {
         .add_plugins(ServerPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
-        .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
+        .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
         // .add_systems(Startup, intro::setup_intro)
