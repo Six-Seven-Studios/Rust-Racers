@@ -30,7 +30,7 @@ pub fn setup_credits(
     mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>,
     mut background: Single<&mut Visibility, (With<Background>, Without<Car>)>,
 ) {
-    commands.insert_resource(CreditsTimer(Timer::from_seconds(20.0, TimerMode::Once)));
+    // commands.insert_resource(CreditsTimer(Timer::from_seconds(20.0, TimerMode::Once)));
     
     for mut car_visibility in cars.iter_mut() {
         *car_visibility = Visibility::Hidden;
