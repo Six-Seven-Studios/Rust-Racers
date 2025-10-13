@@ -5,6 +5,7 @@ mod camera;
 mod credits;
 mod title_screen;
 mod server;
+mod intro;
 mod get_ip;
 
 use title_screen::{check_for_title_input, setup_title_screen};
@@ -16,11 +17,18 @@ use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use server::ServerPlugin;
 
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+// use bevy::render::
+
+
+
+
 const TILE_SIZE: u32 = 64;  //Tentative
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
+    Intro,
     Title,
     Playing,
     Credits,
@@ -47,6 +55,8 @@ fn main() {
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
+        .add_systems(Startup, intro::setup_intro)
+        .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             check_for_title_input,
             check_for_credits_input,
@@ -56,8 +66,17 @@ fn main() {
         .add_systems(OnEnter(GameState::Credits), setup_credits)
         .add_systems(OnEnter(GameState::Credits), reset_camera_for_credits.after(setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
+        .add_systems(Update, intro::show_intro.run_if(in_state(GameState::Intro)))
+        // .add_plugins(DefaultPlugins)
+        .init_resource::<InputFocus>()
+        // .add_systems(Startup, setup)
+        // .add_systems(Update, title_screen::button_system)
         .run();
 }
+
+
+
+
 fn camera_setup(mut commands: Commands)
 {
     // create a projection
