@@ -53,8 +53,7 @@ fn main() {
             move_car.run_if(in_state(GameState::Playing)),
             move_camera.after(move_car).run_if(in_state(GameState::Playing)),
         ))
-        .add_systems(OnEnter(GameState::Credits), setup_credits)
-        .add_systems(OnEnter(GameState::Credits), reset_camera_for_credits.after(setup_credits))
+        .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
         .run();
 }
