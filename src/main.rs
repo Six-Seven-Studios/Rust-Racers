@@ -8,10 +8,11 @@ mod server;
 mod intro;
 mod get_ip;
 mod networking;
+mod theta;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
-use car::{Background, move_car, spawn_cars};
+use car::{Background, move_player_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
@@ -20,6 +21,7 @@ use server::ServerPlugin;
 use networking::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use crate::car::move_ai_cars;
 // use bevy::render::
 
 const TILE_SIZE: u32 = 64;  //Tentative
@@ -33,6 +35,7 @@ pub enum GameState {
     Customizing,
     Settings,
     Playing,
+    PlayingDemo,
     Credits,
 }
 
@@ -55,16 +58,22 @@ fn main() {
         .add_plugins(NetworkingPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
-        .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
+        .add_systems(OnEnter(GameState::Playing), load_map1)
+        .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
+        //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .add_systems(Startup, (camera_setup, setup_title_screen))
-        .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
+        .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map).after(load_map1))
+        .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map).after(load_map_demo))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             check_for_title_input,
             check_for_credits_input,
-            move_car.run_if(in_state(GameState::Playing)),
-            move_camera.after(move_car).run_if(in_state(GameState::Playing)),
+            //move_car.run_if(in_state(GameState::Playing)),
+            move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
+            move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
         ))
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
@@ -92,4 +101,13 @@ fn car_setup(
 {
     // Spawn cars using the car module
     spawn_cars(commands, asset_server, texture_atlases);
+}
+
+fn load_map1(mut commands: Commands) {
+    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
+}
+
+//THETA* DEMO
+fn load_map_demo(mut commands: Commands) {
+    commands.insert_resource(load_map_from_file("assets/map_demo.txt"));
 }
