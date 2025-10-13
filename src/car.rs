@@ -10,8 +10,6 @@ pub const ACCEL_RATE: f32 = 700.;
 pub const FRICTION: f32 = 0.95;
 pub const TURNING_RATE: f32 = 3.5;
 pub const CAR_SIZE: u32 = 64;
-pub const CAR_WIDTH: u32 = 48;   // Width of car hitbox
-pub const CAR_LENGTH: u32 = 64;  // Length of car hitbox
 
 // Car-related components
 #[derive(Component)]
