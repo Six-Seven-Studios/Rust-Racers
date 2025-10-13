@@ -82,7 +82,7 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
             .trim()
             .split_whitespace()
             .filter(|s| !s.is_empty()) // filter to handle potential extra spaces
-            .map(|n| n.parse().unwrap_or(255))
+            .map(|s| u8::from_str_radix(s, 16).unwrap()) // changing this to interpet HEX
             .collect();
         
         // avoid adding empty rows if the line was blank
