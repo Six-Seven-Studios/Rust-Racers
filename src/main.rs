@@ -5,6 +5,7 @@ mod camera;
 mod credits;
 mod title_screen;
 mod server;
+mod intro;
 mod get_ip;
 mod networking;
 
@@ -18,12 +19,19 @@ use bevy::render::camera::{Projection, ScalingMode};
 use server::ServerPlugin;
 use networking::NetworkingPlugin;
 
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+// use bevy::render::
+
 const TILE_SIZE: u32 = 64;  //Tentative
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
     Title,
+    Lobby,
+    Joining,
+    Customizing,
+    Settings,
     Playing,
     Credits,
 }
@@ -47,20 +55,22 @@ fn main() {
         .add_plugins(NetworkingPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
-        .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
+        .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
+        // .add_systems(Startup, intro::setup_intro)
+        // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             check_for_title_input,
             check_for_credits_input,
             move_car.run_if(in_state(GameState::Playing)),
             move_camera.after(move_car).run_if(in_state(GameState::Playing)),
         ))
-        .add_systems(OnEnter(GameState::Credits), setup_credits)
-        .add_systems(OnEnter(GameState::Credits), reset_camera_for_credits.after(setup_credits))
+        .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
         .run();
 }
+
 fn camera_setup(mut commands: Commands)
 {
     // create a projection
