@@ -45,7 +45,7 @@ fn main() {
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .insert_resource(load_map_from_file("assets/map.txt")) // to get a Res handle on GameMap
-        .add_systems(Startup, (camera_setup, setup_title_screen, setup_credits))
+        .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
         .add_systems(Update, (
             check_for_title_input,
@@ -53,7 +53,7 @@ fn main() {
             move_car.run_if(in_state(GameState::Playing)),
             move_camera.after(move_car).run_if(in_state(GameState::Playing)),
         ))
-        .add_systems(OnEnter(GameState::Credits), reset_camera_for_credits)
+        .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
         .run();
 }
