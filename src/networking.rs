@@ -37,6 +37,7 @@ pub struct NetworkClient {
     pub last_connection_attempt: Option<Instant>,
     pub connection_attempted: bool,
     pub last_position_send: Option<Instant>,
+    pub target_ip: Option<String>,
 }
 
 impl Default for NetworkClient {
@@ -47,6 +48,7 @@ impl Default for NetworkClient {
             last_connection_attempt: None,
             connection_attempted: false,
             last_position_send: None,
+            target_ip: None,
         }
     }
 }
@@ -101,10 +103,18 @@ fn connect_to_server(
         return;
     }
 
+    // If no target IP is specified, don't attempt connection
+    let target_addr = if let Some(ref ip) = network_client.target_ip {
+        format!("{}:4000", ip)
+    } else {
+        // Default to localhost if no IP specified (for hosting)
+        "127.0.0.1:4000".to_string()
+    };
+
     network_client.connection_attempted = true;
     network_client.last_connection_attempt = Some(Instant::now());
 
-    match TcpStream::connect("127.0.0.1:4000") {
+    match TcpStream::connect(&target_addr) {
         Ok(stream) => {
             let mut reader = BufReader::new(stream.try_clone().unwrap());
             let mut line = String::new();

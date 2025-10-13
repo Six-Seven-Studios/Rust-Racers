@@ -10,7 +10,7 @@ mod intro;
 mod get_ip;
 mod networking;
 
-use title_screen::{check_for_title_input, setup_title_screen};
+use title_screen::{check_for_title_input, setup_title_screen, handle_ip_input, LobbyState, IpInputState};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
@@ -57,12 +57,15 @@ fn main() {
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
+        .init_resource::<LobbyState>()
+        .init_resource::<IpInputState>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             check_for_title_input,
+            handle_ip_input,
             check_for_credits_input,
             move_car.run_if(in_state(GameState::Playing)),
             move_camera.after(move_car).run_if(in_state(GameState::Playing)),
