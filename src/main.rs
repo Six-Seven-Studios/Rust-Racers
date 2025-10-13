@@ -26,6 +26,10 @@ const TILE_SIZE: u32 = 64;  //Tentative
 pub enum GameState {
     #[default]
     Title,
+    Lobby,
+    Joining,
+    Customizing,
+    Settings,
     Playing,
     Credits,
 }
