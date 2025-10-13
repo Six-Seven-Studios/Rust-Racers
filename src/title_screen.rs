@@ -604,7 +604,7 @@ pub fn update_lobby_players(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut lobby_state: ResMut<LobbyState>,
-    network_server: Res<crate::networking::NetworkServer>,
+    connected_clients: Res<crate::server::ConnectedClients>,
     network_client: Res<crate::networking::NetworkClient>,
     current_state: Res<State<GameState>>,
     existing_slots: Query<Entity, With<PlayerSlot>>,
@@ -613,31 +613,26 @@ pub fn update_lobby_players(
         return;
     }
 
-    // Get the list of connected players from the server
+    // Get the list of connected players
     let mut new_players = Vec::new();
 
-    if let Ok(positions_guard) = network_server.car_positions.lock() {
-        // If we're the host or if we have players in the server data
-        if !positions_guard.is_empty() {
-            // Add host first if not already there
-            if lobby_state.connected_players.is_empty() || !lobby_state.connected_players[0].contains("Host") {
-                new_players.push("Host (You)".to_string());
-            } else {
-                new_players.push(lobby_state.connected_players[0].clone());
-            }
+    // If we're the host (no target_ip), show host + connected clients
+    if network_client.target_ip.is_none() {
+        new_players.push("Host (You)".to_string());
 
-            // Add connected players
-            for player_id in positions_guard.keys() {
-                if let Some(local_id) = network_client.player_id {
-                    if *player_id != local_id {
-                        new_players.push(format!("Player {}", player_id));
-                    }
-                }
+        if let Ok(client_ids) = connected_clients.client_ids.lock() {
+            for client_id in client_ids.iter() {
+                new_players.push(format!("Player {}", client_id));
             }
-        } else if !lobby_state.connected_players.is_empty() {
-            // Keep existing players if server hasn't updated yet
+        }
+    } else {
+        // If we're a client, show the existing lobby state
+        // The client will see their own view (could be enhanced later)
+        if lobby_state.connected_players.is_empty() || lobby_state.connected_players[0] == "Connecting..." {
+            // Still connecting, keep the connecting message
             return;
         }
+        return;
     }
 
     // Only update if the player list has changed
