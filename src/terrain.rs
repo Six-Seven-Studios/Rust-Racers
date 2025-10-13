@@ -23,6 +23,6 @@ pub const TILES: [TerrainTile; 6] = [
     TerrainTile { tile_id: 2, friction_modifier: 0.68, speed_modifier: 1.35, turn_modifier: 0.7, decel_modifier: 370.0},
     TerrainTile { tile_id: 3, friction_modifier: 0.7, speed_modifier: 0.75, turn_modifier: 0.4, decel_modifier: 490.0},
     TerrainTile { tile_id: 4, friction_modifier: 0.2, speed_modifier: 0.6, turn_modifier: 0.2, decel_modifier: 500.0},
-    TerrainTile { tile_id: 5, friction_modifier: 0.1, speed_modifier: 1.5, turn_modifier: 0.1,decel_modifier: 0.0},
-    //TerrainTile {tile_type: WALL, friction_modifier: 1.0, speed_modifier: 1.0, turn_modifier: 1.0, passable: false},
+    TerrainTile { tile_id: 5, friction_modifier: 0.1, speed_modifier: 1.5, turn_modifier: 0.1, decel_modifier: 0.0},
+    TerrainTile { tile_id: 6, friction_modifier: 1.0, speed_modifier: 0.0, turn_modifier: 0.0, decel_modifier: 1.0},
 ];
