@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::map::GameMap;
 use crate::networking::LocalPlayer;
 use crate::TILE_SIZE;
+use crate::collisions::{check_car_collisions, check_tile_collision};
 
 // Car-related constants
 pub const PLAYER_SPEED: f32 = 350.;
@@ -9,6 +10,8 @@ pub const ACCEL_RATE: f32 = 700.;
 pub const FRICTION: f32 = 0.95;
 pub const TURNING_RATE: f32 = 3.5;
 pub const CAR_SIZE: u32 = 64;
+pub const CAR_WIDTH: u32 = 48;   // Width of car hitbox
+pub const CAR_LENGTH: u32 = 64;  // Length of car hitbox
 
 // Car-related components
 #[derive(Component)]
@@ -136,18 +139,12 @@ pub fn move_car(
 
     // Calculate new position
     let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
-    
-    // Check collision with other cars
-    let mut collision = false;
-    
-    for other_car_transform in other_cars.iter() {
-        let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
-        if distance < CAR_SIZE as f32 {
-            collision = true;
-            break;
-        }
-    }
-    
+
+    // Check collision with other cars and wall tiles
+    let car_collision = check_car_collisions(new_position, &other_cars);
+    let tile_collision = check_tile_collision(new_position, &game_map);
+    let collision = car_collision || tile_collision;
+
     // Only update position if no collision
     if !collision {
         transform.translation = new_position;
@@ -177,7 +174,7 @@ pub fn spawn_cars(
             },
         ),
         Transform {
-            translation: Vec3::new(0., 0., 50.),
+            translation: Vec3::new(100., 1000., 50.),
             ..default()
         },
         Velocity::new(),
