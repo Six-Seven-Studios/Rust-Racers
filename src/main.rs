@@ -12,16 +12,13 @@ use title_screen::{check_for_title_input, setup_title_screen};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
-use credits::{check_for_credits_input, setup_credits};
+use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use server::ServerPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 // use bevy::render::
-
-
-
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -66,9 +63,6 @@ fn main() {
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
         .run();
 }
-
-
-
 
 fn camera_setup(mut commands: Commands)
 {
