@@ -22,7 +22,7 @@ pub struct TerrainTile {
 }
 
 
-pub const TILES: [TerrainTile; 6] = [
+pub const TILES: [TerrainTile; 7] = [
     TerrainTile { tile_id: 0, friction_modifier: 1.0, speed_modifier: 1.5, turn_modifier: 1.0, decel_modifier: 400.0, x_coordinate: 0.0, y_coordinate: 0.0, parent_node: (0.0, 0.0), passable: true},
     TerrainTile { tile_id: 1, friction_modifier: 0.8, speed_modifier: 1.5, turn_modifier: 1.0, decel_modifier: 350.0, x_coordinate: 0.0, y_coordinate: 0.0, parent_node: (0.0, 0.0), passable: true},
     TerrainTile { tile_id: 2, friction_modifier: 0.68, speed_modifier: 1.35, turn_modifier: 0.7, decel_modifier: 370.0, x_coordinate: 0.0, y_coordinate: 0.0, parent_node: (0.0, 0.0), passable: true},
