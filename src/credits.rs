@@ -24,6 +24,7 @@ pub fn setup_credits(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
 ) {
+
     commands.spawn((
         Sprite::from_image(asset_server.load("credits/rust-racers.png")),
         Transform {
