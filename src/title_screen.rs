@@ -2,6 +2,8 @@ use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use crate::GameState;
+
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::get_ip::get_local_ip;
 use crate::lobby::{LobbyState, setup_lobby};
 
@@ -77,6 +79,11 @@ pub fn check_for_title_input(
                 next_state.set(GameState::Settings);
                 destroy_screen(&mut commands, &title_query);
                 setup_settings(commands, asset_server);
+            }
+            // Theta* DEMO
+            else if input.just_pressed(KeyCode::Digit4){
+                next_state.set(GameState::PlayingDemo);
+                destroy_screen(&mut commands, &title_query);
             }
         }
         GameState::Lobby => {
@@ -250,6 +257,23 @@ pub fn setup_title_screen(
         MainScreenEntity
     ));
 
+    // Theta* DEMO (Remove later)
+    commands.spawn((
+        Sprite::from_image(asset_server.load("temp-art/theta-demo.png")),
+        Transform {
+            translation: Vec3::new(400., -200., 1.),
+            ..default()
+        },
+        MainScreenEntity
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("title_screen/keys/key4.png")),
+        Transform {
+            translation: Vec3::new(400., -300., 1.),
+            ..default()
+        },
+        MainScreenEntity
+    ));
 }
 
 fn setup_join(
