@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use bevy::prelude::*;
-use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL};
+use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL};
 use crate::Resource;
 
 #[derive(Resource)]
@@ -46,6 +46,7 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
             48..=63 => TILES[GRASS as usize].clone(),
             64..=79 => TILES[SAND as usize].clone(),
             80..=95 => TILES[OIL as usize].clone(),
+            112..=127 => TILES[WALL as usize].clone(), // 0x70-0x7F in hex
             _ => TILES[GRASS as usize].clone(),
         };
 
