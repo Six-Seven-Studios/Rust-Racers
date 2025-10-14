@@ -261,7 +261,7 @@ pub fn setup_title_screen(
     commands.spawn((
         Sprite::from_image(asset_server.load("temp-art/theta-demo.png")),
         Transform {
-            translation: Vec3::new(300., -200., 1.),
+            translation: Vec3::new(400., -200., 1.),
             ..default()
         },
         MainScreenEntity
@@ -269,7 +269,7 @@ pub fn setup_title_screen(
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/keys/key4.png")),
         Transform {
-            translation: Vec3::new(300., -300., 1.),
+            translation: Vec3::new(400., -300., 1.),
             ..default()
         },
         MainScreenEntity
