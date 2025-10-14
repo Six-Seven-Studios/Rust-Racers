@@ -25,17 +25,25 @@ pub fn move_camera(
     camera.translation = target;
 }
 
-// Reset camera position for credits screen
 pub fn reset_camera_for_credits(
-    mut camera: Single<&mut Transform, With<Camera>>, 
-    mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>, 
-    mut background: Single<&mut Visibility, (With<Background>, Without<Car>)>,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>,
+    // mut background_query: Query<&mut Visibility, (With<Background>, Without<Car>)>,
 ) {
-    camera.translation = Vec3::ZERO;
+
+    if let Ok(mut camera) = camera_query.get_single_mut() {
+        camera.translation = Vec3::ZERO;
+    } else {
+        println!("no camera!");
+    }
 
     for mut car_visibility in cars.iter_mut() {
         *car_visibility = Visibility::Hidden;
     }
 
-    **background = Visibility::Hidden;
+    // if let Ok(mut background) = background_query.get_single_mut() {
+    //     *background = Visibility::Hidden;
+    // } else {
+    //     println!("no background!");
+    // }
 }
