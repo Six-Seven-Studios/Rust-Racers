@@ -74,7 +74,7 @@ Using a decision tree, our CPUs will be able to quickly adjust between driving n
   * 10% - Attacking players / other CPUs decided by a decision tree
 
 * 10% - Secondary Map and Skins
-  * 5% - Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
+  * 5% - Players can choose between two maps to race on: The original 6400px x 6400px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
   * 5% - We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
