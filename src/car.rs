@@ -3,7 +3,7 @@ use crate::map::GameMap;
 use crate::networking::LocalPlayer;
 use crate::theta::{theta_star, ThetaCommand};
 use crate::TILE_SIZE;
-use crate::collisions::{check_car_collisions, check_tile_collision};
+use crate::collisions::handle_collision;
 
 // Car-related constants
 pub const PLAYER_SPEED: f32 = 350.;
@@ -65,7 +65,7 @@ pub fn move_player_car(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
-    other_cars: Query<&Transform, (With<Car>, Without<PlayerControlled>)>,
+    other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
     let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
 
@@ -140,17 +140,18 @@ pub fn move_player_car(
     // Calculate new position
     let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
 
-    // Check collision with other cars and wall tiles
-    let car_collision = check_car_collisions(new_position, &other_cars);
-    let tile_collision = check_tile_collision(new_position, &game_map);
-    let collision = car_collision || tile_collision;
+    // Handle collision detection and response
+    let should_update = handle_collision(
+        new_position,
+        transform.translation.truncate(),
+        &mut velocity.velocity,
+        &game_map,
+        &other_cars,
+    );
 
-    // Only update position if no collision
-    if !collision {
+    // Update position only if no collision occurred
+    if should_update {
         transform.translation = new_position;
-    } else {
-        // Stop the car if collision would occur
-        **velocity = Vec2::ZERO;
     }
 }
 
@@ -158,7 +159,7 @@ pub fn move_ai_cars(
     game_map: Res<GameMap>,
     time: Res<Time>,
     mut ai_cars: Query<(&mut Transform, &mut Velocity, &mut Orientation), (With<AIControlled>, Without<Background>)>,
-    other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
+    other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<AIControlled>)>,
 ) {
 
     let deltat = time.delta_secs();
@@ -245,23 +246,18 @@ pub fn move_ai_cars(
         // Calculate new position
         let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
 
-        // Check collision with other cars
-        let mut collision = false;
+        // Handle collision detection and response
+        let should_update = handle_collision(
+            new_position,
+            transform.translation.truncate(),
+            &mut velocity.velocity,
+            &game_map,
+            &other_cars,
+        );
 
-        for other_car_transform in other_cars.iter() {
-            let distance = new_position.truncate().distance(other_car_transform.translation.truncate());
-            if distance < CAR_SIZE as f32 {
-                collision = true;
-                break;
-            }
-        }
-
-        // Only update position if no collision
-        if !collision {
+        // Update position only if no collision occurred
+        if should_update {
             transform.translation = new_position;
-        } else {
-            // Stop the car if collision would occur
-            **velocity = Vec2::ZERO;
         }
     }
 }
