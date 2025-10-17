@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use crate::map::GameMap;
-use crate::networking::LocalPlayer;
 use crate::theta::{theta_star, ThetaCommand};
 use crate::TILE_SIZE;
 use crate::collisions::handle_collision;
@@ -287,8 +286,7 @@ pub fn spawn_cars(
         Velocity::new(),
         Orientation::new(0.0),
         Car,
-        PlayerControlled,
-        LocalPlayer { player_id: 1 },
+        PlayerControlled
     ));
 
 

@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use crate::GameState;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
-use crate::get_ip::get_local_ip;
 use crate::lobby::{LobbyState, setup_lobby};
 
 #[derive(Component)]
@@ -19,14 +18,6 @@ pub struct SettingsScreenEntity;
 #[derive(Component)]
 pub struct CustomizingScreenEntity;
 
-#[derive(Component)]
-pub struct IpInputText;
-
-#[derive(Resource, Default)]
-pub struct IpInputState {
-    pub input: String,
-}
-
 pub fn check_for_title_input(
     input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -39,8 +30,6 @@ pub fn check_for_title_input(
     settings_query: Query<Entity, With<SettingsScreenEntity>>,
     customize_query: Query<Entity, With<CustomizingScreenEntity>>,
     mut lobby_state: ResMut<LobbyState>,
-    mut ip_input_state: ResMut<IpInputState>,
-    mut network_client: ResMut<crate::networking::NetworkClient>,
 ) {
 
     match *current_state.get() {
@@ -51,13 +40,8 @@ pub fn check_for_title_input(
 
                 lobby_state.connected_players.clear();
                 lobby_state.connected_players.push("Player 1 (You)".to_string());
-                if let Ok(ip) = get_local_ip() {
-                    lobby_state.server_ip = ip;
-                } else {
-                    lobby_state.server_ip = "0.0.0.0".to_string();
-                }
 
-                network_client.player_id = Some(0);
+                lobby_state.name = String::from("Lobby 1");
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
@@ -65,10 +49,7 @@ pub fn check_for_title_input(
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
-                ip_input_state.input = "127.0.0.1".to_string();
-
                 setup_join(commands, asset_server);
-
             }
             else if input.just_pressed(KeyCode::Digit3){
                 next_state.set(GameState::Customizing);
@@ -104,15 +85,11 @@ pub fn check_for_title_input(
                 setup_title_screen(commands, asset_server);
             }
             else if input.just_pressed(KeyCode::Enter){
-                network_client.target_ip = Some(ip_input_state.input.clone());
-                network_client.connection_attempted = false;
-
                 next_state.set(GameState::Lobby);
                 destroy_screen(&mut commands, &join_query);
 
                 lobby_state.connected_players.clear();
                 lobby_state.connected_players.push("Connecting...".to_string());
-                lobby_state.server_ip = ip_input_state.input.clone();
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
@@ -309,7 +286,7 @@ fn setup_join(
         JoinScreenEntity,
     ));
     commands.spawn((
-        Text2d::new("Input IP Address:"),
+        Text2d::new("Input Lobby Name:"),
         TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., 100., 1.),
@@ -330,7 +307,7 @@ fn setup_join(
         JoinScreenEntity
     ));
     commands.spawn((
-        Text2d::new("127.0.0.1"),
+        Text2d::new(""),
         TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., 0., 1.),
@@ -341,7 +318,6 @@ fn setup_join(
             ..default()
         },
         JoinScreenEntity,
-        IpInputText,
     ));
 
     commands.spawn((
@@ -473,57 +449,5 @@ pub fn destroy_screen<CurrentScreen: Component>(
 ) {
     for entity in query {
         commands.entity(entity).despawn();
-    }
-}
-
-pub fn handle_ip_input(
-    input: Res<ButtonInput<KeyCode>>,
-    mut ip_input_state: ResMut<IpInputState>,
-    mut text_query: Query<&mut Text2d, With<IpInputText>>,
-    current_state: Res<State<GameState>>,
-) {
-    if *current_state.get() != GameState::Joining {
-        return;
-    }
-
-    if input.just_pressed(KeyCode::Enter) || input.just_pressed(KeyCode::Escape) {
-        return;
-    }
-
-    let mut changed = false;
-
-    if input.just_pressed(KeyCode::Backspace) {
-        ip_input_state.input.pop();
-        changed = true;
-    }
-
-    if input.just_pressed(KeyCode::Period) && ip_input_state.input.len() < 15 {
-        ip_input_state.input.push('.');
-        changed = true;
-    }
-
-    let digit_keys = [
-        (KeyCode::Digit0, '0'), (KeyCode::Digit1, '1'), (KeyCode::Digit2, '2'),
-        (KeyCode::Digit3, '3'), (KeyCode::Digit4, '4'), (KeyCode::Digit5, '5'),
-        (KeyCode::Digit6, '6'), (KeyCode::Digit7, '7'), (KeyCode::Digit8, '8'),
-        (KeyCode::Digit9, '9'),
-    ];
-
-    for (key, digit) in digit_keys {
-        if input.just_pressed(key) && ip_input_state.input.len() < 15 {
-            ip_input_state.input.push(digit);
-            changed = true;
-            break;
-        }
-    }
-
-    if changed {
-        if let Ok(mut text) = text_query.single_mut() {
-            if ip_input_state.input.is_empty() {
-                **text = "...".to_string();
-            } else {
-                **text = ip_input_state.input.clone();
-            }
-        }
     }
 }
