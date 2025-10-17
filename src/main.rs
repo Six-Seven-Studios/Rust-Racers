@@ -6,22 +6,17 @@ mod camera;
 mod credits;
 mod title_screen;
 mod lobby;
-mod server;
 mod intro;
-mod get_ip;
-mod networking;
 mod theta;
 
-use title_screen::{check_for_title_input, setup_title_screen, handle_ip_input, IpInputState};
-use lobby::{update_lobby_players, LobbyState};
+use title_screen::{check_for_title_input, setup_title_screen};
+use lobby::LobbyState;
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_player_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
-use server::ServerPlugin;
-use networking::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
@@ -57,8 +52,6 @@ fn main() {
                 }),
             ..default()
         }))
-        .add_plugins(ServerPlugin)
-        .add_plugins(NetworkingPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .add_systems(OnEnter(GameState::Playing), load_map1)
@@ -66,7 +59,6 @@ fn main() {
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
-        .init_resource::<IpInputState>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map).after(load_map_demo))
@@ -74,8 +66,6 @@ fn main() {
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             check_for_title_input,
-            handle_ip_input,
-            update_lobby_players,
             check_for_credits_input,
             //move_car.run_if(in_state(GameState::Playing)),
             move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
