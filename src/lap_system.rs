@@ -1,4 +1,5 @@
 use crate::car::Car;
+use crate::GameState;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -13,7 +14,7 @@ impl Default for LapCounter {
     fn default() -> Self {
         Self {
             current_lap: 0,
-            total_laps: 2, //set to 3 later for full game
+            total_laps: 3, 
             has_finished: false,
             reached_checkpoint: false,
         }
@@ -54,10 +55,11 @@ pub fn update_laps(
     mut query_cars: Query<(&Transform, &mut LapCounter), With<Car>>,
     query_finish: Query<&Transform, With<FinishLine>>,
     query_checkpoint: Query<&Transform, With<Checkpoint>>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     if let (Ok(finish_transform), Ok(checkpoint_transform)) = (
-        query_finish.get_single(),
-        query_checkpoint.get_single(),
+        query_finish.single(),
+        query_checkpoint.single(),
     ) {
         for (car_transform, mut lap_counter) in query_cars.iter_mut() {
             let car_pos = car_transform.translation;
@@ -81,6 +83,8 @@ pub fn update_laps(
                 if lap_counter.current_lap >= lap_counter.total_laps {
                     lap_counter.has_finished = true;
                     println!("CAR FINISHED LAPS");
+                    
+                    next_state.set(GameState::Credits);
                 }
             }
         }
