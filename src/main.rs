@@ -8,6 +8,7 @@ mod title_screen;
 mod lobby;
 mod intro;
 mod theta;
+mod lap_system;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use lobby::LobbyState;
@@ -17,6 +18,7 @@ use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
+use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
@@ -60,7 +62,7 @@ fn main() {
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
-        .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map).after(load_map1))
+        .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map).after(load_map_demo))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
@@ -72,6 +74,7 @@ fn main() {
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
             move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            update_laps.run_if(in_state(GameState::Playing)),
         ))
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))

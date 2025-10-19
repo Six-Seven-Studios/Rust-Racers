@@ -1,3 +1,4 @@
+use crate::LapCounter;
 use bevy::prelude::*;
 use crate::map::GameMap;
 use crate::theta::{theta_star, ThetaCommand};
@@ -98,7 +99,7 @@ pub fn move_player_car(
     if input.pressed(KeyCode::KeyW) {
         let forward = orientation.forward_vector() * accel;
         **velocity += forward;
-        println!("{},{}", x, y);
+        // println!("{},{}", x, y); commented by dvdzs for lap logic
         **velocity = velocity.clamp_length_max(PLAYER_SPEED*speed_mod);
     }
 
@@ -280,13 +281,14 @@ pub fn spawn_cars(
             },
         ),
         Transform {
-            translation: Vec3::new(100., 1000., 50.),
+            translation: Vec3::new(2752., 960., 10.),
             ..default()
         },
         Velocity::new(),
         Orientation::new(0.0),
         Car,
-        PlayerControlled
+        PlayerControlled,
+        LapCounter::default(),
     ));
 
 
@@ -299,13 +301,14 @@ pub fn spawn_cars(
             },
         ),
         Transform {
-            translation: Vec3::new(1920., 5., 50.),
+            translation: Vec3::new(2752., 960., 10.),
             ..default()
         },
         Velocity::new(),
         Orientation::new(0.0),
         Car,
-        AIControlled
+        AIControlled,
+        LapCounter::default(),
     ));
 
 
