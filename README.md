@@ -56,7 +56,7 @@ Using a decision tree, our CPUs will be able to quickly adjust between driving n
   * 2 Different types of terrain: track and grass
     * Grass which will slow down the cars
     * Driving on track will be faster than driving on grass
-  * One map of size 5000px x 5000px
+  * One map of size at least 5000px x 5000px
   * We will have at least one car model
     * By car model we mean a car skin
 
