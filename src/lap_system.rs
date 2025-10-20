@@ -83,8 +83,8 @@ pub fn update_laps(
                 if lap_counter.current_lap >= lap_counter.total_laps {
                     lap_counter.has_finished = true;
                     println!("CAR FINISHED LAPS");
-                    
-                    next_state.set(GameState::Credits);
+
+                    next_state.set(GameState::Victory);
                 }
             }
         }
