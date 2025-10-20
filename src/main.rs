@@ -9,6 +9,7 @@ mod lobby;
 mod intro;
 mod theta;
 mod lap_system;
+mod victory_screen;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use lobby::LobbyState;
@@ -16,6 +17,7 @@ use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_player_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
+use victory_screen::setup_victory_screen;
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
@@ -36,6 +38,7 @@ pub enum GameState {
     Settings,
     Playing,
     PlayingDemo,
+    Victory,
     Credits,
 }
 
@@ -76,6 +79,7 @@ fn main() {
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             update_laps.run_if(in_state(GameState::Playing)),
         ))
+        .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
         .run();
