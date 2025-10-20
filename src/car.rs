@@ -9,7 +9,8 @@ use crate::collisions::handle_collision;
 pub const PLAYER_SPEED: f32 = 350.;
 pub const ACCEL_RATE: f32 = 700.;
 pub const FRICTION: f32 = 0.95;
-pub const TURNING_RATE: f32 = 3.5;
+pub const TURNING_RATE: f32 = 3.0;
+pub const LATERAL_FRICTION: f32 = 8.0;
 pub const CAR_SIZE: u32 = 64;
 
 // Car-related components
@@ -72,6 +73,8 @@ pub fn move_player_car(
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
+    // Space bar to drift
+    let is_drifting = input.pressed(KeyCode::Space);
 
     // PLACEHOLDER LOGIC FOR TILE COLLISIONS
 
@@ -118,6 +121,20 @@ pub fn move_player_car(
             let new_speed = (curr_speed - decel_rate).max(0.0);
             **velocity = velocity.normalize() * new_speed;
         }
+    }
+
+    // Apply lateral friction when not drifting to reduce sliding
+    if !is_drifting && velocity.length() > 0.01 {
+        let forward = orientation.forward_vector();
+        let right = Vec2::new(-forward.y, forward.x);
+
+        let forward_speed = velocity.dot(forward);
+        let lateral_speed = velocity.dot(right);
+
+        let damping = (1.0 - LATERAL_FRICTION * deltat).max(0.0);
+        let new_lateral_speed = lateral_speed * damping;
+
+        **velocity = forward * forward_speed + right * new_lateral_speed;
     }
 
     // Updated position
