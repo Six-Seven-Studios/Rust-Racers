@@ -509,6 +509,13 @@ fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList
         // Mark the empty lobbies as to be removed
         if players.len() == 0 {
             empty_lobbies.push(i);
+        } else if lobby.host == id {
+            if let Some(first_player) = players.get(0) {
+                lobby.host = *first_player;
+            }
+            else {
+                println!("Should never get here because players should have at least one element");
+            }
         }
     }
 
