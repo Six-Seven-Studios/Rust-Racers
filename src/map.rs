@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use bevy::prelude::*;
-use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL};
+use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL};
 use crate::Resource;
 
 #[derive(Resource)]
@@ -37,7 +37,7 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
     let mut is_terrain = true;
 
     // helper to map raw tile index to logical terrain
-    fn create_terrain_tile(tile_index: u8) -> TerrainTile {
+    fn create_terrain_tile(tile_index: u8, x: usize, y: usize) -> TerrainTile {
         // get a copy of the correct template (ROAD, GRASS, etc.)
         let mut template = match tile_index {
             0..=15 => TILES[ROAD as usize].clone(),
@@ -46,11 +46,16 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
             48..=63 => TILES[GRASS as usize].clone(),
             64..=79 => TILES[SAND as usize].clone(),
             80..=95 => TILES[OIL as usize].clone(),
+            112..=127 => TILES[WALL as usize].clone(), // 0x70-0x7F in hex
             _ => TILES[GRASS as usize].clone(),
         };
 
         // overwrite the template's visual ID with the specific ID from the map file
         template.tile_id = tile_index;
+
+        // set the tile coordinates for pathfinding
+        template.x_coordinate = x as f32;
+        template.y_coordinate = y as f32;
 
         // return the finished tile
         template
@@ -65,7 +70,13 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
                     // convert u8 rows to TerrainTile rows
                     let terrain_rows: Vec<Vec<TerrainTile>> = current_layer
                         .drain(..)
-                        .map(|row| row.into_iter().map(create_terrain_tile).collect())
+                        .enumerate()
+                        .map(|(y, row)| {
+                            row.into_iter()
+                                .enumerate()
+                                .map(|(x, tile_index)| create_terrain_tile(tile_index, x, y))
+                                .collect()
+                        })
                         .collect();
                     terrain_layer = terrain_rows;
                     is_terrain = false;
@@ -82,7 +93,7 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
             .trim()
             .split_whitespace()
             .filter(|s| !s.is_empty()) // filter to handle potential extra spaces
-            .map(|n| n.parse().unwrap_or(255))
+            .map(|s| u8::from_str_radix(s, 16).unwrap()) // changing this to interpet HEX
             .collect();
         
         // avoid adding empty rows if the line was blank

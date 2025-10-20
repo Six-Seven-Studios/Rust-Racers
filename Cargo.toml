@@ -14,7 +14,9 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.16.1"
+serde = "1.0"
+serde_json = "1.0"
 
 [[bin]]
-name = "client"
-path = "src/client/client.rs"
+name = "server"
+path = "src/server/server.rs"
