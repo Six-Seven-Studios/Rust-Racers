@@ -169,7 +169,7 @@ fn handle_client_message(
                  }
  
                 // Cannot have two lobbies with the same name
-                if let Some(i) = found_lobby_index {
+                if let Some(_i) = found_lobby_index {
                     return send_to_client(id, connected_clients, &json!({
                         "type": "error",
                         "message": format!("A lobby named '{}' already exists", name)
@@ -189,7 +189,7 @@ fn handle_client_message(
 
                     guard.push(lobby);
 
-                    send_to_client(id, connected_clients, &json!({
+                    let _ = send_to_client(id, connected_clients, &json!({
                         "type": "confirmation",
                         "message": format!("You have created the lobby '{}'", name)
                     }));
@@ -202,7 +202,7 @@ fn handle_client_message(
         }
 
         MessageType::JoinLobby { name } => {
-            let mut lobby_index = 0;
+            let lobby_index:usize;
             {
                 let mut guard = lobbies.lock().unwrap();
 
@@ -243,7 +243,7 @@ fn handle_client_message(
                             players.push(id);
                         }
 
-                        send_to_client(id, connected_clients, &json!({
+                        let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
                             "message": format!("You have joined the lobby '{}'", name)
                         }));
@@ -300,7 +300,7 @@ fn handle_client_message(
                             return *player_id != id;
                         });
 
-                        send_to_client(id, connected_clients, &json!({
+                        let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
                             "message": format!("You have left the lobby '{}'", name)
                         }));
@@ -322,7 +322,7 @@ fn handle_client_message(
                 }
                 else {
                     // If the lobby cannot be found send an error
-                    send_to_client(id, connected_clients, &json!({
+                    let _ = send_to_client(id, connected_clients, &json!({
                         "type": "error",
                         "message": format!("Cannot join '{}' because it does not exist", name)
                     }));
@@ -392,7 +392,7 @@ fn handle_client_message(
                         // Mark the lobby as started
                         lobby.started = true;
 
-                        send_to_client(id, connected_clients, &json!({
+                        let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
                             "message": format!("You have started the lobby '{}'", name)
                         }));
@@ -498,11 +498,30 @@ fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList
     if let Ok(mut m) = connected.streams.lock() { m.remove(&id); }
     if let Ok(mut ids) = connected.ids.lock() { ids.retain(|x| *x != id); }
 
+    let mut empty_lobbies: Vec<usize> = Vec::new();
+
     // remove from all lobbies
     let mut guard = lobbies.lock().unwrap();
-    for lobby in guard.iter_mut() {
+    for (i, lobby) in guard.iter_mut().enumerate() {
         let mut players = lobby.players.lock().unwrap();
         players.retain(|p| *p != id);
+
+        // Mark the empty lobbies as to be removed
+        if players.len() == 0 {
+            empty_lobbies.push(i);
+        } else if lobby.host == id {
+            if let Some(first_player) = players.get(0) {
+                lobby.host = *first_player;
+            }
+            else {
+                println!("Should never get here because players should have at least one element");
+            }
+        }
+    }
+
+    // Remove the empty lobbies
+    for index in empty_lobbies.iter() {
+        guard.remove(*index);
     }
 
     println!("Client {id} disconnected and cleaned up");
