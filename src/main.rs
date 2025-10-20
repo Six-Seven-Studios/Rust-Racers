@@ -19,6 +19,7 @@ use credits::{check_for_credits_input, setup_credits, show_credits};
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
+use theta::{set_up_theta_checkpoints};
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
@@ -60,6 +61,7 @@ fn main() {
         .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
+        .insert_resource(set_up_theta_checkpoints())
         .init_resource::<LobbyState>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
