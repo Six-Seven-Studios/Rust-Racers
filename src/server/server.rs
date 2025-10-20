@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
-enum ClientMsg {
+enum MessageType {
     CreateLobby { name: String },
 
     JoinLobby { name: String },
@@ -28,6 +28,7 @@ pub struct ConnectedClients {
     pub streams: Arc<Mutex<HashMap<u32, TcpStream>>>,
 }
 
+#[derive(Clone)]
 pub struct Lobby {
     pub players: Arc<Mutex<Vec<u32>>>,
     pub host: u32,
@@ -122,10 +123,10 @@ fn handle_client(
                 let trimmed = line.trim();
                 if trimmed.is_empty() { continue; }
 
-                match serde_json::from_str::<ClientMsg>(trimmed) {
-                    Ok(msg) => {
-                        if let Err(e) = handle_client_msg(id, msg, &connected_clients, &lobbies) {
-                            eprintln!("handle_client_msg error for {id}: {e}");
+                match serde_json::from_str::<MessageType>(trimmed) {
+                    Ok(message) => {
+                        if let Err(e) = handle_client_message(id, message, &connected_clients, &lobbies) {
+                            eprintln!("handle_client_message error for {id}: {e}");
                         }
                     }
                     Err(e) => {
@@ -146,121 +147,260 @@ fn handle_client(
     }
 }
 
-fn handle_client_msg(
+fn handle_client_message(
     id: u32,
-    msg: ClientMsg,
+    message: MessageType,
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) -> std::io::Result<()> {
-    match msg {
-        ClientMsg::CreateLobby { name } => {
-            let mut guard = lobbies.lock().unwrap();
+    match message {
+        MessageType::CreateLobby { name } => {
+            {
+                let mut guard = lobbies.lock().unwrap();
 
-            // Create new lobby
-            let mut lobby = Lobby::default();
+                 // Try to find a lobby that has the same name
+                 let mut found_lobby_index: Option<usize> = None;
 
-            lobby.host = id;
-            lobby.name = name.clone();
+                 for (i, lobby) in guard.iter().enumerate() {
+                     if lobby.name == name {
+                         found_lobby_index = Some(i);
+                         break;
+                     }
+                 }
+ 
+                // Cannot have two lobbies with the same name
+                if let Some(i) = found_lobby_index {
+                    return send_to_client(id, connected_clients, &json!({
+                        "type": "error",
+                        "message": format!("A lobby named '{}' already exists", name)
+                    }));
+                } 
+                else {
+                    // Create new lobby
+                    let mut lobby = Lobby::default();
 
-            guard.push(lobby);
+                    lobby.host = id;
+                    lobby.name = name.clone();
+
+                    {
+                        let mut players = lobby.players.lock().unwrap();
+                        players.push(id);
+                    }
+
+                    guard.push(lobby);
+
+                    send_to_client(id, connected_clients, &json!({
+                        "type": "confirmation",
+                        "message": format!("You have created the lobby '{}'", name)
+                    }));
+                }
+            }
 
             broadcast_active_lobbies(connected_clients, lobbies);
 
             Ok(())
         }
 
-        ClientMsg::JoinLobby { name } => {
-            let mut guard = lobbies.lock().unwrap();
+        MessageType::JoinLobby { name } => {
+            let mut lobby_index = 0;
+            {
+                let mut guard = lobbies.lock().unwrap();
 
-            // Try to find a lobby that has the same name
-            let mut found_lobby_index: Option<usize> = None;
+                // Try to find a lobby that has the same name
+                let mut found_lobby_index: Option<usize> = None;
 
-            for (i, lobby) in guard.iter().enumerate() {
-                if lobby.name == name {
-                    found_lobby_index = Some(i);
-                    break;
+                for (i, lobby) in guard.iter().enumerate() {
+                    if lobby.name == name {
+                        found_lobby_index = Some(i);
+                        break;
+                    }
+                }
+
+                if let Some(i) = found_lobby_index {
+                    // Get the lobby
+                    let lobby = &mut guard[i];
+
+                    lobby_index = i;
+
+                    // Cannot join a lobby that already started
+                    if lobby.started {
+                        return send_to_client(id, connected_clients, &json!({
+                            "type": "error",
+                            "message": format!("Cannot join '{}' because it has already started", name)
+                        }));
+                    }
+                    // Cannot join a lobby that already has 4 players
+                    else if lobby.players.lock().unwrap().len() == 4 {
+                        return send_to_client(id, connected_clients, &json!({
+                            "type": "error",
+                            "message": format!("Cannot join '{}' because it is full", name)
+                        }));
+                    }
+                    else {
+                        // Add player if not already there
+                        let mut players = lobby.players.lock().unwrap();
+                        if !players.contains(&id) {
+                            players.push(id);
+                        }
+
+                        send_to_client(id, connected_clients, &json!({
+                            "type": "confirmation",
+                            "message": format!("You have joined the lobby '{}'", name)
+                        }));
+                    }
+                }
+                else {
+                    // Send an error if lobby does not exist
+                    return send_to_client(id, connected_clients, &json!({
+                        "type": "error",
+                        "message": format!("Cannot join '{}' because it does not exist", name)
+                    }));
                 }
             }
 
-            if let Some(i) = found_lobby_index {
-                // Get the lobby
-                let lobby = &mut guard[i];
-
-                // Add player if not already there
-                let mut players = lobby.players.lock().unwrap();
-                if !players.contains(&id) {
-                    players.push(id);
-                }
-            }
-
-            broadcast_lobby_state(connected_clients, lobbies);
+            broadcast_lobby_state(connected_clients, lobbies, lobby_index);
+            broadcast_active_lobbies(connected_clients, lobbies);
 
             Ok(())
         }
 
-        ClientMsg::LeaveLobby { name } => {
-            let mut guard = lobbies.lock().unwrap();
+        MessageType::LeaveLobby { name } => {
+            let mut lobby_exists = true;
+            let mut lobby_index = 0;
+            {
+                let mut guard = lobbies.lock().unwrap();
 
-            // Try to find a lobby that has the same name
-            let mut found_lobby_index: Option<usize> = None;
+                // Try to find a lobby that has the same name
+                let mut found_lobby_index: Option<usize> = None;
 
-            for (i, lobby) in guard.iter().enumerate() {
-                if lobby.name == name {
-                    found_lobby_index = Some(i);
-                    break;
+                for (i, lobby) in guard.iter().enumerate() {
+                    if lobby.name == name {
+                        found_lobby_index = Some(i);
+                        break;
+                    }
                 }
-            }
 
-            if let Some(i) = found_lobby_index {
-                // Get the lobby
-                let lobby = &mut guard[i];
+                if let Some(i) = found_lobby_index {
+                    // Get the lobby
+                    let lobby = &mut guard[i];
 
-                let mut players = lobby.players.lock().unwrap();
-                players.retain(|player_id| {
-                    return *player_id != id;
-                });
+                    lobby_index = i;
+
+                    // If the lobby already started send an error
+                    if lobby.started {
+                        return send_to_client(id, connected_clients, &json!({
+                            "type": "error",
+                            "message": format!("Cannot leave '{}' because it has already started", name)
+                        }));
+                    }
+                    else {
+                        // Remove the player
+                        let mut players = lobby.players.lock().unwrap();
+                        players.retain(|player_id| {
+                            return *player_id != id;
+                        });
+
+                        send_to_client(id, connected_clients, &json!({
+                            "type": "confirmation",
+                            "message": format!("You have left the lobby '{}'", name)
+                        }));
+
+                        // Remove lobby if there are no players
+                        if players.len() == 0 {
+                            lobby_exists = false;
+                        }
+                        // If the host leaves, set the new host to be the next player 
+                        else if lobby.host == id {
+                            if let Some(first_player) = players.get(0) {
+                                lobby.host = *first_player;
+                            }
+                            else {
+                                println!("Should never get here because players should have at least one element");
+                            }
+                        }
+                    }
+                }
+                else {
+                    // If the lobby cannot be found send an error
+                    send_to_client(id, connected_clients, &json!({
+                        "type": "error",
+                        "message": format!("Cannot join '{}' because it does not exist", name)
+                    }));
+                }
+
+                // Remove the lobby if necessary
+                if !lobby_exists {
+                    guard.remove(lobby_index);
+                }
             }
             
-            broadcast_lobby_state(connected_clients, lobbies);
+            // Broadcast state if the lobby still exists
+            if lobby_exists {
+                broadcast_lobby_state(connected_clients, lobbies, lobby_index);
+            }
+
+            broadcast_active_lobbies(connected_clients, lobbies);
 
             Ok(())
         }
 
-        ClientMsg::ListLobbies => {
-            let snap: Vec<_> = {
+        MessageType::ListLobbies => {
+            // Only send lobbies that are not started
+            let lobby_list: Vec<_> = {
                 let guard = lobbies.lock().unwrap();
-                guard.iter().map(|l| {
+                guard.iter().filter(|l| !l.started).map(|l| {
                     let count = l.players.lock().unwrap().len();
-                    json!({"name": l.name, "players": count})
+                    json!({
+                        "name": l.name,
+                        "players": count
+                    })
                 }).collect()
             };
             
             send_to_client(id, connected_clients, &json!({
-                "type":"active_lobbies",
-                "lobbies": snap
+                "type": "active_lobbies",
+                "lobbies": lobby_list
             }))
         }
 
-        ClientMsg::StartLobby { name } => {
-            let mut guard = lobbies.lock().unwrap();
+        MessageType::StartLobby { name } => {
+            {
+                let mut guard = lobbies.lock().unwrap();
 
-            // Try to find a lobby that has the same name
-            let mut found_lobby_index: Option<usize> = None;
+                // Try to find a lobby that has the same name
+                let mut found_lobby_index: Option<usize> = None;
 
-            for (i, lobby) in guard.iter().enumerate() {
-                if lobby.name == name {
-                    found_lobby_index = Some(i);
-                    break;
+                for (i, lobby) in guard.iter().enumerate() {
+                    if lobby.name == name {
+                        found_lobby_index = Some(i);
+                        break;
+                    }
+                }
+
+                if let Some(i) = found_lobby_index {
+                    // Get the lobby
+                    let lobby = &mut guard[i];
+
+                    // The host is the only one who can start the game
+                    if lobby.host != id {
+                        return send_to_client(id, connected_clients, &json!({
+                            "type": "error",
+                            "message": format!("You are not the host of '{}', so you cannot start the game.", name)
+                        }))
+                    } 
+                    else {
+                        // Mark the lobby as started
+                        lobby.started = true;
+
+                        send_to_client(id, connected_clients, &json!({
+                            "type": "confirmation",
+                            "message": format!("You have started the lobby '{}'", name)
+                        }));
+                    }
                 }
             }
 
-            if let Some(i) = found_lobby_index {
-                // Get the lobby
-                let lobby = &mut guard[i];
-
-                // Mark the lobby as started
-                lobby.started = true;
-            }
+            broadcast_active_lobbies(connected_clients, lobbies);
 
             Ok(())
         }
@@ -279,42 +419,41 @@ fn send_to_client(id: u32, connected_clients: &ConnectedClients, val: &serde_jso
 fn broadcast_lobby_state(
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
+    lobby_index: usize,
 ) {
     let guard = lobbies.lock().unwrap();
 
-    for lobby in guard.iter() {
-        // Snapshot the player IDs
-        let players: Vec<u32> = {
-            let lobby_guard = lobby.players.lock().unwrap();
-            lobby_guard.clone()
-        };
+    let lobby = guard.get(lobby_index).unwrap();
+    
+    // Snapshot the player IDs
+    let players: Vec<u32> = {
+        let lobby_guard = lobby.players.lock().unwrap();
+        lobby_guard.clone()
+    };
 
-        // Continue if players are empty
-        if players.is_empty() {
-            continue;
-        }
+    // Build one payload that everyone in this lobby gets
+    let payload = json!({ 
+        "lobby": lobby.name.clone(),
+        "players": players 
+    }).to_string() + "\n";
 
-        // Build one payload that everyone in this lobby gets
-        let payload = json!({ "players": players }).to_string() + "\n";
-
-        // Clone target streams
-        let mut targets = Vec::new();
-        {
-            let streams = connected_clients.streams.lock().unwrap();
-            for pid in &players {
-                if let Some(s) = streams.get(pid) {
-                    if let Ok(clone) = s.try_clone() {
-                        targets.push(clone);
-                    }
+    // Clone target streams
+    let mut targets = Vec::new();
+    {
+        let streams = connected_clients.streams.lock().unwrap();
+        for pid in &players {
+            if let Some(s) = streams.get(pid) {
+                if let Ok(clone) = s.try_clone() {
+                    targets.push(clone);
                 }
             }
         }
+    }
 
-        // Write to everyone
-        for mut stream in targets {
-            let _ = stream.write_all(payload.as_bytes());
-            let _ = stream.flush();
-        }
+    // Write to everyone
+    for mut stream in targets {
+        let _ = stream.write_all(payload.as_bytes());
+        let _ = stream.flush();
     }
 }
 
@@ -322,12 +461,15 @@ fn broadcast_active_lobbies(
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) {
-    // Snapshot the lobby list (name + count)
+    // Only send lobbies that are not started
     let lobby_list: Vec<_> = {
         let guard = lobbies.lock().unwrap();
-        guard.iter().map(|l| {
+        guard.iter().filter(|l| !l.started).map(|l| {
             let count = l.players.lock().unwrap().len();
-            json!({"name": l.name, "players": count})
+            json!({
+                "name": l.name,
+                "players": count
+            })
         }).collect()
     };
 
@@ -336,7 +478,7 @@ fn broadcast_active_lobbies(
         "type": "active_lobbies",
         "lobbies": lobby_list
     }).to_string();
-    let payload = payload + "\n"; // helps line-oriented clients
+    let payload = payload + "\n";
 
     // Clone all streams
     let targets: Vec<TcpStream> = {
