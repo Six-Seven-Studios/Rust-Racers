@@ -32,6 +32,9 @@ pub enum ServerMessage {
 
     #[serde(rename = "active_lobbies")]
     ActiveLobbies { lobbies: Vec<LobbyInfo> },
+
+    #[serde(rename = "game_started")]
+    GameStarted { lobby: String },
 }
 
 #[derive(Debug, Clone, Deserialize)]

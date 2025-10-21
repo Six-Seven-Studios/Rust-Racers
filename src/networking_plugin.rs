@@ -3,6 +3,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
 use crate::networking::{Client, IncomingMessage, ServerMessage, spawn_listener_thread};
 use crate::lobby::LobbyState;
+use crate::GameState;
 
 // Resource to hold the client connection
 #[derive(Resource)]
@@ -54,6 +55,9 @@ fn process_network_messages(
     receiver: Res<MessageReceiver>,
     mut network_client: ResMut<NetworkClient>,
     mut lobby_state: ResMut<LobbyState>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut commands: Commands,
+    lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -79,6 +83,17 @@ fn process_network_messages(
                         for lobby in lobbies {
                             println!("  {} ({} players)", lobby.name, lobby.players);
                         }
+                    }
+                    ServerMessage::GameStarted { lobby } => {
+                        println!("Game started for lobby: {}", lobby);
+
+                        // Destroy lobby screen entities
+                        for entity in lobby_query.iter() {
+                            commands.entity(entity).despawn();
+                        }
+
+                        // Transition to Playing state
+                        next_state.set(GameState::Playing);
                     }
                 }
             }

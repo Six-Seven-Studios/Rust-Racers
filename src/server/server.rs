@@ -400,15 +400,25 @@ fn handle_client_message(
                             "type": "error",
                             "message": format!("You are not the host of '{}', so you cannot start the game.", name)
                         }))
-                    } 
+                    }
                     else {
                         // Mark the lobby as started
                         lobby.started = true;
+
+                        // Get the players list to broadcast to
+                        let players: Vec<u32> = lobby.players.lock().unwrap().clone();
+
+                        // Broadcast game started to all players in the lobby
+                        drop(guard); // Release the lock before broadcasting
+                        broadcast_game_start(connected_clients, &players, &name);
 
                         let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
                             "message": format!("You have started the lobby '{}'", name)
                         }));
+
+                        broadcast_active_lobbies(connected_clients, lobbies);
+                        return Ok(());
                     }
                 }
             }
@@ -587,6 +597,38 @@ fn broadcast_positions(
     {
         let streams = connected_clients.streams.lock().unwrap();
         for pid in &players {
+            if let Some(s) = streams.get(pid) {
+                if let Ok(clone) = s.try_clone() {
+                    targets.push(clone);
+                }
+            }
+        }
+    }
+
+    // Write to everyone in the lobby
+    for mut stream in targets {
+        let _ = stream.write_all(payload.as_bytes());
+        let _ = stream.flush();
+    }
+}
+
+// Broadcast game start to all players in a lobby
+fn broadcast_game_start(
+    connected_clients: &ConnectedClients,
+    players: &[u32],
+    lobby_name: &str,
+) {
+    // Build the game started payload
+    let payload = json!({
+        "type": "game_started",
+        "lobby": lobby_name
+    }).to_string() + "\n";
+
+    // Clone target streams
+    let mut targets = Vec::new();
+    {
+        let streams = connected_clients.streams.lock().unwrap();
+        for pid in players {
             if let Some(s) = streams.get(pid) {
                 if let Ok(clone) = s.try_clone() {
                     targets.push(clone);

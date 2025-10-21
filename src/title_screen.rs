@@ -167,8 +167,15 @@ pub fn check_for_title_input(
                 setup_title_screen(commands, asset_server);
             }
             else if input.just_pressed(KeyCode::Digit1){
-                next_state.set(GameState::Playing);
-                destroy_screen(&mut commands, &lobby_query);
+                // Send start lobby message to server
+                if let Some(client) = network_client.client.as_mut() {
+                    let lobby_name = lobby_state.name.clone();
+                    if let Err(e) = client.start_lobby(lobby_name) {
+                        println!("Failed to send start lobby message: {}", e);
+                    } else {
+                        println!("Sent start lobby request to server");
+                    }
+                }
             }
         }
         GameState::Joining => {
