@@ -11,12 +11,13 @@ mod theta;
 mod lap_system;
 mod victory_screen;
 mod networking;
+mod multiplayer;
 mod networking_plugin;
 
 use title_screen::{check_for_title_input, setup_title_screen};
 use lobby::{LobbyState, update_lobby_display};
 use map::{load_map_from_file, GameMap, spawn_map};
-use car::{Background, move_player_car, spawn_cars};
+use car::{Background, move_player_car, spawn_cars, move_ai_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use victory_screen::setup_victory_screen;
@@ -26,7 +27,6 @@ use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
 use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
-use crate::car::move_ai_cars;
 // use bevy::render::
 
 const TILE_SIZE: u32 = 64;  //Tentative
@@ -61,13 +61,14 @@ fn main() {
             ..default()
         }))
         .add_plugins(NetworkingPlugin)
+        .insert_resource(ClearColor(Color::WHITE))
         .init_state::<GameState>()
-        .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .add_systems(OnEnter(GameState::Playing), load_map1)
         .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
+        .init_resource::<multiplayer::NetworkClient>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
@@ -83,6 +84,8 @@ fn main() {
             move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             update_laps.run_if(in_state(GameState::Playing)),
+            multiplayer::send_car_position.run_if(in_state(GameState::Playing)),
+            multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
         ))
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
@@ -105,7 +108,7 @@ fn camera_setup(mut commands: Commands)
 }
 
 fn car_setup(
-    mut commands: Commands,
+    commands: Commands,
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>)
 {

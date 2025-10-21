@@ -20,6 +20,8 @@ enum MessageType {
     ListLobbies,
 
     StartLobby { name: String },
+
+    CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
 }
 
 // Track connected clients
@@ -28,12 +30,22 @@ pub struct ConnectedClients {
     pub streams: Arc<Mutex<HashMap<u32, TcpStream>>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct PlayerPosition {
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub angle: f32,
+}
+
 #[derive(Clone)]
 pub struct Lobby {
     pub players: Arc<Mutex<Vec<u32>>>,
     pub host: u32,
     pub name: String,
     pub started: bool,
+    pub positions: Arc<Mutex<HashMap<u32, PlayerPosition>>>,
 }
 
 type LobbyList = Arc<Mutex<Vec<Lobby>>>;
@@ -54,6 +66,7 @@ impl Default for Lobby {
             host: 0,
             name: String::from(""),
             started: false,
+            positions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -404,6 +417,10 @@ fn handle_client_message(
 
             Ok(())
         }
+
+        MessageType::CarPosition { x, y, vx, vy, angle } => {
+            receive_positions(id, x, y, vx, vy, angle, connected_clients, lobbies)
+        }
     }
 }
 
@@ -487,6 +504,98 @@ fn broadcast_active_lobbies(
     };
 
     // Write to everyone
+    for mut stream in targets {
+        let _ = stream.write_all(payload.as_bytes());
+        let _ = stream.flush();
+    }
+}
+
+// Receive car position from a client and store it
+fn receive_positions(
+    id: u32,
+    x: f32,
+    y: f32,
+    vx: f32,
+    vy: f32,
+    angle: f32,
+    connected_clients: &ConnectedClients,
+    lobbies: &LobbyList,
+) -> std::io::Result<()> {
+    // Find the lobby this player is in
+    let lobby_index_opt: Option<usize> = {
+        let guard = lobbies.lock().unwrap();
+        guard.iter().position(|lobby| {
+            lobby.players.lock().unwrap().contains(&id)
+        })
+    };
+
+    if let Some(lobby_index) = lobby_index_opt {
+        // Update this player's position in the lobby
+        {
+            let guard = lobbies.lock().unwrap();
+            let lobby = &guard[lobby_index];
+            let mut positions = lobby.positions.lock().unwrap();
+            positions.insert(id, PlayerPosition { x, y, vx, vy, angle });
+        }
+
+        // Broadcast all positions to all players in this lobby
+        broadcast_positions(connected_clients, lobbies, lobby_index);
+    }
+
+    Ok(())
+}
+
+// Broadcast all car positions to all players in a lobby
+fn broadcast_positions(
+    connected_clients: &ConnectedClients,
+    lobbies: &LobbyList,
+    lobby_index: usize,
+) {
+    let guard = lobbies.lock().unwrap();
+    let lobby = guard.get(lobby_index).unwrap();
+    
+    // Snapshot the player IDs and positions
+    let players: Vec<u32> = {
+        let lobby_guard = lobby.players.lock().unwrap();
+        lobby_guard.clone()
+    };
+    
+    let positions: HashMap<u32, PlayerPosition> = {
+        let pos_guard = lobby.positions.lock().unwrap();
+        pos_guard.clone()
+    };
+
+    // Build positions payload
+    let positions_json: Vec<_> = positions.iter().map(|(player_id, pos)| {
+        json!({
+            "id": player_id,
+            "x": pos.x,
+            "y": pos.y,
+            "vx": pos.vx,
+            "vy": pos.vy,
+            "angle": pos.angle
+        })
+    }).collect();
+
+    let payload = json!({ 
+        "type": "positions",
+        "players": positions_json 
+    }).to_string() + "\n";
+
+    // Clone target streams
+    let mut targets = Vec::new();
+    {
+        let streams = connected_clients.streams.lock().unwrap();
+        for pid in &players {
+            if let Some(s) = streams.get(pid) {
+                if let Ok(clone) = s.try_clone() {
+                    targets.push(clone);
+                }
+            }
+        }
+    }
+
+    // Write to everyone in the lobby
     for mut stream in targets {
         let _ = stream.write_all(payload.as_bytes());
         let _ = stream.flush();
