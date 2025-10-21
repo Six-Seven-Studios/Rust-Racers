@@ -22,6 +22,24 @@ pub struct CustomizingScreenEntity;
 #[derive(Component)]
 pub struct LobbyNameInput;
 
+#[derive(Component)]
+pub struct ServerIpInput;
+
+#[derive(Resource)]
+pub struct ServerAddress {
+    pub address: String,
+}
+
+// System to sync the server IP input text with the ServerAddress resource
+pub fn sync_server_address(
+    server_ip_query: Query<&Text2d, (With<ServerIpInput>, Changed<Text2d>)>,
+    mut server_address: ResMut<ServerAddress>,
+) {
+    if let Ok(text) = server_ip_query.get_single() {
+        server_address.address = text.0.trim().to_string();
+    }
+}
+
 pub fn check_for_title_input(
     input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -36,17 +54,63 @@ pub fn check_for_title_input(
     mut lobby_state: ResMut<LobbyState>,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
-    mut input_text_query: Query<&mut Text2d, With<LobbyNameInput>>,
+    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
+    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
+    server_address: Res<ServerAddress>,
 ) {
 
     match *current_state.get() {
         GameState::Title => {
-            if input.just_pressed(KeyCode::Digit1){
-                const SERVER_ADDRESS: &str = "127.0.0.1:4000";
+            // Use a local variable to track typing mode that persists across frames
+            use bevy::prelude::Local;
+            static mut TYPING_MODE: bool = false;
+
+            // Toggle typing mode with Enter
+            if input.just_pressed(KeyCode::Enter) {
+                unsafe {
+                    TYPING_MODE = !TYPING_MODE;
+                    println!("IP typing mode: {}", if TYPING_MODE { "ON" } else { "OFF (use 1/2/3/4)" });
+                }
+            }
+
+            let is_typing_ip = unsafe { TYPING_MODE };
+
+            // Only handle text input when in typing mode
+            if is_typing_ip {
+                for key in input.get_just_pressed() {
+                    if let Ok(mut text) = server_ip_query.get_single_mut() {
+                        match key {
+                            KeyCode::Enter => {
+                                // Enter handled above for toggle, skip here
+                            }
+                            KeyCode::Backspace => {
+                                text.0.pop();
+                            }
+                            KeyCode::Period => {
+                                text.0.push('.');
+                            }
+                            KeyCode::Semicolon => {
+                                text.0.push(':');
+                            }
+                            _ => {
+                                if let Some(character) = key_to_char(key) {
+                                    if text.0.len() < 25 {
+                                        text.0.push(character);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Only trigger menu actions if NOT typing in IP field
+            if !is_typing_ip && input.just_pressed(KeyCode::Digit1){
+                let server_addr = format!("{}:4000", server_address.address);
 
                 // Connect to server and create lobby
                 if network_client.client.is_none() {
-                    match connect_to_server(&mut network_client, &message_sender, SERVER_ADDRESS) {
+                    match connect_to_server(&mut network_client, &message_sender, &server_addr) {
                         Ok(_) => println!("Connected to server!"),
                         Err(e) => {
                             println!("Failed to connect to server: {}", e);
@@ -74,13 +138,13 @@ pub fn check_for_title_input(
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
-            else if input.just_pressed(KeyCode::Digit2){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
                 setup_join(commands, asset_server);
             }
-            else if input.just_pressed(KeyCode::Digit3){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit3){
                 next_state.set(GameState::Customizing);
                 destroy_screen(&mut commands, &title_query);
                 setup_customizing(commands, asset_server);
@@ -91,7 +155,7 @@ pub fn check_for_title_input(
                 setup_settings(commands, asset_server);
             }
             // Theta* DEMO
-            else if input.just_pressed(KeyCode::Digit4){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit4){
                 next_state.set(GameState::PlayingDemo);
                 destroy_screen(&mut commands, &title_query);
             }
@@ -103,14 +167,21 @@ pub fn check_for_title_input(
                 setup_title_screen(commands, asset_server);
             }
             else if input.just_pressed(KeyCode::Digit1){
-                next_state.set(GameState::Playing);
-                destroy_screen(&mut commands, &lobby_query);
+                // Send start lobby message to server
+                if let Some(client) = network_client.client.as_mut() {
+                    let lobby_name = lobby_state.name.clone();
+                    if let Err(e) = client.start_lobby(lobby_name) {
+                        println!("Failed to send start lobby message: {}", e);
+                    } else {
+                        println!("Sent start lobby request to server");
+                    }
+                }
             }
         }
         GameState::Joining => {
             // Handle text input for lobby name
             for key in input.get_just_pressed() {
-                if let Ok(mut text) = input_text_query.get_single_mut() {
+                if let Ok(mut text) = lobby_name_query.get_single_mut() {
                     match key {
                         KeyCode::Backspace => {
                             text.0.pop();
@@ -136,7 +207,7 @@ pub fn check_for_title_input(
             }
             else if input.just_pressed(KeyCode::Enter){
                 // Get the lobby name from the input
-                let lobby_name = if let Ok(text) = input_text_query.get_single() {
+                let lobby_name = if let Ok(text) = lobby_name_query.get_single() {
                     text.0.trim().to_string()
                 } else {
                     String::new()
@@ -148,9 +219,9 @@ pub fn check_for_title_input(
                 }
 
                 // Connect to server if not already connected
-                const SERVER_ADDRESS: &str = "127.0.0.1:4000";
+                let server_addr = format!("{}:4000", server_address.address);
                 if network_client.client.is_none() {
-                    match connect_to_server(&mut network_client, &message_sender, SERVER_ADDRESS) {
+                    match connect_to_server(&mut network_client, &message_sender, &server_addr) {
                         Ok(_) => println!("Connected to server!"),
                         Err(e) => {
                             println!("Failed to connect to server: {}", e);
@@ -336,6 +407,44 @@ pub fn setup_title_screen(
             ..default()
         },
         MainScreenEntity
+    ));
+
+    // Server IP input (top-right)
+    commands.spawn((
+        Text2d::new("Server IP:"),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(290., 300., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 25.0,
+            ..default()
+        },
+        MainScreenEntity,
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("title_screen/lobbyInput.png")),
+        Transform {
+            translation: Vec3::new(450., 300., 1.),
+            scale: Vec3::new(0.6, 0.6, 1.0),
+            ..default()
+        },
+        MainScreenEntity
+    ));
+    commands.spawn((
+        Text2d::new("hi"),
+        TextColor(Color::srgb(0.5, 0.5, 0.5)),  // Gray placeholder color
+        Transform {
+            translation: Vec3::new(450., 300., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 25.0,
+            ..default()
+        },
+        MainScreenEntity,
+        ServerIpInput,
     ));
 
     // Theta* DEMO (Remove later)

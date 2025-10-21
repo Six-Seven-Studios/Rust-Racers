@@ -32,6 +32,9 @@ pub enum ServerMessage {
 
     #[serde(rename = "active_lobbies")]
     ActiveLobbies { lobbies: Vec<LobbyInfo> },
+
+    #[serde(rename = "game_started")]
+    GameStarted { lobby: String },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -45,6 +48,22 @@ pub struct LobbyInfo {
 pub struct LobbyStateMessage {
     pub lobby: String,
     pub players: Vec<u32>,
+}
+
+// Position message for car positions
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlayerPositionData {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub angle: f32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PositionsMessage {
+    pub players: Vec<PlayerPositionData>,
 }
 
 pub struct Client {
@@ -112,6 +131,7 @@ pub enum IncomingMessage {
     Welcome(u32),
     ServerMessage(ServerMessage),
     LobbyState(LobbyStateMessage),
+    Positions(PositionsMessage),
 }
 
 // Function to spawn a listener thread that continuously reads from server
@@ -150,6 +170,12 @@ pub fn spawn_listener_thread(stream: TcpStream, sender: Sender<IncomingMessage>)
                     // Try parsing as LobbyStateMessage
                     if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
                         let _ = sender.send(IncomingMessage::LobbyState(msg));
+                        continue;
+                    }
+
+                    // Try parsing as PositionsMessage
+                    if let Ok(msg) = serde_json::from_str::<PositionsMessage>(trimmed) {
+                        let _ = sender.send(IncomingMessage::Positions(msg));
                         continue;
                     }
 

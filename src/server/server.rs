@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use serde_json::json;
@@ -400,15 +400,25 @@ fn handle_client_message(
                             "type": "error",
                             "message": format!("You are not the host of '{}', so you cannot start the game.", name)
                         }))
-                    } 
+                    }
                     else {
                         // Mark the lobby as started
                         lobby.started = true;
+
+                        // Get the players list to broadcast to
+                        let players: Vec<u32> = lobby.players.lock().unwrap().clone();
+
+                        // Broadcast game started to all players in the lobby
+                        drop(guard); // Release the lock before broadcasting
+                        broadcast_game_start(connected_clients, &players, &name);
 
                         let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
                             "message": format!("You have started the lobby '{}'", name)
                         }));
+
+                        broadcast_active_lobbies(connected_clients, lobbies);
+                        return Ok(());
                     }
                 }
             }
@@ -602,6 +612,38 @@ fn broadcast_positions(
     }
 }
 
+// Broadcast game start to all players in a lobby
+fn broadcast_game_start(
+    connected_clients: &ConnectedClients,
+    players: &[u32],
+    lobby_name: &str,
+) {
+    // Build the game started payload
+    let payload = json!({
+        "type": "game_started",
+        "lobby": lobby_name
+    }).to_string() + "\n";
+
+    // Clone target streams
+    let mut targets = Vec::new();
+    {
+        let streams = connected_clients.streams.lock().unwrap();
+        for pid in players {
+            if let Some(s) = streams.get(pid) {
+                if let Ok(clone) = s.try_clone() {
+                    targets.push(clone);
+                }
+            }
+        }
+    }
+
+    // Write to everyone in the lobby
+    for mut stream in targets {
+        let _ = stream.write_all(payload.as_bytes());
+        let _ = stream.flush();
+    }
+}
+
 fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList) {
     // remove from streams/ids
     if let Ok(mut m) = connected.streams.lock() { m.remove(&id); }
@@ -636,7 +678,20 @@ fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList
     println!("Client {id} disconnected and cleaned up");
 }
 
+fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
+    let socket: UdpSocket = UdpSocket::bind("0.0.0.0:0")?;
+    socket.connect("8.8.8.8:80")?;
+    let local_addr = socket.local_addr()?;
+    Ok(local_addr.ip().to_string())
+}
+
 fn main() {
+    // Display the local IP address
+    match get_local_ip() {
+        Ok(ip) => println!("Server running on {}:4000", ip),
+        Err(e) => println!("Server running on 0.0.0.0:4000 (Could not determine local IP: {})", e),
+    }
+
     let connected_clients = ConnectedClients::default();
     let lobbies: LobbyList = Arc::new(Mutex::new(Vec::new()));
     server_listener(connected_clients, lobbies);
