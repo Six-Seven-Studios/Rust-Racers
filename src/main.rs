@@ -13,7 +13,7 @@ mod victory_screen;
 mod networking;
 mod networking_plugin;
 
-use title_screen::{check_for_title_input, setup_title_screen};
+use title_screen::{check_for_title_input, setup_title_screen, pause};
 use lobby::{LobbyState, update_lobby_display};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_player_car, spawn_cars};
@@ -28,6 +28,8 @@ use networking_plugin::NetworkingPlugin;
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
 // use bevy::render::
+
+
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -87,6 +89,7 @@ fn main() {
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
+        .add_systems(Update, pause)
         .run();
 }
 
