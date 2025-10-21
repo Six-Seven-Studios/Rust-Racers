@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
-use crate::networking::{Client, IncomingMessage, ServerMessage, spawn_listener_thread};
+use std::collections::HashMap;
+use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread};
 use crate::lobby::LobbyState;
 use crate::GameState;
 
@@ -29,6 +30,12 @@ pub struct MessageReceiver {
     pub receiver: Mutex<Receiver<IncomingMessage>>,
 }
 
+// Resource to hold player positions received from server
+#[derive(Resource, Default)]
+pub struct PlayerPositions {
+    pub positions: HashMap<u32, PlayerPositionData>,
+}
+
 pub struct NetworkingPlugin;
 
 impl Plugin for NetworkingPlugin {
@@ -40,6 +47,7 @@ impl Plugin for NetworkingPlugin {
             .insert_resource(NetworkClient::default())
             .insert_resource(MessageReceiver { receiver: Mutex::new(receiver) })
             .insert_resource(MessageSender { sender })
+            .insert_resource(PlayerPositions::default())
             .add_systems(Update, process_network_messages);
     }
 }
@@ -58,6 +66,7 @@ fn process_network_messages(
     mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
+    mut player_positions: ResMut<PlayerPositions>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -115,6 +124,13 @@ fn process_network_messages(
                         format!("Player {}", player_id)
                     };
                     lobby_state.connected_players.push(name);
+                }
+            }
+
+            IncomingMessage::Positions(pos_msg) => {
+                // Update player positions
+                for player_pos in pos_msg.players {
+                    player_positions.positions.insert(player_pos.id, player_pos);
                 }
             }
         }

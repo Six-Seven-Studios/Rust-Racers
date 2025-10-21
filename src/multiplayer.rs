@@ -1,14 +1,7 @@
 use bevy::prelude::*;
 use crate::car::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE};
-use crate::networking::Client;
+use crate::networking_plugin::{NetworkClient, PlayerPositions};
 use crate::lap_system::LapCounter;
-use serde_json::Value;
-
-#[derive(Resource, Default)]
-pub struct NetworkClient {
-    pub client: Option<Client>,
-    pub player_id: Option<u32>,
-}
 
 #[derive(Component)]
 pub struct NetworkPlayer {
@@ -27,34 +20,33 @@ pub fn send_car_position(
 }
 
 pub fn get_car_positions(
-    mut network_client: ResMut<NetworkClient>,
+    network_client: Res<NetworkClient>,
     mut network_cars: Query<(&NetworkPlayer, &mut Transform, &mut Velocity, &mut Orientation), Without<PlayerControlled>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    player_positions: Res<PlayerPositions>,
 ) {
     if network_client.client.is_none() { return }
     let my_id = network_client.player_id;
-    let client = network_client.client.as_mut().unwrap();
-    
-    while let Ok(Some(message)) = client.try_read_message() {
-        let Ok(json) = serde_json::from_str::<Value>(&message) else { continue };
-        let Some(players) = json.get("players").and_then(|v| v.as_array()) else { continue };
-        
-        for player in players {
-            let Some(id) = player.get("id").and_then(|v| v.as_u64()).map(|v| v as u32) else { continue };
-            if Some(id) == my_id { continue };
-            
-            let (Some(x), Some(y), Some(vx), Some(vy), Some(angle)) = (
-                player.get("x").and_then(|v| v.as_f64()).map(|v| v as f32),
-                player.get("y").and_then(|v| v.as_f64()).map(|v| v as f32),
-                player.get("vx").and_then(|v| v.as_f64()).map(|v| v as f32),
-                player.get("vy").and_then(|v| v.as_f64()).map(|v| v as f32),
-                player.get("angle").and_then(|v| v.as_f64()).map(|v| v as f32),
-            ) else { continue };
-            
-            compensate_lag(&mut network_cars, id, x, y, vx, vy, angle, &mut commands, &asset_server, &mut texture_atlases);
-        }
+
+    // Process all positions from the resource
+    for (id, player_pos) in &player_positions.positions {
+        // Skip our own position
+        if Some(*id) == my_id { continue; }
+
+        compensate_lag(
+            &mut network_cars,
+            *id,
+            player_pos.x,
+            player_pos.y,
+            player_pos.vx,
+            player_pos.vy,
+            player_pos.angle,
+            &mut commands,
+            &asset_server,
+            &mut texture_atlases
+        );
     }
 }
 

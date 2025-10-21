@@ -71,7 +71,6 @@ fn main() {
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
-        .init_resource::<multiplayer::NetworkClient>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
