@@ -63,7 +63,7 @@ fn main() {
         .add_plugins(NetworkingPlugin)
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
-            address: "127.0.0.1".to_string(),
+            address: String::new(),
         })
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)

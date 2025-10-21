@@ -30,6 +30,11 @@ pub struct ServerAddress {
     pub address: String,
 }
 
+#[derive(Resource)]
+pub struct TypingMode {
+    pub is_typing: bool,
+}
+
 // System to sync the server IP input text with the ServerAddress resource
 pub fn sync_server_address(
     server_ip_query: Query<&Text2d, (With<ServerIpInput>, Changed<Text2d>)>,
@@ -61,6 +66,13 @@ pub fn check_for_title_input(
 
     match *current_state.get() {
         GameState::Title => {
+            // Check if user is typing in the IP field (not default "hi")
+            let is_typing_ip = if let Ok(text) = server_ip_query.get_single() {
+                !text.0.is_empty() && text.0 != "hi"
+            } else {
+                false
+            };
+
             // Handle text input for server IP
             for key in input.get_just_pressed() {
                 if let Ok(mut text) = server_ip_query.get_single_mut() {
@@ -85,7 +97,8 @@ pub fn check_for_title_input(
                 }
             }
 
-            if input.just_pressed(KeyCode::Digit1){
+            // Only trigger menu actions if NOT typing in IP field
+            if !is_typing_ip && input.just_pressed(KeyCode::Digit1){
                 let server_addr = format!("{}:4000", server_address.address);
 
                 // Connect to server and create lobby
@@ -118,13 +131,13 @@ pub fn check_for_title_input(
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
-            else if input.just_pressed(KeyCode::Digit2){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
                 setup_join(commands, asset_server);
             }
-            else if input.just_pressed(KeyCode::Digit3){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit3){
                 next_state.set(GameState::Customizing);
                 destroy_screen(&mut commands, &title_query);
                 setup_customizing(commands, asset_server);
@@ -135,7 +148,7 @@ pub fn check_for_title_input(
                 setup_settings(commands, asset_server);
             }
             // Theta* DEMO
-            else if input.just_pressed(KeyCode::Digit4){
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit4){
                 next_state.set(GameState::PlayingDemo);
                 destroy_screen(&mut commands, &title_query);
             }
@@ -362,12 +375,12 @@ pub fn setup_title_screen(
         MainScreenEntity
     ));
 
-    // Server IP input
+    // Server IP input (top-right)
     commands.spawn((
         Text2d::new("Server IP:"),
         TextColor(Color::BLACK),
         Transform {
-            translation: Vec3::new(-450., -100., 1.),
+            translation: Vec3::new(290., 300., 1.),
             ..default()
         },
         TextFont {
@@ -379,17 +392,17 @@ pub fn setup_title_screen(
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/lobbyInput.png")),
         Transform {
-            translation: Vec3::new(-320., -150., 1.),
+            translation: Vec3::new(450., 300., 1.),
             scale: Vec3::new(0.6, 0.6, 1.0),
             ..default()
         },
         MainScreenEntity
     ));
     commands.spawn((
-        Text2d::new("127.0.0.1"),
-        TextColor(Color::BLACK),
+        Text2d::new("hi"),
+        TextColor(Color::srgb(0.5, 0.5, 0.5)),  // Gray placeholder color
         Transform {
-            translation: Vec3::new(-320., -150., 1.),
+            translation: Vec3::new(450., 300., 1.),
             ..default()
         },
         TextFont {
