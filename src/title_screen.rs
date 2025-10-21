@@ -209,7 +209,7 @@ pub fn pause(
     return;
   };
 
-  if keyboard_input.just_pressed(KeyCode::KeyP) {
+  if keyboard_input.just_pressed(KeyCode::KeyL) {
     sink.toggle_playback();
   }
 }
