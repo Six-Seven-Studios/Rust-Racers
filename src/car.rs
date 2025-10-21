@@ -281,7 +281,7 @@ pub fn spawn_cars(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let car_sheet_handle = asset_server.load("car.png");
+    let car_sheet_handle = asset_server.load("updatedCar.png");
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
 
