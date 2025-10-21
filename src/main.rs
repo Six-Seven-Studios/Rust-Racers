@@ -10,9 +10,11 @@ mod intro;
 mod theta;
 mod lap_system;
 mod victory_screen;
+mod networking;
+mod networking_plugin;
 
 use title_screen::{check_for_title_input, setup_title_screen};
-use lobby::LobbyState;
+use lobby::{LobbyState, update_lobby_display};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_player_car, spawn_cars};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
@@ -21,6 +23,7 @@ use victory_screen::setup_victory_screen;
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
+use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
@@ -52,11 +55,12 @@ fn main() {
                     resolution: (WIN_W, WIN_H).into(),
                     present_mode: PresentMode::AutoVsync,
                     resizable: false, // making the window not resizable for now, since resizing it causes some tiling issues
-                    
+
                     ..default()
                 }),
             ..default()
         }))
+        .add_plugins(NetworkingPlugin)
         .init_state::<GameState>()
         .insert_resource(ClearColor(Color::Srgba(Srgba::WHITE)))
         .add_systems(OnEnter(GameState::Playing), load_map1)
@@ -72,6 +76,7 @@ fn main() {
         .add_systems(Update, (
             check_for_title_input,
             check_for_credits_input,
+            update_lobby_display.run_if(in_state(GameState::Lobby)),
             //move_car.run_if(in_state(GameState::Playing)),
             move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
