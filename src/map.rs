@@ -3,6 +3,7 @@ use std::io::{BufReader, BufRead};
 use bevy::prelude::*;
 use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL};
 use crate::Resource;
+use crate::theta::{ThetaCheckpoint, ThetaCheckpointList};
 
 #[derive(Resource)]
 pub struct GameMap {
@@ -14,6 +15,7 @@ pub struct GameMap {
     
     // visual only layers
     pub visual_layers: Vec<Vec<Vec<u8>>>, // Vec<Layer<Rows<Tiles>>>
+    pub theta_checkpoint_list: ThetaCheckpointList,
 }
 
 
@@ -102,12 +104,67 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
         }
     }
 
-    GameMap {
+
+    let temp_map = GameMap {
         width,
         height,
         terrain_layer,
         visual_layers,
+        theta_checkpoint_list: ThetaCheckpointList::new(Vec::new()),
+    };
+
+    // Initialize checkpoints from the map (tile IDs 200-209 = checkpoints 0-9, layer 0 = background)
+    // Checkpoints are ordered by their tile ID, no angle calculation needed
+    let checkpoint_vec = initialize_checkpoints(&temp_map, 0);
+    let theta_checkpoint_list = ThetaCheckpointList::new(checkpoint_vec);
+
+    GameMap {
+        width,
+        height,
+        terrain_layer: temp_map.terrain_layer,
+        visual_layers: temp_map.visual_layers,
+        theta_checkpoint_list,
     }
+}
+
+//Initialize the Theta* Checkpoint List based off the map file
+//Checkpoints are identified by tile IDs 200-255 (0xC8-0xFF)
+//The order is determined by tile ID: 200 = checkpoint 0, 201 = checkpoint 1, etc.
+pub fn initialize_checkpoints(game_map: &GameMap, layer_index: usize) -> Vec<ThetaCheckpoint> {
+
+    let layer = &game_map.visual_layers[layer_index];
+    let tile_size = 64.0;
+
+    // Collect checkpoints with their tile IDs (200-255 range)
+    let mut checkpoint_data: Vec<(u8, ThetaCheckpoint)> = Vec::new();
+
+    for (y, row) in layer.iter().enumerate() {
+        for (x, tile_id) in row.iter().enumerate() {
+            // Checkpoints are in the 200-255 range (0xC8-0xFF in hex)
+            if *tile_id >= 200 {
+                // Convert tile coordinates to world coordinates
+                let world_x = x as f32 * tile_size - game_map.width / 2.0 + tile_size / 2.0;
+                let world_y = -(y as f32 * tile_size) + game_map.height / 2.0 - tile_size / 2.0;
+
+                checkpoint_data.push((
+                    *tile_id,
+                    ThetaCheckpoint {
+                        x: world_x,
+                        y: world_y,
+                    }
+                ));
+            }
+        }
+    }
+
+    // Sort by tile ID to get the correct checkpoint order
+    checkpoint_data.sort_by_key(|(tile_id, _)| *tile_id);
+
+    //Lol I placed them wrong, so let's just reverse!
+    checkpoint_data.reverse();
+
+    // Extract just the checkpoints (without tile IDs)
+    checkpoint_data.into_iter().map(|(_, checkpoint)| checkpoint).collect()
 }
 
 /*  
@@ -177,29 +234,29 @@ pub fn spawn_map(
 }
 
 impl GameMap {
-    // get tile a pworld position
+    // get tile from a world position
     pub fn get_tile(&self, world_x: f32, world_y: f32, tile_size: f32) -> &TerrainTile { // Or whatever your Tile struct is
-    // translate from world origin (center) to map origin (top-left)
-    // this shifts the coordinates so that (0,0) is the top-left of the map.
-    let map_x = world_x + self.width / 2.0;
-    
-    // need to invert y-axis it because +y is up in the world,
-    // but down in the array.
-    let map_y = -world_y + self.height / 2.0;
+        // translate from world origin (center) to map origin (top-left)
+        // this shifts the coordinates so that (0,0) is the top-left of the map.
+        let map_x = world_x + self.width / 2.0;
 
-    // convert from pixels to tile indices
-    // divide by the tile size and floor the result to get the array index.
-    let mut tile_x = (map_x / tile_size).floor() as usize;
-    let mut tile_y = (map_y / tile_size).floor() as usize;
+        // need to invert y-axis it because +y is up in the world,
+        // but down in the array.
+        let map_y = -world_y + self.height / 2.0;
 
-    // clamp so we're sure that even if the car is slightly off the map, we don't crash.
-    let max_y = self.terrain_layer.len() - 1;
-    let max_x = self.terrain_layer[0].len() - 1;
+        // convert from pixels to tile indices
+        // divide by the tile size and floor the result to get the array index.
+        let mut tile_x = (map_x / tile_size).floor() as usize;
+        let mut tile_y = (map_y / tile_size).floor() as usize;
 
-    tile_x = tile_x.clamp(0, max_x);
-    tile_y = tile_y.clamp(0, max_y);
-    
-    // return t ile
-    &self.terrain_layer[tile_y][tile_x]
-}
+        // clamp so we're sure that even if the car is slightly off the map, we don't crash.
+        let max_y = self.terrain_layer.len() - 1;
+        let max_x = self.terrain_layer[0].len() - 1;
+
+        tile_x = tile_x.clamp(0, max_x);
+        tile_y = tile_y.clamp(0, max_y);
+
+        // return t ile
+        &self.terrain_layer[tile_y][tile_x]
+    }
 }

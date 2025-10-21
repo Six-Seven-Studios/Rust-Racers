@@ -56,7 +56,7 @@ Using a decision tree, our CPUs will be able to quickly adjust between driving n
   * 2 Different types of terrain: track and grass
     * Grass which will slow down the cars
     * Driving on track will be faster than driving on grass
-  * One map of size 5000px x 5000px
+  * One map of size at least 5000px x 5000px
   * We will have at least one car model
     * By car model we mean a car skin
 
@@ -74,7 +74,7 @@ Using a decision tree, our CPUs will be able to quickly adjust between driving n
   * 10% - Attacking players / other CPUs decided by a decision tree
 
 * 10% - Secondary Map and Skins
-  * 5% - Players can choose between two maps to race on: The original 5000px x 5000px map, and a larger, more difficult 8000px x 8000px map. The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
+  * 5% - Players can choose between two maps to race on: The original map (at least 5000x5000px), and a larger, more difficult map (at least 8000x8000px). The secondary map will test player skill by adding a higher density of obstacles and incorporating all of our terrain types.
   * 5% - We will also have one car model/skin for each member of our team
 
 ## Stretch Goals
