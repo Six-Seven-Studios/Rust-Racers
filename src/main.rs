@@ -29,9 +29,9 @@ use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::car::move_ai_cars;
 // use bevy::render::
 
-use std::fs::File;
-use std::io::BufReader;
-use rodio::{Decoder, OutputStream, Sink, Source};
+// use std::fs::File;
+// use std::io::BufReader;
+// use rodio::{Decoder, OutputStream, Sink, Source};
 
 const TILE_SIZE: u32 = 64;  //Tentative
 
@@ -51,24 +51,24 @@ pub enum GameState {
 
 fn main() {
 
-   // get default audio output
-    let (_stream, stream_handle) = OutputStream::try_default();
-    let sink = Sink::try_new(&stream_handle);
+//    // get default audio output
+//     let (_stream, stream_handle) = OutputStream::try_default();
+//     let sink = Sink::try_new(&stream_handle);
 
-    // open file and create a Decoder
-    let file = File::open("assets/title_screen/MainMusic.m4a");
-    let decoder = Decoder::new(BufReader::new(file));
+//     // open file and create a Decoder
+//     let file = File::open("assets/title_screen/MainMusic.m4a");
+//     let decoder = Decoder::new(BufReader::new(file));
 
-    // buffer the entire source in memory so it can be repeated
-    let buffered = decoder.buffered();
+//     // buffer the entire source in memory so it can be repeated
+//     let buffered = decoder.buffered();
 
-    // append an infinite repeat of the buffered source
-    sink.append(buffered.repeat_infinite());
+//     // append an infinite repeat of the buffered source
+//     sink.append(buffered.repeat_infinite());
 
-    // block until playback is stopped (or program exits)
-    sink.sleep_until_end();
+//     // block until playback is stopped (or program exits)
+//     sink.sleep_until_end();
 
-    Ok(());
+//     Ok(());
 
 
     App::new()
