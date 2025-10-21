@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use serde_json::json;
@@ -636,7 +636,20 @@ fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList
     println!("Client {id} disconnected and cleaned up");
 }
 
+fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
+    let socket: UdpSocket = UdpSocket::bind("0.0.0.0:0")?;
+    socket.connect("8.8.8.8:80")?;
+    let local_addr = socket.local_addr()?;
+    Ok(local_addr.ip().to_string())
+}
+
 fn main() {
+    // Display the local IP address
+    match get_local_ip() {
+        Ok(ip) => println!("Server running on {}:4000", ip),
+        Err(e) => println!("Server running on 0.0.0.0:4000 (Could not determine local IP: {})", e),
+    }
+
     let connected_clients = ConnectedClients::default();
     let lobbies: LobbyList = Arc::new(Mutex::new(Vec::new()));
     server_listener(connected_clients, lobbies);
