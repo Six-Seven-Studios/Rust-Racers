@@ -14,7 +14,7 @@ mod networking;
 mod multiplayer;
 mod networking_plugin;
 
-use title_screen::{check_for_title_input, setup_title_screen, sync_server_address, ServerAddress, TypingMode};
+use title_screen::{check_for_title_input, setup_title_screen, sync_server_address, ServerAddress};
 use lobby::{LobbyState, update_lobby_display};
 use map::{load_map_from_file, GameMap, spawn_map};
 use car::{Background, move_player_car, spawn_cars, move_ai_cars};
@@ -64,9 +64,6 @@ fn main() {
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
             address: String::new(),
-        })
-        .insert_resource(TypingMode {
-            is_typing: false,
         })
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
