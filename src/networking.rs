@@ -1,7 +1,8 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::TcpStream;
 use std::time::Duration;
+use std::sync::mpsc::{self, Sender, Receiver};
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -19,6 +20,33 @@ pub enum MessageType {
     CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
 }
 
+// Server response messages
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+pub enum ServerMessage {
+    #[serde(rename = "confirmation")]
+    Confirmation { message: String },
+
+    #[serde(rename = "error")]
+    Error { message: String },
+
+    #[serde(rename = "active_lobbies")]
+    ActiveLobbies { lobbies: Vec<LobbyInfo> },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LobbyInfo {
+    pub name: String,
+    pub players: usize,
+}
+
+// Lobby state broadcast message
+#[derive(Debug, Clone, Deserialize)]
+pub struct LobbyStateMessage {
+    pub lobby: String,
+    pub players: Vec<u32>,
+}
+
 pub struct Client {
     stream: TcpStream,
 }
@@ -26,11 +54,14 @@ pub struct Client {
 impl Client {
     pub fn connect(address: String) -> io::Result<Self> {
         let stream = TcpStream::connect(&address)?;
-        // Sets a read timeout, however this will kill the application so we will have to change it eventually
-        // to handle reads better
-        stream.set_read_timeout(Some(Duration::from_millis(100)))?;
+        // Removed read timeout, we'll handle reading in a separate thread
         println!("Connected to server at {}", address);
         Ok(Self { stream })
+    }
+
+    // Get a cloned stream for the listener thread
+    pub fn get_stream_clone(&self) -> io::Result<TcpStream> {
+        self.stream.try_clone()
     }
 
     pub fn send(&mut self, message: MessageType) -> io::Result<()> {
@@ -64,18 +95,6 @@ impl Client {
         self.send(MessageType::CarPosition { x, y, vx, vy, angle })
     }
 
-    pub fn read_message(&mut self) -> io::Result<()> {
-        let mut reader = BufReader::new(&self.stream);
-        let mut line = String::new();
-
-        reader.read_line(&mut line)?;
-        if !line.trim().is_empty() {
-            println!("Server says: {}", line.trim());
-        }
-
-        Ok(())
-    }
-
     pub fn try_read_message(&mut self) -> io::Result<Option<String>> {
         let mut line = String::new();
         match BufReader::new(&self.stream).read_line(&mut line) {
@@ -85,4 +104,62 @@ impl Client {
             Err(e) => Err(e),
         }
     }
+}
+
+// Enum to represent all possible incoming messages
+#[derive(Debug, Clone)]
+pub enum IncomingMessage {
+    Welcome(u32),
+    ServerMessage(ServerMessage),
+    LobbyState(LobbyStateMessage),
+}
+
+// Function to spawn a listener thread that continuously reads from server
+pub fn spawn_listener_thread(stream: TcpStream, sender: Sender<IncomingMessage>) {
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(stream);
+        loop {
+            let mut line = String::new();
+            match reader.read_line(&mut line) {
+                Ok(0) => {
+                    println!("Server disconnected");
+                    break;
+                }
+                Ok(_) => {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+
+                    // Try to parse welcome message
+                    if trimmed.starts_with("WELCOME PLAYER ") {
+                        if let Some(id_str) = trimmed.strip_prefix("WELCOME PLAYER ") {
+                            if let Ok(player_id) = id_str.parse::<u32>() {
+                                let _ = sender.send(IncomingMessage::Welcome(player_id));
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Try parsing as ServerMessage
+                    if let Ok(msg) = serde_json::from_str::<ServerMessage>(trimmed) {
+                        let _ = sender.send(IncomingMessage::ServerMessage(msg));
+                        continue;
+                    }
+
+                    // Try parsing as LobbyStateMessage
+                    if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
+                        let _ = sender.send(IncomingMessage::LobbyState(msg));
+                        continue;
+                    }
+
+                    println!("Unknown message from server: {}", trimmed);
+                }
+                Err(e) => {
+                    println!("Error reading from server: {}", e);
+                    break;
+                }
+            }
+        }
+    });
 }

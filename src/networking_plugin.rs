@@ -1,0 +1,128 @@
+use bevy::prelude::*;
+use std::sync::mpsc::{self, Receiver};
+use std::sync::Mutex;
+use crate::networking::{Client, IncomingMessage, ServerMessage, spawn_listener_thread};
+use crate::lobby::LobbyState;
+
+// Resource to hold the client connection
+#[derive(Resource)]
+pub struct NetworkClient {
+    pub client: Option<Client>,
+    pub player_id: Option<u32>,
+    pub current_lobby: Option<String>,
+}
+
+impl Default for NetworkClient {
+    fn default() -> Self {
+        Self {
+            client: None,
+            player_id: None,
+            current_lobby: None,
+        }
+    }
+}
+
+// Resource to hold the message receiver
+#[derive(Resource)]
+pub struct MessageReceiver {
+    pub receiver: Mutex<Receiver<IncomingMessage>>,
+}
+
+pub struct NetworkingPlugin;
+
+impl Plugin for NetworkingPlugin {
+    fn build(&self, app: &mut App) {
+        // Create the message channel
+        let (sender, receiver) = mpsc::channel();
+
+        app
+            .insert_resource(NetworkClient::default())
+            .insert_resource(MessageReceiver { receiver: Mutex::new(receiver) })
+            .insert_resource(MessageSender { sender })
+            .add_systems(Update, process_network_messages);
+    }
+}
+
+// Resource to hold the sender
+#[derive(Resource, Clone)]
+pub struct MessageSender {
+    pub sender: std::sync::mpsc::Sender<IncomingMessage>,
+}
+
+// System to process incoming network messages
+fn process_network_messages(
+    receiver: Res<MessageReceiver>,
+    mut network_client: ResMut<NetworkClient>,
+    mut lobby_state: ResMut<LobbyState>,
+) {
+    // Lock the receiver to access it
+    let rx = receiver.receiver.lock().unwrap();
+
+    // Process all pending messages
+    while let Ok(message) = rx.try_recv() {
+        match message {
+            IncomingMessage::Welcome(player_id) => {
+                println!("Connected as Player {}", player_id);
+                network_client.player_id = Some(player_id);
+            }
+
+            IncomingMessage::ServerMessage(msg) => {
+                match msg {
+                    ServerMessage::Confirmation { message } => {
+                        println!("Server: {}", message);
+                    }
+                    ServerMessage::Error { message } => {
+                        println!("Error: {}", message);
+                    }
+                    ServerMessage::ActiveLobbies { lobbies } => {
+                        println!("Active lobbies:");
+                        for lobby in lobbies {
+                            println!("  {} ({} players)", lobby.name, lobby.players);
+                        }
+                    }
+                }
+            }
+
+            IncomingMessage::LobbyState(state) => {
+                println!("Lobby state update: {} - {:?} players", state.lobby, state.players);
+
+                // Update the lobby state resource
+                lobby_state.name = state.lobby.clone();
+                network_client.current_lobby = Some(state.lobby);
+
+                // Convert player IDs to display names
+                lobby_state.connected_players.clear();
+                for (i, player_id) in state.players.iter().enumerate() {
+                    let is_you = Some(*player_id) == network_client.player_id;
+                    let name = if is_you {
+                        format!("Player {} (You)", player_id)
+                    } else {
+                        format!("Player {}", player_id)
+                    };
+                    lobby_state.connected_players.push(name);
+                }
+            }
+        }
+    }
+}
+
+// Helper function to connect to server
+pub fn connect_to_server(
+    network_client: &mut NetworkClient,
+    sender: &MessageSender,
+    address: &str,
+) -> Result<(), String> {
+    let client = Client::connect(address.to_string())
+        .map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Clone the stream for the listener thread
+    let stream_clone = client.get_stream_clone()
+        .map_err(|e| format!("Failed to clone stream: {}", e))?;
+
+    // Spawn the listener thread
+    spawn_listener_thread(stream_clone, sender.sender.clone());
+
+    network_client.client = Some(client);
+
+    Ok(())
+}
