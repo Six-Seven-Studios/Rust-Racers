@@ -1,5 +1,4 @@
 use serde::Serialize;
-use serde_json::json;
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::TcpStream;
 use std::time::Duration;
@@ -16,6 +15,8 @@ pub enum MessageType {
     ListLobbies,
 
     StartLobby { name: String },
+
+    CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
 }
 
 pub struct Client {
@@ -59,6 +60,10 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
+    pub fn send_car_position(&mut self, x: f32, y: f32, vx: f32, vy: f32, angle: f32) -> io::Result<()> {
+        self.send(MessageType::CarPosition { x, y, vx, vy, angle })
+    }
+
     pub fn read_message(&mut self) -> io::Result<()> {
         let mut reader = BufReader::new(&self.stream);
         let mut line = String::new();
@@ -69,5 +74,15 @@ impl Client {
         }
 
         Ok(())
+    }
+
+    pub fn try_read_message(&mut self) -> io::Result<Option<String>> {
+        let mut line = String::new();
+        match BufReader::new(&self.stream).read_line(&mut line) {
+            Ok(0) | Ok(_) if line.trim().is_empty() => Ok(None),
+            Ok(_) => Ok(Some(line)),
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 }
