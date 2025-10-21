@@ -270,9 +270,29 @@ pub fn check_for_title_input(
 
 }
 
+// To pause audio
+
+pub fn pause(
+  keyboard_input: Res<ButtonInput<KeyCode>>,
+  music_controller: Query<&AudioSink>,
+) {
+  let Ok(sink) = music_controller.single() else {
+    return;
+  };
+
+  if keyboard_input.just_pressed(KeyCode::KeyL) {
+    sink.toggle_playback();
+  }
+}
+
 pub fn setup_title_screen(
     mut commands: Commands,
     asset_server: Res<AssetServer>) {
+
+    commands.spawn((
+        AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
+        PlaybackSettings::LOOP,
+    ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/settingsGear.png")),
         Transform {

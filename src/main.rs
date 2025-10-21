@@ -29,6 +29,8 @@ use networking_plugin::NetworkingPlugin;
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 // use bevy::render::
 
+
+
 const TILE_SIZE: u32 = 64;  //Tentative
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -93,6 +95,7 @@ fn main() {
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))
+        .add_systems(Update, pause)
         .run();
 }
 
