@@ -70,7 +70,7 @@ fn main() {
         .init_resource::<LobbyState>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
-        .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map).after(load_map_demo))
+        .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
@@ -119,5 +119,5 @@ fn load_map1(mut commands: Commands) {
 
 //THETA* DEMO
 fn load_map_demo(mut commands: Commands) {
-    commands.insert_resource(load_map_from_file("assets/map_demo.txt"));
+    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
 }
