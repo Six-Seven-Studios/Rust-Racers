@@ -173,7 +173,7 @@ pub fn move_player_car(
 }
 
 pub fn move_ai_cars(
-    game_map: Res<GameMap>,
+    mut game_map: ResMut<GameMap>,
     time: Res<Time>,
     mut ai_cars: Query<(&mut Transform, &mut Velocity, &mut Orientation), (With<AIControlled>, Without<Background>)>,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<AIControlled>)>,
@@ -181,9 +181,6 @@ pub fn move_ai_cars(
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
-
-    // Hardcoded goal position for now - you can make this dynamic later
-    let goal_pos = (-512.0, 0.0);
 
     // Turning
     // Iterate through each AI-controlled car
@@ -201,7 +198,7 @@ pub fn move_ai_cars(
         let decel_mod = tile.decel_modifier;
 
         // Get command from theta_star algorithm
-        let command = theta_star(&game_map, current_pos, goal_pos, orientation.angle);
+        let command = theta_star(current_pos, orientation.angle, &mut game_map.theta_checkpoint_list);
 
         // Execute the command
         match command {
