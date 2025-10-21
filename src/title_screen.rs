@@ -62,34 +62,39 @@ pub fn check_for_title_input(
     mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
     mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
     server_address: Res<ServerAddress>,
+    mut typing_mode: ResMut<TypingMode>,
 ) {
 
     match *current_state.get() {
         GameState::Title => {
-            // Check if user is typing in the IP field (not default "hi")
-            let is_typing_ip = if let Ok(text) = server_ip_query.get_single() {
-                !text.0.is_empty() && text.0 != "hi"
-            } else {
-                false
-            };
+            // Toggle typing mode when Enter is pressed
+            if input.just_pressed(KeyCode::Enter) {
+                typing_mode.is_typing = !typing_mode.is_typing;
+                println!("Typing mode: {}", if typing_mode.is_typing { "ON (type IP)" } else { "OFF (use menu)" });
+            }
 
-            // Handle text input for server IP
-            for key in input.get_just_pressed() {
-                if let Ok(mut text) = server_ip_query.get_single_mut() {
-                    match key {
-                        KeyCode::Backspace => {
-                            text.0.pop();
-                        }
-                        KeyCode::Period => {
-                            text.0.push('.');
-                        }
-                        KeyCode::Semicolon => {
-                            text.0.push(':');
-                        }
-                        _ => {
-                            if let Some(character) = key_to_char(key) {
-                                if text.0.len() < 25 {
-                                    text.0.push(character);
+            // Handle text input for server IP (only when in typing mode)
+            if typing_mode.is_typing {
+                for key in input.get_just_pressed() {
+                    if let Ok(mut text) = server_ip_query.get_single_mut() {
+                        match key {
+                            KeyCode::Backspace => {
+                                text.0.pop();
+                            }
+                            KeyCode::Period => {
+                                text.0.push('.');
+                            }
+                            KeyCode::Semicolon => {
+                                text.0.push(':');
+                            }
+                            KeyCode::Enter => {
+                                // Enter is handled above for toggling, skip it here
+                            }
+                            _ => {
+                                if let Some(character) = key_to_char(key) {
+                                    if text.0.len() < 25 {
+                                        text.0.push(character);
+                                    }
                                 }
                             }
                         }
@@ -97,8 +102,8 @@ pub fn check_for_title_input(
                 }
             }
 
-            // Only trigger menu actions if NOT typing in IP field
-            if !is_typing_ip && input.just_pressed(KeyCode::Digit1){
+            // Only trigger menu actions if NOT in typing mode
+            if !typing_mode.is_typing && input.just_pressed(KeyCode::Digit1){
                 let server_addr = format!("{}:4000", server_address.address);
 
                 // Connect to server and create lobby
@@ -131,13 +136,13 @@ pub fn check_for_title_input(
 
                 setup_lobby(commands, asset_server, &lobby_state);
             }
-            else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
+            else if !typing_mode.is_typing && input.just_pressed(KeyCode::Digit2){
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
                 setup_join(commands, asset_server);
             }
-            else if !is_typing_ip && input.just_pressed(KeyCode::Digit3){
+            else if !typing_mode.is_typing && input.just_pressed(KeyCode::Digit3){
                 next_state.set(GameState::Customizing);
                 destroy_screen(&mut commands, &title_query);
                 setup_customizing(commands, asset_server);
@@ -148,7 +153,7 @@ pub fn check_for_title_input(
                 setup_settings(commands, asset_server);
             }
             // Theta* DEMO
-            else if !is_typing_ip && input.just_pressed(KeyCode::Digit4){
+            else if !typing_mode.is_typing && input.just_pressed(KeyCode::Digit4){
                 next_state.set(GameState::PlayingDemo);
                 destroy_screen(&mut commands, &title_query);
             }
