@@ -68,8 +68,8 @@ pub fn check_for_title_input(
             use bevy::prelude::Local;
             static mut TYPING_MODE: bool = false;
 
-            // Toggle typing mode with Enter
-            if input.just_pressed(KeyCode::Enter) {
+            // Toggle typing mode with Tab
+            if input.just_pressed(KeyCode::Tab) {
                 unsafe {
                     TYPING_MODE = !TYPING_MODE;
                     println!("IP typing mode: {}", if TYPING_MODE { "ON" } else { "OFF (use 1/2/3/4)" });
@@ -83,8 +83,8 @@ pub fn check_for_title_input(
                 for key in input.get_just_pressed() {
                     if let Ok(mut text) = server_ip_query.get_single_mut() {
                         match key {
-                            KeyCode::Enter => {
-                                // Enter handled above for toggle, skip here
+                            KeyCode::Tab => {
+                                // Tab handled above for toggle, skip here
                             }
                             KeyCode::Backspace => {
                                 text.0.pop();
