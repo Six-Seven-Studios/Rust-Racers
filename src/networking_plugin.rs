@@ -3,8 +3,9 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
 use std::collections::HashMap;
 use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread};
-use crate::lobby::LobbyState;
+use crate::lobby::{LobbyState, setup_lobby};
 use crate::GameState;
+use crate::title_screen::destroy_screen;
 
 // Resource to hold the client connection
 #[derive(Resource)]
@@ -67,6 +68,7 @@ fn process_network_messages(
     mut commands: Commands,
     lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
     mut player_positions: ResMut<PlayerPositions>,
+    asset_server: Res<AssetServer>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -125,6 +127,9 @@ fn process_network_messages(
                     };
                     lobby_state.connected_players.push(name);
                 }
+
+                destroy_screen(&mut commands, &lobby_query);
+                setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
             }
 
             IncomingMessage::Positions(pos_msg) => {

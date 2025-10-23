@@ -24,8 +24,8 @@ pub struct LobbyState {
 }
 
 pub fn setup_lobby(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    mut commands: &mut Commands,
+    asset_server: AssetServer,
     lobby_state: &LobbyState,
 ){
     commands.spawn((
