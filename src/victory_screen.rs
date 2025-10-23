@@ -1,12 +1,19 @@
 use bevy::prelude::*;
+use crate::title_screen::TitleScreenAudio;
 
 pub fn setup_victory_screen(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
+    title_audio_query: Query<Entity, With<TitleScreenAudio>>,
 ) {
     if let Ok(mut camera) = camera_query.get_single_mut() {
         camera.translation = Vec3::ZERO;
+    }
+
+    // Stop title screen audio
+    for entity in title_audio_query.iter() {
+        commands.entity(entity).despawn();
     }
 
     commands.spawn((

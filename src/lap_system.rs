@@ -1,4 +1,6 @@
-use crate::car::Car;
+use crate::car::{Car, PlayerControlled, AIControlled};
+use crate::multiplayer::NetworkPlayer;
+use crate::networking_plugin::NetworkClient;
 use crate::GameState;
 use bevy::prelude::*;
 
@@ -48,13 +50,10 @@ pub fn spawn_lap_triggers(
     let checkpoint_handle = asset_server.load("checkpoint.png");
     let checkpoint_positions = vec![
         // first check
-        Vec3::new(2752., -800., 10.),
-
-        Vec3::new(2752., -1600., 10.),
-
+        Vec3::new(1200., -2800., 10.),
         Vec3::new(2752., -2400., 10.),
-
-        Vec3::new(1200., -2400., 10.),
+        Vec3::new(2752., -1600., 10.),
+        Vec3::new(2100., -800., 10.),
     ];
 
     for (i, pos) in checkpoint_positions.iter().enumerate() {
@@ -72,9 +71,17 @@ pub fn spawn_lap_triggers(
 }
 
 pub fn update_laps(
-    mut query_cars: Query<(&Transform, &mut LapCounter), With<Car>>,
+    mut query_cars: Query<(
+        Entity,
+        &Transform,
+        &mut LapCounter,
+        Option<&PlayerControlled>,
+        Option<&AIControlled>,
+        Option<&NetworkPlayer>,
+    ), With<Car>>,
     query_finish: Query<&Transform, With<FinishLine>>,
     query_checkpoints: Query<(&Transform, &Checkpoint)>,
+    network_client: Res<NetworkClient>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     let Ok(finish_transform) = query_finish.get_single() else {
@@ -94,7 +101,27 @@ pub fn update_laps(
     // sort to ensure 0, 1, 2, 3
     checkpoint_data.sort_by_key(|(_, i)| *i);
 
-    for (car_transform, mut lap_counter) in query_cars.iter_mut() {
+    for (entity, car_transform, mut lap_counter, player, ai, network) in query_cars.iter_mut() {
+        // skip cars that have already finished the race
+        if lap_counter.has_finished {
+            continue;
+        }
+
+        // identify the car for logging
+        let car_label = if player.is_some() {
+            if let Some(my_id) = network_client.player_id {
+                format!("Player {}", my_id)
+            } else {
+                "Player 1".to_string()
+            }
+        } else if let Some(net) = network {
+            format!("Player {}", net.player_id)
+        } else if ai.is_some() {
+            format!("AI Car {}", entity.index())
+        } else {
+            format!("Unknown {}", entity.index())
+        };
+
         let car_pos = car_transform.translation.truncate();
 
         // check next checkpoint
@@ -106,8 +133,9 @@ pub fn update_laps(
             if delta.x.abs() < checkpoint_half_size.x + padding
                 && delta.y.abs() < checkpoint_half_size.y + padding
             {
-                println!("Reached checkpoint {}", index);
+                println!("{}: Reached checkpoint {}", car_label, index);
                 lap_counter.next_checkpoint += 1;
+                continue;
             }
             // debug
             //println!("car: ({:.0}, {:.0})  chk: ({:.0}, {:.0})  delta: ({:.0}, {:.0})",
@@ -115,7 +143,7 @@ pub fn update_laps(
         }
 
         // check finish line
-        if lap_counter.next_checkpoint >= checkpoint_data.len() {
+        if lap_counter.next_checkpoint == checkpoint_data.len() {
             let delta_finish = car_pos - finish_transform.translation.truncate();
 
             if delta_finish.x.abs() < finish_half_size.x + padding
@@ -124,11 +152,11 @@ pub fn update_laps(
                 lap_counter.current_lap += 1;
                 lap_counter.next_checkpoint = 0;
 
-                println!("Lap complete {}", lap_counter.current_lap);
+                println!("{}: Lap complete {}", car_label, lap_counter.current_lap);
 
                 if lap_counter.current_lap >= lap_counter.total_laps {
                     lap_counter.has_finished = true;
-                    println!("Car finished all laps!");
+                    println!("{}: Finished all laps!", car_label);
                     next_state.set(GameState::Victory);
                 }
             }

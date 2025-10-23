@@ -20,6 +20,9 @@ pub struct SettingsScreenEntity;
 pub struct CustomizingScreenEntity;
 
 #[derive(Component)]
+pub struct TitleScreenAudio;
+
+#[derive(Component)]
 pub struct LobbyNameInput;
 
 #[derive(Component)]
@@ -292,6 +295,7 @@ pub fn setup_title_screen(
     commands.spawn((
         AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
         PlaybackSettings::LOOP,
+        TitleScreenAudio,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/settingsGear.png")),
