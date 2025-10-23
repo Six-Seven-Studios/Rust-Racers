@@ -73,7 +73,7 @@ fn compensate_lag(
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     commands.spawn((
         Sprite::from_atlas_image(
-            asset_server.load("updatedCar.png"),
+            asset_server.load("red-car.png"),
             TextureAtlas { layout: texture_atlases.add(car_layout), index: 0 },
         ),
         Transform::from_xyz(x, y, 10.).with_rotation(Quat::from_rotation_z(angle)),
