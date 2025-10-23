@@ -139,7 +139,7 @@ pub fn check_for_title_input(
                 lobby_state.connected_players.push("Connecting...".to_string());
                 lobby_state.name = lobby_name;
 
-                setup_lobby(commands, asset_server, &lobby_state);
+                setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
             }
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
                 next_state.set(GameState::Joining);
@@ -166,6 +166,16 @@ pub fn check_for_title_input(
         GameState::Lobby => {
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
+
+                let lobby_name = lobby_state.name.clone();
+
+                if let Some(client) = &mut network_client.client {
+                    if let Err(e) = client.leave_lobby(lobby_name.clone()) {
+                        println!("Failed to leave lobby: {}", e);
+                        return;
+                    }
+                }
+
                 destroy_screen(&mut commands, &lobby_query);
                 setup_title_screen(commands, asset_server);
             }
@@ -249,7 +259,7 @@ pub fn check_for_title_input(
                 lobby_state.connected_players.push("Connecting...".to_string());
                 lobby_state.name = lobby_name;
 
-                setup_lobby(commands, asset_server, &lobby_state);
+                setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
             }
         }
         GameState::Customizing => {
