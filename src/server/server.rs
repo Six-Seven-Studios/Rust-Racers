@@ -21,7 +21,13 @@ enum MessageType {
 
     StartLobby { name: String },
 
-    CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
+    PlayerInput {
+        forward: bool,
+        backward: bool,
+        left: bool,
+        right: bool,
+        drift: bool,
+    }
 }
 
 // Track connected clients
@@ -31,12 +37,22 @@ pub struct ConnectedClients {
 }
 
 #[derive(Clone, Debug)]
-pub struct PlayerPosition {
+pub struct PlayerInput {
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub drift: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct PlayerState {
     pub x: f32,
     pub y: f32,
     pub vx: f32,
     pub vy: f32,
     pub angle: f32,
+    pub inputs: PlayerInput,
 }
 
 #[derive(Clone)]
@@ -45,7 +61,8 @@ pub struct Lobby {
     pub host: u32,
     pub name: String,
     pub started: bool,
-    pub positions: Arc<Mutex<HashMap<u32, PlayerPosition>>>,
+    pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
+    pub tick_count: Arc<Mutex<u64>>,
 }
 
 type LobbyList = Arc<Mutex<Vec<Lobby>>>;
@@ -59,6 +76,18 @@ impl Default for ConnectedClients {
     }
 }
 
+impl Default for PlayerInput { 
+    fn default() -> Self {
+        Self {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            drift: false,
+        }
+    }
+}
+
 impl Default for Lobby {
     fn default() -> Self {
         Self {
@@ -66,7 +95,8 @@ impl Default for Lobby {
             host: 0,
             name: String::from(""),
             started: false,
-            positions: Arc::new(Mutex::new(HashMap::new())),
+            states: Arc::new(Mutex::new(HashMap::new())),
+            tick_count: Arc::new(Mutex::new(0)),
         }
     }
 }
