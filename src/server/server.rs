@@ -784,7 +784,7 @@ fn run_game_loop(
 
                     // Update states
                     let mut states = lobby.states.lock().unwrap()
-                    let delta_time = TICK_RATE_MS as f32 / 1000.0; //seconds
+                    let delta_time = TICK_RATE_MS as f32 / 1000.0; // seconds so we can be frame independent
                     for (player_id, state) in states.iter_mut() {
                         // TODO: Update player state
                         update_player_state(state, delta_time);
