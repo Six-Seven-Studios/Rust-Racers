@@ -32,6 +32,7 @@ enum MessageType {
 }
 
 // Track connected clients
+#[derive(Clone)]
 pub struct ConnectedClients {
     pub ids: Arc<Mutex<Vec<u32>>>,
     pub streams: Arc<Mutex<HashMap<u32, TcpStream>>>,
@@ -54,6 +55,7 @@ pub struct PlayerState {
     pub vy: f32,
     pub angle: f32,
     pub inputs: PlayerInput,
+    pub input_count: u64,
 }
 
 #[derive(Clone)]
@@ -63,7 +65,6 @@ pub struct Lobby {
     pub name: String,
     pub started: bool,
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
-    pub tick_count: Arc<Mutex<u64>>,
 }
 
 type LobbyList = Arc<Mutex<Vec<Lobby>>>;
@@ -97,7 +98,6 @@ impl Default for Lobby {
             name: String::from(""),
             started: false,
             states: Arc::new(Mutex::new(HashMap::new())),
-            tick_count: Arc::new(Mutex::new(0)),
         }
     }
 }
@@ -450,6 +450,7 @@ fn handle_client_message(
                                     vy: 0.0,
                                     angle: 0.0,
                                     inputs: PlayerInput::default(),
+                                    input_count: 0,
                                 });
                             }
                         }
@@ -486,6 +487,7 @@ fn handle_client_message(
             Ok(())
         }
 
+        // Need to check if the lobby is active or not
         MessageType::PlayerInput { forward, backward, left, right, drift } => {
             handle_player_input(id, forward, backward, left, right, drift, connected_clients, lobbies)
         }
@@ -602,8 +604,10 @@ fn handle_player_input(
         let lobby = &guard[lobby_index];
         let mut states = lobby.states.lock().unwrap();
 
-        // Update hte inputs for this player's state
+        // Update the player's state
         if let Some(player_state) = states.get_mut(&id) {
+            // TODO: simulate the input
+            player_state.input_count += 1;
             player_state.inputs = PlayerInput {
                 forward,
                 backward,
@@ -758,59 +762,42 @@ fn run_game_loop(
 
     println!("Game loop started for lobby {}", lobby_name);
 
+    // Find lobby index
+    let lobby_index_opt = {
+        let guard = lobbies.lock().unwrap();
+        guard.iter().position(|lobby| {
+            lobby.name == lobby_name
+        })
+    };
+
     loop {
-        let tick_start = Instant::now();
+        // Sleep for the tick duration
+        thread::sleep(tick_duration);
 
-        // Find lobby index
-        let lobby_index_opt = {
-            let guard = lobbies.lock().unwrap();
-            guard.iter().position(|lobby| {
-                lobby.name == lobby_name
-            })
-        };
-
-        match lobby_index_opt {
-            Some(lobby_index) => {
-                // Run a tick of the game
-                {
-                    let guard = lobbies.lock().unwrap();
-                    let lobby = &guard[lobby_index];
-
-                    if !lobby.started {
-                        // TODO: implement stop game on win somewhere else
-                        println!("Lobby {} stopped, ending game loop", lobby_name);
-                        break;
-                    }
-
-                    // Update states
-                    let mut states = lobby.states.lock().unwrap()
-                    let delta_time = TICK_RATE_MS as f32 / 1000.0; // seconds so we can be frame independent
-                    for (player_id, state) in states.iter_mut() {
-                        // TODO: Update player state
-                        update_player_state(state, delta_time);
-                    }
-
-                    // Increment tick count
-                    let mut tick = lobby.tick_count.lock().unwrap();
-                    *tick += 1;
-                }
-                // Broadcast game state
-                broadcast_player_states(&connected_clients, &lobbies, lobby_index);
-                // Sleep for remainder of tick duration
-                let elapsed = tick_start.elapsed();
-                if elapsed < tick_duration {
-                    thread::sleep(tick_duration - elapsed);
-                }
-            }
-            None => {
-                // Lobby was deleted
-                println!("Lobby {} was deleted, ending game loop", lobby_name);
-                break;
-            }
-        }
+        let lobbies_clone = lobbies.clone();
+        let connected_clients_clone = connected_clients.clone();
+        // Handle the tick in another thread so it does not delay the tick
+        thread::spawn(move || handle_tick(lobby_index_opt, lobbies_clone, connected_clients_clone));
     }
     println!("Game loop ended for lobby {}", lobby_name);
 }
+
+fn handle_tick(
+    lobby_index_opt: Option<usize>,
+    lobbies: LobbyList,
+    connected_clients: ConnectedClients
+) {
+    match lobby_index_opt {
+        Some(lobby_index) => {
+            // Broadcast game state
+            broadcast_player_states(&connected_clients, &lobbies, lobby_index);
+        }
+        None => {
+            // TODO: Figure out a way to terminate the game
+        }
+    }
+}
+
 fn main() {
     // Display the local IP address
     match get_local_ip() {
