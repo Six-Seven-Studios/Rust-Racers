@@ -632,9 +632,6 @@ fn broadcast_player_states(
 ) {
     let guard = lobbies.lock().unwrap();
     let lobby = guard.get(lobby_index).unwrap();
-    
-    // Get tick count
-    let tick = *lobby.tick_count.lock().unwrap();
 
     // Get player IDs and positions
     let players: Vec<u32> = lobby.players.lock().unwrap().clone();
@@ -648,13 +645,13 @@ fn broadcast_player_states(
             "y": state.y,
             "vx": state.vx,
             "vy": state.vy,
-            "angle": state.angle
+            "angle": state.angle,
+            "input_count": state.input_count
         })
     }).collect();
 
     let payload = json!({
         "type": "game_state_update",
-        "tick": tick,
         "players": positions_json
     }).to_string() + "\n";
 
