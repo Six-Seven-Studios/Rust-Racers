@@ -7,6 +7,7 @@ use std::thread;
 use serde_json::json;
 use serde::Deserialize;
 use std::time::Duration;
+use std::time::Instant;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -437,10 +438,37 @@ fn handle_client_message(
 
                         // Get the players list to broadcast to
                         let players: Vec<u32> = lobby.players.lock().unwrap().clone();
+                        
+                        // Initialize all players to varied spawn positions
+                        {
+                             let mut states = lobby.states.lock().unwrap();
+                             for player_id in &players {
+                                 states.insert(*player_id, PlayerState {
+                                     x: 2752.0 + (*player_id as f32) * 100.0,
+                                     y: 960.0,
+                                    vx: 0.0,
+                                    vy: 0.0,
+                                    angle: 0.0,
+                                    inputs: PlayerInput::default(),
+                                });
+                            }
+                        }
 
                         // Broadcast game started to all players in the lobby
                         drop(guard); // Release the lock before broadcasting
                         broadcast_game_start(connected_clients, &players, &name);
+                        
+                        // Use different thread & spawn game loop
+                        let lobby_name_clone = name.clone();
+                        let lobbies_clone = Arc::clone(lobbies);
+                        let connected_clients_clone = ConnectedClients {
+                            ids: Arc::clone(&connected_clients.ids),
+                            streams: Arc::clone(&connected_clients.streams),
+                        };
+                        thread::spawn(move || { 
+                            run_game_loop(lobby_name_clone, lobbies_clone, connected_clients_clone);
+                        });
+
 
                         let _ = send_to_client(id, connected_clients, &json!({
                             "type": "confirmation",
@@ -458,8 +486,8 @@ fn handle_client_message(
             Ok(())
         }
 
-        MessageType::CarPosition { x, y, vx, vy, angle } => {
-            receive_positions(id, x, y, vx, vy, angle, connected_clients, lobbies)
+        MessageType::PlayerInput { forward, backward, left, right, drift } => {
+            handle_player_input(id, forward, backward, left, right, drift, connected_clients, lobbies)
         }
     }
 }
@@ -550,18 +578,17 @@ fn broadcast_active_lobbies(
     }
 }
 
-// Receive car position from a client and store it
-fn receive_positions(
+fn handle_player_input(
     id: u32,
-    x: f32,
-    y: f32,
-    vx: f32,
-    vy: f32,
-    angle: f32,
-    connected_clients: &ConnectedClients,
+    forward: bool,
+    backward: bool,
+    left: bool,
+    right: bool,
+    drift: bool,
+    _connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) -> std::io::Result<()> {
-    // Find the lobby this player is in
+    // Find the lobby that the player is in
     let lobby_index_opt: Option<usize> = {
         let guard = lobbies.lock().unwrap();
         guard.iter().position(|lobby| {
@@ -570,23 +597,31 @@ fn receive_positions(
     };
 
     if let Some(lobby_index) = lobby_index_opt {
-        // Update this player's position in the lobby
-        {
-            let guard = lobbies.lock().unwrap();
-            let lobby = &guard[lobby_index];
-            let mut positions = lobby.positions.lock().unwrap();
-            positions.insert(id, PlayerPosition { x, y, vx, vy, angle });
-        }
+        // Update this player's inputs in the lobby
+        let guard = lobbies.lock().unwrap();
+        let lobby = &guard[lobby_index];
+        let mut states = lobby.states.lock().unwrap();
 
-        // Broadcast all positions to all players in this lobby
-        broadcast_positions(connected_clients, lobbies, lobby_index);
+        // Update hte inputs for this player's state
+        if let Some(player_state) = states.get_mut(&id) {
+            player_state.inputs = PlayerInput {
+                forward,
+                backward,
+                left,
+                right,
+                drift,
+            };
+        } else {
+            // This shouldn't happen because we should initialize state at race start.
+            panic!("Player {} does not have a current state", id);
+        }
     }
 
     Ok(())
 }
 
-// Broadcast all car positions to all players in a lobby
-fn broadcast_positions(
+// Broadcast all player states to all players in a lobby
+fn broadcast_player_states(
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
     lobby_index: usize,
@@ -594,35 +629,32 @@ fn broadcast_positions(
     let guard = lobbies.lock().unwrap();
     let lobby = guard.get(lobby_index).unwrap();
     
-    // Snapshot the player IDs and positions
-    let players: Vec<u32> = {
-        let lobby_guard = lobby.players.lock().unwrap();
-        lobby_guard.clone()
-    };
-    
-    let positions: HashMap<u32, PlayerPosition> = {
-        let pos_guard = lobby.positions.lock().unwrap();
-        pos_guard.clone()
-    };
+    // Get tick count
+    let tick = *lobby.tick_count.lock().unwrap();
 
-    // Build positions payload
-    let positions_json: Vec<_> = positions.iter().map(|(player_id, pos)| {
+    // Get player IDs and positions
+    let players: Vec<u32> = lobby.players.lock().unwrap().clone();
+    let states: HashMap<u32, PlayerState> = lobby.states.lock().unwrap().clone();
+
+    // Build payload
+    let positions_json: Vec<_> = states.iter().map(|(player_id, state)| {
         json!({
             "id": player_id,
-            "x": pos.x,
-            "y": pos.y,
-            "vx": pos.vx,
-            "vy": pos.vy,
-            "angle": pos.angle
+            "x": state.x,
+            "y": state.y,
+            "vx": state.vx,
+            "vy": state.vy,
+            "angle": state.angle
         })
     }).collect();
 
-    let payload = json!({ 
-        "type": "positions",
-        "players": positions_json 
+    let payload = json!({
+        "type": "game_state_update",
+        "tick": tick,
+        "players": positions_json
     }).to_string() + "\n";
 
-    // Clone target streams
+    // Clone TCP streams
     let mut targets = Vec::new();
     {
         let streams = connected_clients.streams.lock().unwrap();
@@ -635,7 +667,7 @@ fn broadcast_positions(
         }
     }
 
-    // Write to everyone in the lobby
+    // Write to clients
     for mut stream in targets {
         let _ = stream.write_all(payload.as_bytes());
         let _ = stream.flush();
@@ -715,6 +747,70 @@ fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
     Ok(local_addr.ip().to_string())
 }
 
+fn run_game_loop(
+    lobby_name: String,
+    lobbies: LobbyList,
+    connected_clients: ConnectedClients,
+) {
+    // TODO: Move this out?
+    const TICK_RATE_MS: u64 = 16; // 60 Hz
+    let tick_duration = Duration::from_millis(TICK_RATE_MS);
+
+    println!("Game loop started for lobby {}", lobby_name);
+
+    loop {
+        let tick_start = Instant::now();
+
+        // Find lobby index
+        let lobby_index_opt = {
+            let guard = lobbies.lock().unwrap();
+            guard.iter().position(|lobby| {
+                lobby.name == lobby_name
+            })
+        };
+
+        match lobby_index_opt {
+            Some(lobby_index) => {
+                // Run a tick of the game
+                {
+                    let guard = lobbies.lock().unwrap();
+                    let lobby = &guard[lobby_index];
+
+                    if !lobby.started {
+                        // TODO: implement stop game on win somewhere else
+                        println!("Lobby {} stopped, ending game loop", lobby_name);
+                        break;
+                    }
+
+                    // Update states
+                    let mut states = lobby.states.lock().unwrap()
+                    let delta_time = TICK_RATE_MS as f32 / 1000.0; //seconds
+                    for (player_id, state) in states.iter_mut() {
+                        // TODO: Update player state
+                        update_player_state(state, delta_time);
+                    }
+
+                    // Increment tick count
+                    let mut tick = lobby.tick_count.lock().unwrap();
+                    *tick += 1;
+                }
+                // Broadcast game state
+                broadcast_player_states(&connected_clients, &lobbies, lobby_index);
+                // Sleep for remainder of tick duration
+                let elapsed = tick_start.elapsed();
+                if elapsed < tick_duration {
+                    thread::sleep(tick_duration - elapsed);
+                }
+            }
+            None => {
+                // Lobby was deleted
+                println!("Lobby {} was deleted, ending game loop", lobby_name);
+                break;
+            }
+        }
+    }
+    println!("Game loop ended for lobby {}", lobby_name);
+}
 fn main() {
     // Display the local IP address
     match get_local_ip() {
