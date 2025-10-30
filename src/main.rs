@@ -13,6 +13,7 @@ mod victory_screen;
 mod networking;
 mod multiplayer;
 mod networking_plugin;
+mod car_state;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress};
 use lobby::{LobbyState, update_lobby_display};
