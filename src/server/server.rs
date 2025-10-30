@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::app::ScheduleRunnerPlugin;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream, UdpSocket};
@@ -7,7 +8,6 @@ use std::thread;
 use serde_json::json;
 use serde::Deserialize;
 use std::time::Duration;
-use std::time::Instant;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -32,7 +32,7 @@ enum MessageType {
 }
 
 // Track connected clients
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct ConnectedClients {
     pub ids: Arc<Mutex<Vec<u32>>>,
     pub streams: Arc<Mutex<HashMap<u32, TcpStream>>>,
@@ -69,6 +69,12 @@ pub struct Lobby {
 
 type LobbyList = Arc<Mutex<Vec<Lobby>>>;
 
+/// Resource wrapper for LobbyList
+#[derive(Resource, Clone)]
+pub struct Lobbies {
+    pub list: LobbyList,
+}
+
 impl Default for ConnectedClients {
     fn default() -> Self {
         Self {
@@ -102,9 +108,87 @@ impl Default for Lobby {
     }
 }
 
+// Marks an entity as a player with a specific ID
+#[derive(Component)]
+pub struct PlayerId(pub u32);
+
+#[derive(Component)]
+pub struct Position {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Component)]
+pub struct Velocity {
+    pub vx: f32,
+    pub vy: f32,
+}
+
+#[derive(Component)]
+pub struct Orientation {
+    pub angle: f32,
+}
+
+// Component for player input state
+#[derive(Component)]
+pub struct PlayerInputComponent {
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub drift: bool,
+    pub input_count: u64,
+}
+
+impl Default for PlayerInputComponent {
+    fn default() -> Self {
+        Self {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            drift: false,
+            input_count: 0,
+        }
+    }
+}
+
+// Marks which lobby a player entity belongs to
+#[derive(Component)]
+pub struct LobbyMember {
+    pub lobby_name: String,
+}
+
+// Map player IDs to their entity in the ECS
+#[derive(Resource, Default)]
+pub struct PlayerEntities {
+    pub map: HashMap<u32, Entity>,
+}
+
+// Commands from networking threads to Bevy systems
+#[derive(Debug, Clone)]
+pub enum ServerCommand {
+    SpawnPlayer {
+        player_id: u32,
+        lobby_name: String,
+        x: f32,
+        y: f32,
+    },
+    DespawnPlayer {
+        player_id: u32,
+    },
+}
+
+// Resource for receiving commands in Bevy systems
+#[derive(Resource)]
+pub struct ServerCommandReceiver {
+    pub receiver: Arc<Mutex<std::sync::mpsc::Receiver<ServerCommand>>>,
+}
+
 fn server_listener(
     connected_clients: ConnectedClients,
     lobbies: LobbyList,
+    cmd_sender: Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) {
     thread::spawn(move || {
         let listener = TcpListener::bind(("0.0.0.0", 4000)).expect("Expected to bind to port 4000 successfully");
@@ -139,7 +223,8 @@ fn server_listener(
                         streams: Arc::clone(&connected_clients.streams),
                     };
                     let lobbies_clone = Arc::clone(&lobbies);
-                    thread::spawn(move || handle_client(id, s, connected_clients_clone, lobbies_clone));
+                    let cmd_sender_clone = Arc::clone(&cmd_sender);
+                    thread::spawn(move || handle_client(id, s, connected_clients_clone, lobbies_clone, cmd_sender_clone));
                 }
                 Err(e) => eprintln!("Accept error: {e}"),
             }
@@ -152,6 +237,7 @@ fn handle_client(
     stream: TcpStream,
     connected_clients: ConnectedClients,
     lobbies: LobbyList,
+    cmd_sender: Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) {
     let mut reader = BufReader::new(stream);
 
@@ -169,7 +255,7 @@ fn handle_client(
 
                 match serde_json::from_str::<MessageType>(trimmed) {
                     Ok(message) => {
-                        if let Err(e) = handle_client_message(id, message, &connected_clients, &lobbies) {
+                        if let Err(e) = handle_client_message(id, message, &connected_clients, &lobbies, &cmd_sender) {
                             eprintln!("handle_client_message error for {id}: {e}");
                         }
                     }
@@ -196,6 +282,7 @@ fn handle_client_message(
     message: MessageType,
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
+    cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) -> std::io::Result<()> {
     match message {
         MessageType::CreateLobby { name } => {
@@ -458,17 +545,20 @@ fn handle_client_message(
                         // Broadcast game started to all players in the lobby
                         drop(guard); // Release the lock before broadcasting
                         broadcast_game_start(connected_clients, &players, &name);
-                        
-                        // Use different thread & spawn game loop
-                        let lobby_name_clone = name.clone();
-                        let lobbies_clone = Arc::clone(lobbies);
-                        let connected_clients_clone = ConnectedClients {
-                            ids: Arc::clone(&connected_clients.ids),
-                            streams: Arc::clone(&connected_clients.streams),
-                        };
-                        thread::spawn(move || { 
-                            run_game_loop(lobby_name_clone, lobbies_clone, connected_clients_clone);
-                        });
+
+                        // Spawn commands for each player
+                        let sender = cmd_sender.lock().unwrap();
+                        for player_id in &players {
+                            let spawn_x = 2752.0 + (*player_id as f32) * 100.0;
+                            let spawn_y = 960.0;
+
+                            let _ = sender.send(ServerCommand::SpawnPlayer {
+                                player_id: *player_id,
+                                lobby_name: name.clone(),
+                                x: spawn_x,
+                                y: spawn_y,
+                            });
+                        }
 
 
                         let _ = send_to_client(id, connected_clients, &json!({
@@ -795,6 +885,223 @@ fn handle_tick(
     }
 }
 
+// System to apply physics simulation to all active players
+fn physics_simulation_system(
+    mut query: Query<(
+        &PlayerId,
+        &mut Position,
+        &mut Velocity,
+        &mut Orientation,
+        &PlayerInputComponent,
+        &LobbyMember,
+    )>,
+    time: Res<Time>,
+    lobbies: Res<Lobbies>,
+) {
+    const ACCEL_RATE: f32 = 700.0;
+    const FRICTION: f32 = 0.95;
+    const TURNING_RATE: f32 = 3.0;
+    const MAX_SPEED: f32 = 350.0;
+
+    let delta = time.delta_secs();
+    let accel = ACCEL_RATE * delta;
+
+    // Check which lobbies have started
+    let started_lobbies: Vec<String> = {
+        let guard = lobbies.list.lock().unwrap();
+        guard.iter()
+            .filter(|l| l.started)
+            .map(|l| l.name.clone())
+            .collect()
+    };
+
+    for (_player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
+        // Only simulate physics for players in started lobbies
+        if !started_lobbies.contains(&lobby_member.lobby_name) {
+            continue;
+        }
+
+        // Apply turning
+        if input.left {
+            orient.angle += TURNING_RATE * delta;
+        }
+        if input.right {
+            orient.angle -= TURNING_RATE * delta;
+        }
+
+        // Calculate forward vector
+        let forward_x = orient.angle.cos();
+        let forward_y = orient.angle.sin();
+
+        // Apply acceleration
+        if input.forward {
+            vel.vx += forward_x * accel;
+            vel.vy += forward_y * accel;
+
+            // Clamp to max speed
+            let speed = (vel.vx * vel.vx + vel.vy * vel.vy).sqrt();
+            if speed > MAX_SPEED {
+                vel.vx = (vel.vx / speed) * MAX_SPEED;
+                vel.vy = (vel.vy / speed) * MAX_SPEED;
+            }
+        }
+
+        // Apply backward acceleration (slower)
+        if input.backward {
+            vel.vx -= forward_x * (accel / 2.0);
+            vel.vy -= forward_y * (accel / 2.0);
+
+            let speed = (vel.vx * vel.vx + vel.vy * vel.vy).sqrt();
+            if speed > MAX_SPEED / 2.0 {
+                vel.vx = (vel.vx / speed) * (MAX_SPEED / 2.0);
+                vel.vy = (vel.vy / speed) * (MAX_SPEED / 2.0);
+            }
+        }
+
+        // Apply friction when not accelerating
+        if !input.forward && !input.backward {
+            vel.vx *= FRICTION;
+            vel.vy *= FRICTION;
+
+            // Stop if moving very slowly
+            if vel.vx.abs() < 0.1 {
+                vel.vx = 0.0;
+            }
+            if vel.vy.abs() < 0.1 {
+                vel.vy = 0.0;
+            }
+        }
+
+        // Update position
+        pos.x += vel.vx * delta;
+        pos.y += vel.vy * delta;
+    }
+}
+
+// System to broadcast game state to all clients
+fn broadcast_state_system(
+    query: Query<(
+        &PlayerId,
+        &Position,
+        &Velocity,
+        &Orientation,
+        &PlayerInputComponent,
+        &LobbyMember,
+    )>,
+    connected_clients: Res<ConnectedClients>,
+    lobbies: Res<Lobbies>,
+) {
+    // Group players by lobby
+    let mut lobby_players: HashMap<String, Vec<(u32, &Position, &Velocity, &Orientation, &PlayerInputComponent)>> = HashMap::new();
+
+    for (player_id, pos, vel, orient, input, lobby_member) in query.iter() {
+        lobby_players
+            .entry(lobby_member.lobby_name.clone())
+            .or_insert_with(Vec::new)
+            .push((player_id.0, pos, vel, orient, input));
+    }
+
+    // Broadcast state for each started lobby
+    let guard = lobbies.list.lock().unwrap();
+    for lobby in guard.iter() {
+        if !lobby.started {
+            continue;
+        }
+
+        if let Some(players_data) = lobby_players.get(&lobby.name) {
+            // Build positions payload
+            let positions_json: Vec<_> = players_data.iter().map(|(id, pos, vel, orient, input)| {
+                json!({
+                    "id": id,
+                    "x": pos.x,
+                    "y": pos.y,
+                    "vx": vel.vx,
+                    "vy": vel.vy,
+                    "angle": orient.angle,
+                    "input_count": input.input_count
+                })
+            }).collect();
+
+            let payload = json!({
+                "type": "game_state_update",
+                "players": positions_json
+            }).to_string() + "\n";
+
+            // Get player IDs in this lobby
+            let lobby_player_ids: Vec<u32> = lobby.players.lock().unwrap().clone();
+
+            // Send to all players in lobby
+            let streams = connected_clients.streams.lock().unwrap();
+            for pid in &lobby_player_ids {
+                if let Some(s) = streams.get(pid) {
+                    if let Ok(mut clone) = s.try_clone() {
+                        let _ = clone.write_all(payload.as_bytes());
+                        let _ = clone.flush();
+                    }
+                }
+            }
+        }
+    }
+}
+
+// System to update player input components from the lobby states
+fn sync_input_from_lobbies_system(
+    mut query: Query<(&PlayerId, &mut PlayerInputComponent, &LobbyMember)>,
+    lobbies: Res<Lobbies>,
+) {
+    let guard = lobbies.list.lock().unwrap();
+
+    for (player_id, mut input_component, lobby_member) in query.iter_mut() {
+        // Find the lobby this player belongs to
+        if let Some(lobby) = guard.iter().find(|l| l.name == lobby_member.lobby_name) {
+            let states = lobby.states.lock().unwrap();
+            if let Some(state) = states.get(&player_id.0) {
+                // Sync input from lobby state to component
+                input_component.forward = state.inputs.forward;
+                input_component.backward = state.inputs.backward;
+                input_component.left = state.inputs.left;
+                input_component.right = state.inputs.right;
+                input_component.drift = state.inputs.drift;
+                input_component.input_count = state.input_count;
+            }
+        }
+    }
+}
+
+// System to process commands from networking threads (spawn/despawn players)
+fn process_server_commands_system(
+    mut commands: Commands,
+    receiver: Res<ServerCommandReceiver>,
+    mut player_entities: ResMut<PlayerEntities>,
+) {
+    // Process all pending commands
+    let recv = receiver.receiver.lock().unwrap();
+    while let Ok(command) = recv.try_recv() {
+        match command {
+            ServerCommand::SpawnPlayer { player_id, lobby_name, x, y } => {
+                println!("Spawning player {} in lobby {}", player_id, lobby_name);
+
+                let entity = commands.spawn((
+                    PlayerId(player_id),
+                    Position { x, y },
+                    Velocity { vx: 0.0, vy: 0.0 },
+                    Orientation { angle: 0.0 },
+                    PlayerInputComponent::default(),
+                    LobbyMember { lobby_name },
+                )).id();
+
+                player_entities.map.insert(player_id, entity);
+            }
+            ServerCommand::DespawnPlayer { player_id } => {
+                if let Some(entity) = player_entities.map.remove(&player_id) {
+                    println!("Despawning player {}", player_id);
+                    commands.entity(entity).despawn();
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     // Display the local IP address
     match get_local_ip() {
@@ -802,11 +1109,39 @@ fn main() {
         Err(e) => println!("Server running on 0.0.0.0:4000 (Could not determine local IP: {})", e),
     }
 
+    // Set up shared resources for networking
     let connected_clients = ConnectedClients::default();
     let lobbies: LobbyList = Arc::new(Mutex::new(Vec::new()));
-    server_listener(connected_clients, lobbies);
 
-    loop {
-        thread::sleep(Duration::from_millis(250));
-    }
+    // Create command channel for networking threads to communicate with Bevy
+    let (cmd_sender, cmd_receiver) = std::sync::mpsc::channel::<ServerCommand>();
+    let cmd_sender = Arc::new(Mutex::new(cmd_sender));
+    let cmd_receiver = Arc::new(Mutex::new(cmd_receiver));
+
+    // Clone for the listener thread
+    let connected_clients_clone = ConnectedClients {
+        ids: Arc::clone(&connected_clients.ids),
+        streams: Arc::clone(&connected_clients.streams),
+    };
+    let lobbies_clone = Arc::clone(&lobbies);
+
+    // Start the TCP listener in a separate thread
+    server_listener(connected_clients_clone, lobbies_clone, Arc::clone(&cmd_sender));
+
+    // Create headless server
+    App::new()
+        .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
+            Duration::from_millis(16),
+        )))
+        .insert_resource(connected_clients)
+        .insert_resource(Lobbies { list: lobbies })
+        .insert_resource(PlayerEntities::default())
+        .insert_resource(ServerCommandReceiver { receiver: cmd_receiver })
+        .add_systems(Update, process_server_commands_system)
+        .add_systems(FixedUpdate, (
+            sync_input_from_lobbies_system,
+            physics_simulation_system,
+            broadcast_state_system,
+        ).chain())
+        .run();
 }
