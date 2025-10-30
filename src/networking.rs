@@ -3,6 +3,7 @@ use std::io::{self, BufRead, BufReader, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 use std::sync::mpsc::{self, Sender, Receiver};
+use bevy::tasks::IoTaskPool;
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -146,7 +147,8 @@ pub enum IncomingMessage {
 
 // Function to spawn a listener thread that continuously reads from server
 pub fn spawn_listener_thread(stream: TcpStream, sender: Sender<IncomingMessage>) {
-    std::thread::spawn(move || {
+    let task_pool = IoTaskPool::get();
+    task_pool.spawn(async move {
         let mut reader = BufReader::new(stream);
         loop {
             let mut line = String::new();
@@ -197,5 +199,5 @@ pub fn spawn_listener_thread(stream: TcpStream, sender: Sender<IncomingMessage>)
                 }
             }
         }
-    });
+    }).detach();
 }

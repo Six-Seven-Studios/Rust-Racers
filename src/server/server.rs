@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use bevy::app::ScheduleRunnerPlugin;
+use bevy::tasks::IoTaskPool;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use serde_json::json;
 use serde::Deserialize;
 use std::time::Duration;
@@ -190,7 +190,8 @@ fn server_listener(
     lobbies: LobbyList,
     cmd_sender: Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) {
-    thread::spawn(move || {
+    let task_pool = IoTaskPool::get();
+    task_pool.spawn(async move {
         let listener = TcpListener::bind(("0.0.0.0", 4000)).expect("Expected to bind to port 4000 successfully");
         let mut next_id: u32 = 1;
 
@@ -224,12 +225,16 @@ fn server_listener(
                     };
                     let lobbies_clone = Arc::clone(&lobbies);
                     let cmd_sender_clone = Arc::clone(&cmd_sender);
-                    thread::spawn(move || handle_client(id, s, connected_clients_clone, lobbies_clone, cmd_sender_clone));
+                    
+                    let task_pool = IoTaskPool::get();
+                    task_pool.spawn(async move {
+                        handle_client(id, s, connected_clients_clone, lobbies_clone, cmd_sender_clone);
+                    }).detach();
                 }
                 Err(e) => eprintln!("Accept error: {e}"),
             }
         }
-    });
+    }).detach();
 }
 
 fn handle_client(
@@ -1070,6 +1075,9 @@ fn main() {
     let (cmd_sender, cmd_receiver) = std::sync::mpsc::channel::<ServerCommand>();
     let cmd_sender = Arc::new(Mutex::new(cmd_sender));
     let cmd_receiver = Arc::new(Mutex::new(cmd_receiver));
+
+    // Initialize Bevy's task pools
+    bevy::tasks::IoTaskPool::get_or_init(|| bevy::tasks::TaskPool::new());
 
     // Clone for the listener thread
     let connected_clients_clone = ConnectedClients {
