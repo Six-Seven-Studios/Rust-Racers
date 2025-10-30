@@ -22,7 +22,7 @@ impl CarState {
             state: Some(Box::new(Offense {})), // default to offense
         }
     }
-
+    /*
     pub fn to_defense(&mut self) {
         if let Some(s) = self.state.take() {
             self.state = Some(s.to_defense())
@@ -35,7 +35,7 @@ impl CarState {
         }
     }
 
-    /*
+    
     pub fn execute(&self) -> Transition {
         self.state.as_ref().unwrap().execute(self)
     }
