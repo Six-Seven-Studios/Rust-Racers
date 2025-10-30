@@ -84,9 +84,10 @@ fn main() {
             check_for_credits_input,
             update_lobby_display.run_if(in_state(GameState::Lobby)),
             //move_car.run_if(in_state(GameState::Playing)),
-            move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            // Server now controls player physics, client just renders server position
+            //move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
-            move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            move_camera.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             update_laps.run_if(in_state(GameState::Playing)),
             multiplayer::send_car_position.run_if(in_state(GameState::Playing)),

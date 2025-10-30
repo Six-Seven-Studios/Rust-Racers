@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::input::ButtonInput;
 use crate::car::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE};
 use crate::networking_plugin::{NetworkClient, PlayerPositions};
 use crate::lap_system::LapCounter;
@@ -10,18 +11,23 @@ pub struct NetworkPlayer {
 
 pub fn send_car_position(
     mut network_client: ResMut<NetworkClient>,
-    player_query: Query<(&Transform, &Velocity, &Orientation), With<PlayerControlled>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     let Some(client) = network_client.client.as_mut() else { return };
-    let Ok((transform, velocity, orientation)) = player_query.single() else { return };
-    
-    let pos = transform.translation.truncate();
-    let _ = client.send_car_position(pos.x, pos.y, velocity.velocity.x, velocity.velocity.y, orientation.angle);
+
+    let forward = input.pressed(KeyCode::KeyW);
+    let backward = input.pressed(KeyCode::KeyS);
+    let left = input.pressed(KeyCode::KeyA);
+    let right = input.pressed(KeyCode::KeyD);
+    let drift = input.pressed(KeyCode::Space);
+
+    let _ = client.send_player_input(forward, backward, left, right, drift);
 }
 
 pub fn get_car_positions(
     network_client: Res<NetworkClient>,
-    mut network_cars: Query<(&NetworkPlayer, &mut Transform, &mut Velocity, &mut Orientation), Without<PlayerControlled>>,
+    mut network_cars: Query<(&NetworkPlayer, &mut Transform, &mut Velocity, &mut Orientation)>,
+    mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<NetworkPlayer>)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -32,9 +38,18 @@ pub fn get_car_positions(
 
     // Process all positions from the resource
     for (id, player_pos) in &player_positions.positions {
-        // Skip our own position
-        if Some(*id) == my_id { continue; }
+        // Update our own player car from server position
+        if Some(*id) == my_id {
+            if let Ok((mut transform, mut velocity, mut orientation)) = player_car.get_single_mut() {
+                transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
+                transform.rotation = Quat::from_rotation_z(player_pos.angle);
+                velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
+                orientation.angle = player_pos.angle;
+            }
+            continue;
+        }
 
+        // Update other players
         compensate_lag(
             &mut network_cars,
             *id,
@@ -51,7 +66,7 @@ pub fn get_car_positions(
 }
 
 fn compensate_lag(
-    network_cars: &mut Query<(&NetworkPlayer, &mut Transform, &mut Velocity, &mut Orientation), Without<PlayerControlled>>,
+    network_cars: &mut Query<(&NetworkPlayer, &mut Transform, &mut Velocity, &mut Orientation)>,
     id: u32,
     x: f32, y: f32, vx: f32, vy: f32, angle: f32,
     commands: &mut Commands,
