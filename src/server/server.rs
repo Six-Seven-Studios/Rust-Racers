@@ -838,53 +838,6 @@ fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
     Ok(local_addr.ip().to_string())
 }
 
-fn run_game_loop(
-    lobby_name: String,
-    lobbies: LobbyList,
-    connected_clients: ConnectedClients,
-) {
-    // TODO: Move this out?
-    const TICK_RATE_MS: u64 = 16; // 60 Hz
-    let tick_duration = Duration::from_millis(TICK_RATE_MS);
-
-    println!("Game loop started for lobby {}", lobby_name);
-
-    // Find lobby index
-    let lobby_index_opt = {
-        let guard = lobbies.lock().unwrap();
-        guard.iter().position(|lobby| {
-            lobby.name == lobby_name
-        })
-    };
-
-    loop {
-        // Sleep for the tick duration
-        thread::sleep(tick_duration);
-
-        let lobbies_clone = lobbies.clone();
-        let connected_clients_clone = connected_clients.clone();
-        // Handle the tick in another thread so it does not delay the tick
-        thread::spawn(move || handle_tick(lobby_index_opt, lobbies_clone, connected_clients_clone));
-    }
-    println!("Game loop ended for lobby {}", lobby_name);
-}
-
-fn handle_tick(
-    lobby_index_opt: Option<usize>,
-    lobbies: LobbyList,
-    connected_clients: ConnectedClients
-) {
-    match lobby_index_opt {
-        Some(lobby_index) => {
-            // Broadcast game state
-            broadcast_player_states(&connected_clients, &lobbies, lobby_index);
-        }
-        None => {
-            // TODO: Figure out a way to terminate the game
-        }
-    }
-}
-
 // System to apply physics simulation to all active players
 fn physics_simulation_system(
     mut query: Query<(
@@ -1137,11 +1090,11 @@ fn main() {
         .insert_resource(Lobbies { list: lobbies })
         .insert_resource(PlayerEntities::default())
         .insert_resource(ServerCommandReceiver { receiver: cmd_receiver })
-        .add_systems(Update, process_server_commands_system)
-        .add_systems(FixedUpdate, (
+        .add_systems(Update, (
+            process_server_commands_system,
             sync_input_from_lobbies_system,
-            physics_simulation_system,
-            broadcast_state_system,
+            physics_simulation_system
         ).chain())
+        .add_systems(FixedUpdate, broadcast_state_system)
         .run();
 }
