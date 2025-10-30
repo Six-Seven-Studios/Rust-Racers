@@ -85,7 +85,8 @@ fn main() {
             update_lobby_display.run_if(in_state(GameState::Lobby)),
             //move_car.run_if(in_state(GameState::Playing)),
             // Server now controls player physics, client just renders server position
-            //move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            // Client only controls game state in GameState::PlayingDemo
+            move_player_car.run_if(in_state(GameState::PlayingDemo)),
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
             move_camera.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
