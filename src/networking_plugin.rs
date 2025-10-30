@@ -151,12 +151,12 @@ pub fn connect_to_server(
     let client = Client::connect(address.to_string())
         .map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Clone the stream for the listener thread
-    let stream_clone = client.get_stream_clone()
-        .map_err(|e| format!("Failed to clone stream: {}", e))?;
+    // Clone the socket for the listener thread
+    let socket_clone = client.get_socket_clone()
+        .map_err(|e| format!("Failed to clone socket: {}", e))?;
 
     // Spawn the listener thread
-    spawn_listener_thread(stream_clone, sender.sender.clone());
+    spawn_listener_thread(socket_clone, sender.sender.clone());
 
     network_client.client = Some(client);
 

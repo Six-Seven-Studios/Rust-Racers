@@ -2,12 +2,11 @@ use bevy::prelude::*;
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::tasks::IoTaskPool;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use serde_json::json;
 use serde::Deserialize;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -35,7 +34,10 @@ enum MessageType {
 #[derive(Clone, Resource)]
 pub struct ConnectedClients {
     pub ids: Arc<Mutex<Vec<u32>>>,
-    pub streams: Arc<Mutex<HashMap<u32, TcpStream>>>,
+    pub addrs: Arc<Mutex<HashMap<u32, SocketAddr>>>,
+    pub addr_to_id: Arc<Mutex<HashMap<SocketAddr, u32>>>,
+    pub last_seen: Arc<Mutex<HashMap<u32, Instant>>>,
+    pub socket: Arc<UdpSocket>,
 }
 
 #[derive(Clone, Debug)]
@@ -75,11 +77,14 @@ pub struct Lobbies {
     pub list: LobbyList,
 }
 
-impl Default for ConnectedClients {
-    fn default() -> Self {
+impl ConnectedClients {
+    fn new(socket: Arc<UdpSocket>) -> Self {
         Self {
             ids: Arc::new(Mutex::new(Vec::new())),
-            streams: Arc::new(Mutex::new(HashMap::new())),
+            addrs: Arc::new(Mutex::new(HashMap::new())),
+            addr_to_id: Arc::new(Mutex::new(HashMap::new())),
+            last_seen: Arc::new(Mutex::new(HashMap::new())),
+            socket,
         }
     }
 }
@@ -192,94 +197,88 @@ fn server_listener(
 ) {
     let task_pool = IoTaskPool::get();
     task_pool.spawn(async move {
-        let listener = TcpListener::bind(("0.0.0.0", 4000)).expect("Expected to bind to port 4000 successfully");
         let mut next_id: u32 = 1;
+        let mut buf = [0u8; 65536]; // UDP buffer
 
-        for stream in listener.incoming() {
-            match stream {
-                Ok(mut s) => {
-                    let id = next_id;
-                    next_id += 1;
+        loop {
+            match connected_clients.socket.recv_from(&mut buf) {
+                Ok((len, addr)) => {
+                    let data = &buf[..len];
 
-                    let line = format!("WELCOME PLAYER {}\n", id);
-                    let _ = s.write_all(line.as_bytes());
-                    let _ = s.flush();
-                    println!("Greeted client with id={id}");
+                    // Convert bytes to string
+                    if let Ok(message_str) = std::str::from_utf8(data) {
+                        let trimmed = message_str.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
 
-                    let stream_clone = s.try_clone().expect("Failed to clone stream");
+                        // Get or assign client ID
+                        let client_id = {
+                            let mut addr_to_id = connected_clients.addr_to_id.lock().unwrap();
 
-                    // Add to streams map
-                    if let Ok(mut client_streams) = connected_clients.streams.lock() {
-                        client_streams.insert(id, stream_clone);
+                            if let Some(&id) = addr_to_id.get(&addr) {
+                                // Update last seen time
+                                if let Ok(mut last_seen) = connected_clients.last_seen.lock() {
+                                    last_seen.insert(id, Instant::now());
+                                }
+                                id
+                            } else {
+                                // New client
+                                let id = next_id;
+                                next_id += 1;
+
+                                addr_to_id.insert(addr, id);
+
+                                // Add to other maps
+                                if let Ok(mut addrs) = connected_clients.addrs.lock() {
+                                    addrs.insert(id, addr);
+                                }
+                                if let Ok(mut ids) = connected_clients.ids.lock() {
+                                    ids.push(id);
+                                }
+                                if let Ok(mut last_seen) = connected_clients.last_seen.lock() {
+                                    last_seen.insert(id, Instant::now());
+                                }
+
+                                println!("New client {} from {}", id, addr);
+
+                                // Send welcome message
+                                let welcome = format!("WELCOME PLAYER {}\n", id);
+                                let _ = connected_clients.socket.send_to(welcome.as_bytes(), addr);
+
+                                id
+                            }
+                        };
+
+                        // Parse and handle message
+                        match serde_json::from_str::<MessageType>(trimmed) {
+                            Ok(message) => {
+                                if let Err(e) = handle_client_message(
+                                    client_id,
+                                    message,
+                                    &connected_clients,
+                                    &lobbies,
+                                    &cmd_sender
+                                ) {
+                                    eprintln!("handle_client_message error for {}: {}", client_id, e);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("JSON parse error from {}: {}; raw={}", client_id, e, trimmed);
+                                let _ = send_to_client(client_id, &connected_clients, &json!({
+                                    "type": "error",
+                                    "message": "invalid_json"
+                                }));
+                            }
+                        }
                     }
-
-                    // Add to connected clients list
-                    if let Ok(mut client_ids) = connected_clients.ids.lock() {
-                        client_ids.push(id);
-                        println!("Connected clients: {:?}", client_ids);
-                    }
-
-                    let connected_clients_clone = ConnectedClients {
-                        ids: Arc::clone(&connected_clients.ids),
-                        streams: Arc::clone(&connected_clients.streams),
-                    };
-                    let lobbies_clone = Arc::clone(&lobbies);
-                    let cmd_sender_clone = Arc::clone(&cmd_sender);
-                    
-                    let task_pool = IoTaskPool::get();
-                    task_pool.spawn(async move {
-                        handle_client(id, s, connected_clients_clone, lobbies_clone, cmd_sender_clone);
-                    }).detach();
                 }
-                Err(e) => eprintln!("Accept error: {e}"),
+                Err(e) => {
+                    eprintln!("recv_from error: {}", e);
+                }
             }
         }
     }).detach();
-}
-
-fn handle_client(
-    id: u32,
-    stream: TcpStream,
-    connected_clients: ConnectedClients,
-    lobbies: LobbyList,
-    cmd_sender: Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
-) {
-    let mut reader = BufReader::new(stream);
-
-    loop {
-        let mut line = String::new();
-        match reader.read_line(&mut line) {
-            Ok(0) => {
-                // EOF: client disconnected
-                disconnect_cleanup(id, &connected_clients, &lobbies);
-                break;
-            }
-            Ok(_) => {
-                let trimmed = line.trim();
-                if trimmed.is_empty() { continue; }
-
-                match serde_json::from_str::<MessageType>(trimmed) {
-                    Ok(message) => {
-                        if let Err(e) = handle_client_message(id, message, &connected_clients, &lobbies, &cmd_sender) {
-                            eprintln!("handle_client_message error for {id}: {e}");
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("JSON parse error from {id}: {e}; raw={trimmed}");
-                        // Optional: reply with an error
-                        let _ = send_to_client(id, &connected_clients, &json!({
-                            "type":"error", "message":"invalid_json"
-                        }));
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("read_line error for {id}: {e}");
-                disconnect_cleanup(id, &connected_clients, &lobbies);
-                break;
-            }
-        }
-    }
 }
 
 fn handle_client_message(
@@ -591,9 +590,8 @@ fn handle_client_message(
 
 fn send_to_client(id: u32, connected_clients: &ConnectedClients, val: &serde_json::Value) -> std::io::Result<()> {
     let payload = val.to_string() + "\n";
-    if let Some(mut s) = connected_clients.streams.lock().unwrap().get(&id).and_then(|s| s.try_clone().ok()) {
-        s.write_all(payload.as_bytes())?;
-        s.flush()?;
+    if let Some(addr) = connected_clients.addrs.lock().unwrap().get(&id).copied() {
+        connected_clients.socket.send_to(payload.as_bytes(), addr)?;
     }
     Ok(())
 }
@@ -606,7 +604,7 @@ fn broadcast_lobby_state(
     let guard = lobbies.lock().unwrap();
 
     let lobby = guard.get(lobby_index).unwrap();
-    
+
     // Snapshot the player IDs
     let players: Vec<u32> = {
         let lobby_guard = lobby.players.lock().unwrap();
@@ -614,28 +612,17 @@ fn broadcast_lobby_state(
     };
 
     // Build one payload that everyone in this lobby gets
-    let payload = json!({ 
+    let payload = json!({
         "lobby": lobby.name.clone(),
-        "players": players 
+        "players": players
     }).to_string() + "\n";
 
-    // Clone target streams
-    let mut targets = Vec::new();
-    {
-        let streams = connected_clients.streams.lock().unwrap();
-        for pid in &players {
-            if let Some(s) = streams.get(pid) {
-                if let Ok(clone) = s.try_clone() {
-                    targets.push(clone);
-                }
-            }
+    // Get target addresses and send
+    let addrs = connected_clients.addrs.lock().unwrap();
+    for pid in &players {
+        if let Some(addr) = addrs.get(pid) {
+            let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
         }
-    }
-
-    // Write to everyone
-    for mut stream in targets {
-        let _ = stream.write_all(payload.as_bytes());
-        let _ = stream.flush();
     }
 }
 
@@ -659,19 +646,12 @@ fn broadcast_active_lobbies(
     let payload = json!({
         "type": "active_lobbies",
         "lobbies": lobby_list
-    }).to_string();
-    let payload = payload + "\n";
+    }).to_string() + "\n";
 
-    // Clone all streams
-    let targets: Vec<TcpStream> = {
-        let streams = connected_clients.streams.lock().unwrap();
-        streams.values().filter_map(|s| s.try_clone().ok()).collect()
-    };
-
-    // Write to everyone
-    for mut stream in targets {
-        let _ = stream.write_all(payload.as_bytes());
-        let _ = stream.flush();
+    // Send to all connected clients
+    let addrs = connected_clients.addrs.lock().unwrap();
+    for addr in addrs.values() {
+        let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
     }
 }
 
@@ -750,23 +730,12 @@ fn broadcast_player_states(
         "players": positions_json
     }).to_string() + "\n";
 
-    // Clone TCP streams
-    let mut targets = Vec::new();
-    {
-        let streams = connected_clients.streams.lock().unwrap();
-        for pid in &players {
-            if let Some(s) = streams.get(pid) {
-                if let Ok(clone) = s.try_clone() {
-                    targets.push(clone);
-                }
-            }
+    // Send to all players in lobby
+    let addrs = connected_clients.addrs.lock().unwrap();
+    for pid in &players {
+        if let Some(addr) = addrs.get(pid) {
+            let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
         }
-    }
-
-    // Write to clients
-    for mut stream in targets {
-        let _ = stream.write_all(payload.as_bytes());
-        let _ = stream.flush();
     }
 }
 
@@ -782,34 +751,32 @@ fn broadcast_game_start(
         "lobby": lobby_name
     }).to_string() + "\n";
 
-    // Clone target streams
-    let mut targets = Vec::new();
-    {
-        let streams = connected_clients.streams.lock().unwrap();
-        for pid in players {
-            if let Some(s) = streams.get(pid) {
-                if let Ok(clone) = s.try_clone() {
-                    targets.push(clone);
-                }
-            }
+    // Send to all players in the lobby
+    let addrs = connected_clients.addrs.lock().unwrap();
+    for pid in players {
+        if let Some(addr) = addrs.get(pid) {
+            let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
         }
-    }
-
-    // Write to everyone in the lobby
-    for mut stream in targets {
-        let _ = stream.write_all(payload.as_bytes());
-        let _ = stream.flush();
     }
 }
 
 fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList) {
-    // remove from streams/ids
-    if let Ok(mut m) = connected.streams.lock() { m.remove(&id); }
+    // Get the address before removing
+    let addr = connected.addrs.lock().unwrap().get(&id).copied();
+
+    // Remove from all maps
+    if let Ok(mut m) = connected.addrs.lock() { m.remove(&id); }
     if let Ok(mut ids) = connected.ids.lock() { ids.retain(|x| *x != id); }
+    if let Ok(mut last_seen) = connected.last_seen.lock() { last_seen.remove(&id); }
+    if let Some(addr) = addr {
+        if let Ok(mut addr_to_id) = connected.addr_to_id.lock() {
+            addr_to_id.remove(&addr);
+        }
+    }
 
     let mut empty_lobbies: Vec<usize> = Vec::new();
 
-    // remove from all lobbies
+    // Remove from all lobbies
     let mut guard = lobbies.lock().unwrap();
     for (i, lobby) in guard.iter_mut().enumerate() {
         let mut players = lobby.players.lock().unwrap();
@@ -821,19 +788,18 @@ fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList
         } else if lobby.host == id {
             if let Some(first_player) = players.get(0) {
                 lobby.host = *first_player;
-            }
-            else {
+            } else {
                 println!("Should never get here because players should have at least one element");
             }
         }
     }
 
     // Remove the empty lobbies
-    for index in empty_lobbies.iter() {
+    for index in empty_lobbies.iter().rev() {
         guard.remove(*index);
     }
 
-    println!("Client {id} disconnected and cleaned up");
+    println!("Client {} disconnected and cleaned up", id);
 }
 
 fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
@@ -989,13 +955,10 @@ fn broadcast_state_system(
             let lobby_player_ids: Vec<u32> = lobby.players.lock().unwrap().clone();
 
             // Send to all players in lobby
-            let streams = connected_clients.streams.lock().unwrap();
+            let addrs = connected_clients.addrs.lock().unwrap();
             for pid in &lobby_player_ids {
-                if let Some(s) = streams.get(pid) {
-                    if let Ok(mut clone) = s.try_clone() {
-                        let _ = clone.write_all(payload.as_bytes());
-                        let _ = clone.flush();
-                    }
+                if let Some(addr) = addrs.get(pid) {
+                    let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
                 }
             }
         }
@@ -1060,6 +1023,33 @@ fn process_server_commands_system(
     }
 }
 
+// System to check for timed out clients and disconnect them
+fn timeout_cleanup_system(
+    connected_clients: Res<ConnectedClients>,
+    lobbies: Res<Lobbies>,
+) {
+    const TIMEOUT_SECONDS: u64 = 10;
+
+    let now = Instant::now();
+    let mut timed_out_clients = Vec::new();
+
+    // Find clients that haven't sent anything in TIMEOUT_SECONDS
+    {
+        let last_seen = connected_clients.last_seen.lock().unwrap();
+        for (id, last_time) in last_seen.iter() {
+            if now.duration_since(*last_time).as_secs() > TIMEOUT_SECONDS {
+                timed_out_clients.push(*id);
+            }
+        }
+    }
+
+    // Disconnect timed out clients
+    for id in timed_out_clients {
+        println!("Client {} timed out", id);
+        disconnect_cleanup(id, &connected_clients, &lobbies.list);
+    }
+}
+
 fn main() {
     // Display the local IP address
     match get_local_ip() {
@@ -1067,8 +1057,13 @@ fn main() {
         Err(e) => println!("Server running on 0.0.0.0:4000 (Could not determine local IP: {})", e),
     }
 
+    // Bind UDP socket
+    let socket = UdpSocket::bind("0.0.0.0:4000").expect("Failed to bind UDP socket to port 4000");
+    println!("UDP server listening on 0.0.0.0:4000");
+    let socket = Arc::new(socket);
+
     // Set up shared resources for networking
-    let connected_clients = ConnectedClients::default();
+    let connected_clients = ConnectedClients::new(Arc::clone(&socket));
     let lobbies: LobbyList = Arc::new(Mutex::new(Vec::new()));
 
     // Create command channel for networking threads to communicate with Bevy
@@ -1082,11 +1077,14 @@ fn main() {
     // Clone for the listener thread
     let connected_clients_clone = ConnectedClients {
         ids: Arc::clone(&connected_clients.ids),
-        streams: Arc::clone(&connected_clients.streams),
+        addrs: Arc::clone(&connected_clients.addrs),
+        addr_to_id: Arc::clone(&connected_clients.addr_to_id),
+        last_seen: Arc::clone(&connected_clients.last_seen),
+        socket: Arc::clone(&socket),
     };
     let lobbies_clone = Arc::clone(&lobbies);
 
-    // Start the TCP listener in a separate thread
+    // Start the UDP listener in a separate thread
     server_listener(connected_clients_clone, lobbies_clone, Arc::clone(&cmd_sender));
 
     // Create headless server
@@ -1101,7 +1099,8 @@ fn main() {
         .add_systems(Update, (
             process_server_commands_system,
             sync_input_from_lobbies_system,
-            physics_simulation_system
+            physics_simulation_system,
+            timeout_cleanup_system,
         ).chain())
         .add_systems(FixedUpdate, broadcast_state_system)
         .run();
