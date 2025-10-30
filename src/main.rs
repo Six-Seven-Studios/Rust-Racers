@@ -90,7 +90,7 @@ fn main() {
             move_camera.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             update_laps.run_if(in_state(GameState::Playing)),
-            multiplayer::send_car_position.run_if(in_state(GameState::Playing)),
+            multiplayer::send_keyboard_input.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
         ))
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)

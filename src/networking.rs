@@ -120,10 +120,6 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
-    pub fn send_car_position(&mut self, x: f32, y: f32, vx: f32, vy: f32, angle: f32) -> io::Result<()> {
-        self.send(MessageType::CarPosition { x, y, vx, vy, angle })
-    }
-
     pub fn send_player_input(&mut self, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
         self.send(MessageType::PlayerInput { forward, backward, left, right, drift })
     }

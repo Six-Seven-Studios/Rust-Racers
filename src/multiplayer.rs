@@ -9,7 +9,7 @@ pub struct NetworkPlayer {
     pub player_id: u32,
 }
 
-pub fn send_car_position(
+pub fn send_keyboard_input(
     mut network_client: ResMut<NetworkClient>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
