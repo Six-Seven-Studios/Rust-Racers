@@ -329,7 +329,7 @@ pub fn spawn_cars(
 }
 
 // beginnings of the fsm system
-fn ai_car_fsm (
+pub fn ai_car_fsm (
     mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>
     ) {
     for (mut car_state, 

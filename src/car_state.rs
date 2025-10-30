@@ -142,4 +142,4 @@ impl State for Defense {
 }
 
 // this is doing some weird rust ownership stuff I don't fully understand
-// i just sort of copied the structure from the rust book and added extra bevy functionality
+// i just sort of copied the structure from the rust book and added extra bevy functions

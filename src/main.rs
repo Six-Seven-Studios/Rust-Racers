@@ -18,7 +18,7 @@ mod car_state;
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress};
 use lobby::{LobbyState, update_lobby_display};
 use map::{load_map_from_file, GameMap, spawn_map};
-use car::{Background, move_player_car, spawn_cars, move_ai_cars};
+use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use victory_screen::setup_victory_screen;
@@ -89,6 +89,7 @@ fn main() {
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
             move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
             update_laps.run_if(in_state(GameState::Playing)),
             multiplayer::send_car_position.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
