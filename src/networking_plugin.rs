@@ -3,7 +3,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
 use std::collections::HashMap;
 use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread, spawn_ping_thread};
-use crate::lobby::{LobbyState, setup_lobby};
+use crate::lobby::{LobbyState, setup_lobby, LobbyList, LobbyListDirty, LobbyInfo};
 use crate::GameState;
 use crate::title_screen::destroy_screen;
 
@@ -69,6 +69,8 @@ fn process_network_messages(
     lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
     mut player_positions: ResMut<PlayerPositions>,
     asset_server: Res<AssetServer>,
+    mut list: ResMut<LobbyList>,
+    mut dirty: ResMut<LobbyListDirty>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -90,10 +92,17 @@ fn process_network_messages(
                         println!("Error: {}", message);
                     }
                     ServerMessage::ActiveLobbies { lobbies } => {
+                        list.0.clear();
                         println!("Active lobbies:");
                         for lobby in lobbies {
                             println!("  {} ({} players)", lobby.name, lobby.players);
+                            list.0.push(LobbyInfo {
+                                name: lobby.name,
+                                players: lobby.players,
+                                capacity: 4,
+                            });
                         }
+                        dirty.0 = true;
                     }
                     ServerMessage::GameStarted { lobby } => {
                         println!("Game started for lobby: {}", lobby);
