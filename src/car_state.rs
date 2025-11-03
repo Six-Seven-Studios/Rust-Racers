@@ -95,10 +95,10 @@ impl State for Offense {
         orientation: &mut Orientation,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
-        info!("Driving aggressively!");
+        // info!("Driving aggressively!");
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
-            info!("Switching to defensive driving!");
+            // info!("Switching to defensive driving!");
             Transition::ToDefense
         } else {
             Transition::None
@@ -129,11 +129,11 @@ impl State for Defense {
         // MAIN DRIVING LOGIC GOES HERE
         // TODO: use transform, velocity, etc to move the car
 
-        info!("Driving defensively!");
-        info!("{:?}", transform.translation);
+        // info!("Driving defensively!");
+        // info!("{:?}", transform.translation);
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
-            info!("Switching to offensive driving!");
+            // info!("Switching to offensive driving!");
             Transition::ToOffense
         } else {
             Transition::None

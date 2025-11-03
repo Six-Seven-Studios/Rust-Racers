@@ -90,7 +90,7 @@ fn main() {
             move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
-            update_laps.run_if(in_state(GameState::Playing)),
+            update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             multiplayer::send_car_position.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
         ))
