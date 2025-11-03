@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
-use std::io;
+use std::{io, thread};
 use std::net::{UdpSocket, SocketAddr};
 use std::sync::mpsc::Sender;
 use bevy::tasks::IoTaskPool;
+use std::time::Duration;
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -26,6 +27,8 @@ pub enum MessageType {
         right: bool,
         drift: bool,
     },
+
+    Ping,
 }
 
 // Server response messages
@@ -99,6 +102,13 @@ impl Client {
         self.socket.try_clone()
     }
 
+    pub fn clone(&self) -> Self {
+        Self {
+            socket: self.socket.try_clone().expect("Failed to clone UDP socket"),
+            server_addr: self.server_addr,
+        }
+    }
+
     pub fn send(&mut self, message: MessageType) -> io::Result<()> {
         let text = serde_json::to_string(&message).unwrap() + "\n";
         self.socket.send_to(text.as_bytes(), self.server_addr)?;
@@ -127,6 +137,10 @@ impl Client {
 
     pub fn send_player_input(&mut self, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
         self.send(MessageType::PlayerInput { forward, backward, left, right, drift })
+    }
+
+    pub fn send_ping(&mut self) -> io::Result<()> {
+        self.send(MessageType::Ping)
     }
 }
 
@@ -195,4 +209,18 @@ pub fn spawn_listener_thread(socket: UdpSocket, sender: Sender<IncomingMessage>)
             }
         }
     }).detach();
+}
+
+// Function to spawn a ping thread that pings the server every 5 seconds
+pub fn spawn_ping_thread(mut client: Client) {
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(5));
+
+            if let Err(e) = client.send_ping() {
+                println!("Failed to send ping: {}", e);
+                break;
+            }
+        }
+    });
 }

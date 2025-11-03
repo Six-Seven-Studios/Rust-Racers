@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
 use std::collections::HashMap;
-use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread};
+use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread, spawn_ping_thread};
 use crate::lobby::{LobbyState, setup_lobby};
 use crate::GameState;
 use crate::title_screen::destroy_screen;
@@ -157,6 +157,9 @@ pub fn connect_to_server(
 
     // Spawn the listener thread
     spawn_listener_thread(socket_clone, sender.sender.clone());
+
+    // Spawn the ping thread
+    spawn_ping_thread(client.clone());
 
     network_client.client = Some(client);
 

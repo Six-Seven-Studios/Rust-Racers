@@ -27,7 +27,9 @@ enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
-    }
+    },
+
+    Ping
 }
 
 // Track connected clients
@@ -585,6 +587,11 @@ fn handle_client_message(
         MessageType::PlayerInput { forward, backward, left, right, drift } => {
             handle_player_input(id, forward, backward, left, right, drift, connected_clients, lobbies)
         }
+
+        // This just maintains the client connection
+        MessageType::Ping => {
+            Ok(())
+        }
     }
 }
 
@@ -603,7 +610,12 @@ fn broadcast_lobby_state(
 ) {
     let guard = lobbies.lock().unwrap();
 
-    let lobby = guard.get(lobby_index).unwrap();
+    let lobby = if let Some(i) = guard.get(lobby_index) {
+        i
+    } else {
+        println!("Lobby does not exist");
+        return;
+    };
 
     // Snapshot the player IDs
     let players: Vec<u32> = {
@@ -697,46 +709,6 @@ fn handle_player_input(
     }
 
     Ok(())
-}
-
-// Broadcast all player states to all players in a lobby
-fn broadcast_player_states(
-    connected_clients: &ConnectedClients,
-    lobbies: &LobbyList,
-    lobby_index: usize,
-) {
-    let guard = lobbies.lock().unwrap();
-    let lobby = guard.get(lobby_index).unwrap();
-
-    // Get player IDs and positions
-    let players: Vec<u32> = lobby.players.lock().unwrap().clone();
-    let states: HashMap<u32, PlayerState> = lobby.states.lock().unwrap().clone();
-
-    // Build payload
-    let positions_json: Vec<_> = states.iter().map(|(player_id, state)| {
-        json!({
-            "id": player_id,
-            "x": state.x,
-            "y": state.y,
-            "vx": state.vx,
-            "vy": state.vy,
-            "angle": state.angle,
-            "input_count": state.input_count
-        })
-    }).collect();
-
-    let payload = json!({
-        "type": "game_state_update",
-        "players": positions_json
-    }).to_string() + "\n";
-
-    // Send to all players in lobby
-    let addrs = connected_clients.addrs.lock().unwrap();
-    for pid in &players {
-        if let Some(addr) = addrs.get(pid) {
-            let _ = connected_clients.socket.send_to(payload.as_bytes(), addr);
-        }
-    }
 }
 
 // Broadcast game start to all players in a lobby
