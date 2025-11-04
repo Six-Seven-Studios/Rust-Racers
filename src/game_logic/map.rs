@@ -13,7 +13,6 @@ pub struct GameMap {
     
     // visual only layers
     pub visual_layers: Vec<Vec<Vec<u8>>>, // Vec<Layer<Rows<Tiles>>>
-    pub theta_checkpoint_list: ThetaCheckpointList,
 }
 
 
@@ -103,67 +102,15 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
     }
 
 
-    let temp_map = GameMap {
+    GameMap {
         width,
         height,
         terrain_layer,
         visual_layers,
-        theta_checkpoint_list: ThetaCheckpointList::new(Vec::new()),
-    };
-
-    // Initialize checkpoints from the map (tile IDs 200-209 = checkpoints 0-9, layer 0 = background)
-    // Checkpoints are ordered by their tile ID, no angle calculation needed
-    let checkpoint_vec = initialize_checkpoints(&temp_map, 0);
-    let theta_checkpoint_list = ThetaCheckpointList::new(checkpoint_vec);
-
-    GameMap {
-        width,
-        height,
-        terrain_layer: temp_map.terrain_layer,
-        visual_layers: temp_map.visual_layers,
-        theta_checkpoint_list,
     }
 }
 
-//Initialize the Theta* Checkpoint List based off the map file
-//Checkpoints are identified by tile IDs 200-255 (0xC8-0xFF)
-//The order is determined by tile ID: 200 = checkpoint 0, 201 = checkpoint 1, etc.
-pub fn initialize_checkpoints(game_map: &GameMap, layer_index: usize) -> Vec<ThetaCheckpoint> {
 
-    let layer = &game_map.visual_layers[layer_index];
-    let tile_size = 64.0;
-
-    // Collect checkpoints with their tile IDs (200-255 range)
-    let mut checkpoint_data: Vec<(u8, ThetaCheckpoint)> = Vec::new();
-
-    for (y, row) in layer.iter().enumerate() {
-        for (x, tile_id) in row.iter().enumerate() {
-            // Checkpoints are in the 200-255 range (0xC8-0xFF in hex)
-            if *tile_id >= 200 {
-                // Convert tile coordinates to world coordinates
-                let world_x = x as f32 * tile_size - game_map.width / 2.0 + tile_size / 2.0;
-                let world_y = -(y as f32 * tile_size) + game_map.height / 2.0 - tile_size / 2.0;
-
-                checkpoint_data.push((
-                    *tile_id,
-                    ThetaCheckpoint {
-                        x: world_x,
-                        y: world_y,
-                    }
-                ));
-            }
-        }
-    }
-
-    // Sort by tile ID to get the correct checkpoint order
-    checkpoint_data.sort_by_key(|(tile_id, _)| *tile_id);
-
-    //Lol I placed them wrong, so let's just reverse!
-    checkpoint_data.reverse();
-
-    // Extract just the checkpoints (without tile IDs)
-    checkpoint_data.into_iter().map(|(_, checkpoint)| checkpoint).collect()
-}
 
 /*  
     rendering the map from the GameMap and tile atlas

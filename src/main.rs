@@ -9,11 +9,12 @@ mod victory_screen;
 mod networking;
 mod multiplayer;
 mod networking_plugin;
+mod car_state;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
 use game_logic::{load_map_from_file, GameMap, spawn_map};
-use car::{Background, move_player_car, spawn_cars, move_ai_cars};
+use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use victory_screen::setup_victory_screen;
@@ -23,7 +24,7 @@ use game_logic::{spawn_lap_triggers, LapCounter, update_laps};
 use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
-use crate::game_logic::TILE_SIZE;
+use crate::game_logic::{TILE_SIZE, AIControlled, Orientation, Velocity, ThetaCheckpointList};
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
@@ -71,6 +72,7 @@ fn main() {
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
+        .add_systems(OnEnter(GameState::PlayingDemo), (ai_car_setup).after(car_setup))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
@@ -86,7 +88,8 @@ fn main() {
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
             move_camera.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
-            update_laps.run_if(in_state(GameState::Playing)),
+            ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
+            update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             multiplayer::send_keyboard_input.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
             populate_lobby_list.run_if(in_state(GameState::Joining)),
@@ -120,8 +123,15 @@ fn car_setup(
     // Spawn cars using the car module
     spawn_cars(commands, asset_server, texture_atlases);
 }
+fn ai_car_setup(
+    mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>
+){
+    for (mut theta_checkpoint_list) in ai_cars.iter_mut(){
+        *theta_checkpoint_list = theta_checkpoint_list.load_checkpoint_list(1);
+    }
+}
 
-fn load_map1(mut commands: Commands) {
+    fn load_map1(mut commands: Commands) {
     commands.insert_resource(load_map_from_file("assets/big-map.txt"));
 }
 
