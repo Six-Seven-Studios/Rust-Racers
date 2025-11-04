@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-// Car component
 #[derive(Component)]
 pub struct Car;
 
@@ -10,7 +9,6 @@ pub struct PlayerControlled;
 #[derive(Component)]
 pub struct AIControlled;
 
-// Orientation component
 #[derive(Component, Clone)]
 pub struct Orientation {
     pub angle: f32,
@@ -26,7 +24,6 @@ impl Orientation {
     }
 }
 
-// Velocity component
 #[derive(Component, Clone, Deref, DerefMut)]
 pub struct Velocity {
     pub velocity: Vec2,
