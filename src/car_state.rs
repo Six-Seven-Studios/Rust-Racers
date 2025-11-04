@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::car::{Velocity, Orientation};
+use crate::game_logic::{Velocity, Orientation};
 use rand::prelude::*;
 use std::time::Duration;
 

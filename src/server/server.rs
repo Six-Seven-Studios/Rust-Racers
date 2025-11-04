@@ -5,6 +5,8 @@ mod game_logic;
 // Client modules needed for dependencies
 #[path = "../car.rs"]
 mod car;
+#[path = "../car_state.rs"]
+mod car_state;
 #[path = "../multiplayer.rs"]
 mod multiplayer;
 #[path = "../networking_plugin.rs"]
