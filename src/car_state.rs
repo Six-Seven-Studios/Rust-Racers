@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use crate::car::{Velocity, Orientation};
 use rand::prelude::*;
+use std::time::Duration;
+
 
 
 // defining some states for our car
@@ -10,6 +12,12 @@ pub struct CarState {
     // unfortunately state is not thread safe, so it can't derive Component
     // unless State is enforced to Send + Sync bounds
     state: Option<Box<dyn State>>,
+}
+
+#[derive(Component)]
+struct FuseTime {
+    /// track when the bomb should explode (non-repeating timer)
+    timer: Timer,
 }
 
 // enums for the different transitions between car driving types
@@ -66,9 +74,15 @@ impl CarState {
         velocity: &mut Velocity,
         orientation: &mut Orientation,
     ){
+
+
+
         if let Some(s) = self.state.take() {
             // do the current state's operations
-            let transition = s.execute(deltaTime, transform, velocity, orientation);
+
+
+
+            let transition: Transition = s.execute(deltaTime, transform, velocity, orientation);
             
             // transition based off of what each state returns
             self.state = Some(match transition {
@@ -166,7 +180,6 @@ impl State for Neutral {
         }
     }
 }
-
 // struct Attack {}
 
 // impl State for Attack {
