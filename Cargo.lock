@@ -3604,6 +3604,7 @@ name = "rust_racers"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "rand",
  "serde",
  "serde_json",
 ]
