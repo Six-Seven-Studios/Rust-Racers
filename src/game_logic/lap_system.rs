@@ -1,5 +1,7 @@
+use crate::game_logic::{Car, PlayerControlled, AIControlled};
+use crate::multiplayer::NetworkPlayer;
+use crate::networking_plugin::NetworkClient;
 use crate::GameState;
-use crate::car::*;
 use bevy::prelude::*;
 
 #[derive(Component)]

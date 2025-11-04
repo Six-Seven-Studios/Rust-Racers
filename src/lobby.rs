@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::GameState;
+use crate::title_screen::{LobbyListContainer, LobbyRow, JoinButton};
 
 #[derive(Component)]
 pub struct LobbyScreenEntity;
@@ -22,6 +23,19 @@ pub struct LobbyState {
     pub connected_players: Vec<String>,
     pub name: String,
 }
+
+#[derive(Clone)]
+pub struct LobbyInfo {
+    pub name: String,
+    pub players: usize,
+    pub capacity: usize,
+}
+
+#[derive(Resource, Default)]
+pub struct LobbyList(pub Vec<LobbyInfo>);
+
+#[derive(Resource, Default)]
+pub struct LobbyListDirty(pub bool);
 
 pub fn setup_lobby(
     mut commands: &mut Commands,
@@ -229,5 +243,83 @@ pub fn update_lobby_display(
                 PlayerNameText { slot_index: i },
             ));
         }
+    }
+}
+
+pub fn populate_lobby_list(
+    mut commands: Commands,
+    list: Res<LobbyList>,
+    mut dirty: ResMut<LobbyListDirty>,
+    container_q: Query<Entity, With<LobbyListContainer>>,
+    row_q: Query<Entity, With<LobbyRow>>,
+) {
+    if !dirty.0 { 
+        return; 
+    }
+    dirty.0 = false;
+
+    // Clear existing rows
+    for e in &row_q {
+        commands.entity(e).despawn_recursive();
+    }
+
+    let Ok(container) = container_q.get_single() else { 
+        return; 
+    };
+
+    for lobby in &list.0 {
+        let name = lobby.name.clone();
+        let players_label = format!("{} / {}", lobby.players, lobby.capacity);
+
+        commands.entity(container).with_children(|rows| {
+            rows.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(48.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb_u8(245, 245, 245)),
+                BorderColor(Color::srgb_u8(230, 230, 230)),
+                BorderRadius::all(Val::Px(6.0)),
+                LobbyRow,
+            ))
+            .with_children(|row| {
+                // Lobby name
+                row.spawn((
+                    Text::new(name.clone()),
+                    TextFont { font_size: 24.0, ..default() },
+                    TextColor(Color::BLACK),
+                ));
+
+                // Player count
+                row.spawn((
+                    Text::new(players_label),
+                    TextFont { font_size: 22.0, ..default() },
+                    TextColor(Color::BLACK),
+                ));
+
+                // Join button
+                row.spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb_u8(230, 240, 255)),
+                    BorderRadius::all(Val::Px(8.0)),
+                    JoinButton { lobby_name: name.clone() },
+                ))
+                .with_children(|b| {
+                    b.spawn((
+                        Text::new("Join"),
+                        TextFont { font_size: 22.0, ..default() },
+                        TextColor(Color::srgb_u8(10, 60, 140)),
+                    ));
+                });
+            });
+        });
     }
 }

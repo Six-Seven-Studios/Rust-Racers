@@ -14,6 +14,9 @@ pub struct MainScreenEntity;
 pub struct JoinScreenEntity;
 
 #[derive(Component)]
+pub struct CreateScreenEntity;
+
+#[derive(Component)]
 pub struct SettingsScreenEntity;
 
 #[derive(Component)]
@@ -27,6 +30,17 @@ pub struct LobbyNameInput;
 
 #[derive(Component)]
 pub struct ServerIpInput;
+
+#[derive(Component)]
+pub struct LobbyListContainer;
+
+#[derive(Component)]
+pub struct LobbyRow;
+
+#[derive(Component)]
+pub struct JoinButton {
+    pub lobby_name: String,
+}
 
 #[derive(Resource)]
 pub struct ServerAddress {
@@ -54,14 +68,12 @@ pub fn check_for_title_input(
     join_query: Query<Entity, With<JoinScreenEntity>>,
     settings_query: Query<Entity, With<SettingsScreenEntity>>,
     customize_query: Query<Entity, With<CustomizingScreenEntity>>,
-    mut lobby_state: ResMut<LobbyState>,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
     mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
     mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
     server_address: Res<ServerAddress>,
 ) {
-
     match *current_state.get() {
         GameState::Title => {
             // Use a local variable to track typing mode that persists across frames
@@ -122,30 +134,37 @@ pub fn check_for_title_input(
                     }
                 }
 
-                // Send create lobby message
-                let lobby_name = "LOBBY 1".to_string();
+                // Transition to creating lobby
+                next_state.set(GameState::Creating);
+                destroy_screen(&mut commands, &title_query);
+
+                setup_create_lobby(commands, asset_server);
+            }
+            else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
+                // Connect to server if not already connected
+                let server_addr = format!("{}:4000", server_address.address);
+                if network_client.client.is_none() {
+                    match connect_to_server(&mut network_client, &message_sender, &server_addr) {
+                        Ok(_) => println!("Connected to server!"),
+                        Err(e) => {
+                            println!("Failed to connect to server: {}", e);
+                            return;
+                        }
+                    }
+                }
+
+                // Send list lobby message
                 if let Some(client) = &mut network_client.client {
-                    if let Err(e) = client.create_lobby(lobby_name.clone()) {
-                        println!("Failed to create lobby: {}", e);
+                    if let Err(e) = client.list_lobbies() {
+                        println!("Failed to list lobbies: {}", e);
                         return;
                     }
                 }
 
-                // Transition to lobby screen
-                next_state.set(GameState::Lobby);
-                destroy_screen(&mut commands, &title_query);
-
-                lobby_state.connected_players.clear();
-                lobby_state.connected_players.push("Connecting...".to_string());
-                lobby_state.name = lobby_name;
-
-                setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
-            }
-            else if !is_typing_ip && input.just_pressed(KeyCode::Digit2){
                 next_state.set(GameState::Joining);
                 destroy_screen(&mut commands, &title_query);
 
-                setup_join(commands, asset_server);
+                setup_join_lobby(commands, asset_server);
             }
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit3){
                 next_state.set(GameState::Customizing);
@@ -163,6 +182,45 @@ pub fn check_for_title_input(
                 destroy_screen(&mut commands, &title_query);
             }
         }
+        GameState::Customizing => {
+            if input.just_pressed(KeyCode::Escape){
+                next_state.set(GameState::Title);
+                destroy_screen(&mut commands, &customize_query);
+                setup_title_screen(commands, asset_server, server_address);
+            }
+        }
+        GameState::Settings => {
+            if input.just_pressed(KeyCode::Escape){
+                next_state.set(GameState::Title);
+                destroy_screen(&mut commands, &settings_query);
+                setup_title_screen(commands, asset_server, server_address);
+            }
+        }
+        _ => {
+            return;
+        }
+    }
+
+}
+
+pub fn check_for_lobby_input(
+    input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    current_state: Res<State<GameState>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
+    create_query: Query<Entity, With<CreateScreenEntity>>,
+    join_query: Query<Entity, With<JoinScreenEntity>>,
+    mut lobby_state: ResMut<LobbyState>,
+    mut network_client: ResMut<NetworkClient>,
+    message_sender: Res<MessageSender>,
+    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
+    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
+    server_address: Res<ServerAddress>,
+    mut buttons: Query<(&Interaction, &JoinButton), (Changed<Interaction>, With<Button>)>,
+) {
+    match *current_state.get() {
         GameState::Lobby => {
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
@@ -177,7 +235,7 @@ pub fn check_for_title_input(
                 }
 
                 destroy_screen(&mut commands, &lobby_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
             }
             else if input.just_pressed(KeyCode::Digit1){
                 // Send start lobby message to server
@@ -191,7 +249,7 @@ pub fn check_for_title_input(
                 }
             }
         }
-        GameState::Joining => {
+        GameState::Creating => {
             // Handle text input for lobby name
             for key in input.get_just_pressed() {
                 if let Ok(mut text) = lobby_name_query.get_single_mut() {
@@ -215,8 +273,8 @@ pub fn check_for_title_input(
 
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &join_query);
-                setup_title_screen(commands, asset_server);
+                destroy_screen(&mut commands, &create_query);
+                setup_title_screen(commands, asset_server, server_address);
             }
             else if input.just_pressed(KeyCode::Enter){
                 // Get the lobby name from the input
@@ -245,42 +303,72 @@ pub fn check_for_title_input(
 
                 // Send join lobby message
                 if let Some(client) = &mut network_client.client {
-                    if let Err(e) = client.join_lobby(lobby_name.clone()) {
-                        println!("Failed to join lobby: {}", e);
+                    if let Err(e) = client.create_lobby(lobby_name.clone()) {
+                        println!("Failed to create lobby: {}", e);
                         return;
                     }
                 }
 
                 // Transition to lobby screen
                 next_state.set(GameState::Lobby);
-                destroy_screen(&mut commands, &join_query);
+                destroy_screen(&mut commands, &create_query);
 
                 lobby_state.connected_players.clear();
-                lobby_state.connected_players.push("Connecting...".to_string());
+                if let Some(player_id) = &mut network_client.player_id {
+                    lobby_state.connected_players.push(format!("Player {} (You)", player_id));
+                }
+                else {
+                    lobby_state.connected_players.push("Connecting...".to_string());
+                }
                 lobby_state.name = lobby_name;
 
                 setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
             }
         }
-        GameState::Customizing => {
+        GameState::Joining => {
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &customize_query);
-                setup_title_screen(commands, asset_server);
+                destroy_screen(&mut commands, &join_query);
+                setup_title_screen(commands, asset_server, server_address);
+                return;
             }
-        }
-        GameState::Settings => {
-            if input.just_pressed(KeyCode::Escape){
-                next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &settings_query);
-                setup_title_screen(commands, asset_server);
+
+            for (interaction, join_btn) in buttons { 
+                if *interaction == Interaction::Pressed { 
+                    // Connect to server if not already connected 
+                    let server_addr = format!("{}:4000", server_address.address); 
+                    if network_client.client.is_none() { 
+                        match connect_to_server(&mut network_client, &message_sender, &server_addr) { 
+                            Ok(_) => println!("Connected to server!"), 
+                            Err(e) => { 
+                                println!("Failed to connect to server: {}", e); 
+                                return; 
+                            } 
+                        } 
+                    } 
+                    
+                    // Send join lobby message 
+                    if let Some(client) = &mut network_client.client { 
+                        if let Err(e) = client.join_lobby(join_btn.lobby_name.clone()) { 
+                            println!("Failed to join lobby: {}", e); 
+                            return; 
+                        } 
+                    } 
+                    
+                    // Transition to lobby screen 
+                    next_state.set(GameState::Lobby); 
+                    destroy_screen(&mut commands, &join_query); 
+                    lobby_state.connected_players.clear(); 
+                    lobby_state.connected_players.push("Connecting...".to_string()); 
+                    lobby_state.name = join_btn.lobby_name.clone(); 
+                    setup_lobby(&mut commands, asset_server.clone(), &lobby_state); 
+                } 
             }
         }
         _ => {
             return;
         }
     }
-
 }
 
 // To pause audio
@@ -300,7 +388,9 @@ pub fn pause(
 
 pub fn setup_title_screen(
     mut commands: Commands,
-    asset_server: Res<AssetServer>) {
+    asset_server: Res<AssetServer>,
+    server_address: Res<ServerAddress>,
+) {
 
     commands.spawn((
         AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
@@ -428,7 +518,7 @@ pub fn setup_title_screen(
         Text2d::new("Server IP:"),
         TextColor(Color::BLACK),
         Transform {
-            translation: Vec3::new(290., 300., 1.),
+            translation: Vec3::new(220., 300., 1.),
             ..default()
         },
         TextFont {
@@ -440,17 +530,17 @@ pub fn setup_title_screen(
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/lobbyInput.png")),
         Transform {
-            translation: Vec3::new(450., 300., 1.),
+            translation: Vec3::new(500., 300., 1.),
             scale: Vec3::new(0.6, 0.6, 1.0),
             ..default()
         },
         MainScreenEntity
     ));
     commands.spawn((
-        Text2d::new("hi"),
+        Text2d::new(server_address.address.clone()),
         TextColor(Color::srgb(0.5, 0.5, 0.5)),  // Gray placeholder color
         Transform {
-            translation: Vec3::new(450., 300., 1.),
+            translation: Vec3::new(500., 300., 1.),
             ..default()
         },
         TextFont {
@@ -480,7 +570,7 @@ pub fn setup_title_screen(
     ));
 }
 
-fn setup_join(
+fn setup_create_lobby(
     mut commands: Commands,
     asset_server: Res<AssetServer>){
     commands.spawn((
@@ -489,7 +579,7 @@ fn setup_join(
             translation: Vec3::new(-570., 300., 1.),
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/keys/keyEsc.png")),
@@ -497,10 +587,10 @@ fn setup_join(
             translation: Vec3::new(-570., 220., 1.),
             ..default()
         },
-        JoinScreenEntity
+        CreateScreenEntity
     ));
     commands.spawn((
-        Text2d::new("Join A Lobby"),
+        Text2d::new("Create A Lobby"),
         TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., 300., 1.),
@@ -510,7 +600,7 @@ fn setup_join(
             font_size: 50.0,
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
     ));
     commands.spawn((
         Text2d::new("Input Lobby Name:"),
@@ -523,7 +613,7 @@ fn setup_join(
             font_size: 35.0,
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/lobbyInput.png")),
@@ -531,7 +621,7 @@ fn setup_join(
             translation: Vec3::new(0., 0., 1.),
             ..default()
         },
-        JoinScreenEntity
+        CreateScreenEntity
     ));
     commands.spawn((
         Text2d::new(""),
@@ -544,7 +634,7 @@ fn setup_join(
             font_size: 40.0,
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
         LobbyNameInput,
     ));
 
@@ -554,10 +644,10 @@ fn setup_join(
             translation: Vec3::new(0., -300., 1.),
             ..default()
         },
-        JoinScreenEntity
+        CreateScreenEntity
     ));
     commands.spawn((
-        Text2d::new("JOIN!"),
+        Text2d::new("CREATE!"),
         TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., -300., 1.),
@@ -567,7 +657,7 @@ fn setup_join(
             font_size: 50.0,
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
     ));
     commands.spawn((
         Text2d::new("Press ENTER"),
@@ -580,9 +670,116 @@ fn setup_join(
             font_size: 30.0,
             ..default()
         },
-        JoinScreenEntity,
+        CreateScreenEntity,
     ));
 }
+
+fn setup_join_lobby(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Root full-screen UI node
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgb_u8(245, 245, 245)),
+        JoinScreenEntity,
+    ))
+    .with_children(|root| {
+        // Panel
+        root.spawn((
+            Node {
+                width: Val::Px(800.0),
+                height: Val::Px(500.0),
+                padding: UiRect::all(Val::Px(20.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(12.0),
+                ..default()
+            },
+            BackgroundColor(Color::WHITE),
+            BorderColor(Color::BLACK),
+            BorderRadius::all(Val::Px(12.0)),
+            JoinScreenEntity,
+        ))
+        .with_children(|panel| {
+            // Title
+            panel.spawn((
+                Text::new("Join a Lobby"),
+                TextFont {
+                    font_size: 40.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+                JoinScreenEntity,
+            ));
+
+            // Column headers
+            panel
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(32.0),
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    JoinScreenEntity,
+                ))
+                .with_children(|hdr| {
+                    hdr.spawn((
+                        Text::new("Lobby"),
+                        TextFont { font_size: 24.0, ..default() },
+                        TextColor(Color::BLACK),
+                        JoinScreenEntity,
+                    ));
+                    hdr.spawn((
+                        Text::new("Players"),
+                        TextFont { font_size: 24.0, ..default() },
+                        TextColor(Color::BLACK),
+                        JoinScreenEntity,
+                    ));
+                    hdr.spawn((
+                        Text::new(""),
+                        TextFont { font_size: 24.0, ..default() },
+                        TextColor(Color::BLACK),
+                        JoinScreenEntity,
+                    ));
+                });
+
+            // Scroll container
+            panel
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(8.0),
+                        overflow: Overflow::clip_y(), // scrollable vertically
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb_u8(252, 252, 252)),
+                    BorderColor(Color::srgb_u8(220, 220, 220)),
+                    BorderRadius::all(Val::Px(8.0)),
+                    LobbyListContainer,
+                    JoinScreenEntity,
+                ))
+                .with_children(|_rows| {
+                    // rows will be populated later
+                });
+
+            // Footer hint
+            panel.spawn((
+                Text::new("Press ESC to go back"),
+                TextFont { font_size: 18.0, ..default() },
+                TextColor(Color::srgb_u8(90, 90, 90)),
+                JoinScreenEntity,
+            ));
+        });
+    });
+}
+
 fn setup_settings(
     mut commands: Commands,
     asset_server: Res<AssetServer>){
