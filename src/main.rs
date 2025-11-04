@@ -28,6 +28,8 @@ use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
 use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use crate::car::{AIControlled, Orientation, Velocity};
+use crate::theta::ThetaCheckpointList;
 // use bevy::render::
 
 
@@ -77,6 +79,7 @@ fn main() {
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
+        .add_systems(OnEnter(GameState::PlayingDemo), (ai_car_setup).after(car_setup))
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
@@ -123,8 +126,15 @@ fn car_setup(
     // Spawn cars using the car module
     spawn_cars(commands, asset_server, texture_atlases);
 }
+fn ai_car_setup(
+    mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>
+){
+    for (mut theta_checkpoint_list) in ai_cars.iter_mut(){
+        *theta_checkpoint_list = theta_checkpoint_list.load_checkpoint_list(1);
+    }
+}
 
-fn load_map1(mut commands: Commands) {
+    fn load_map1(mut commands: Commands) {
     commands.insert_resource(load_map_from_file("assets/big-map.txt"));
 }
 

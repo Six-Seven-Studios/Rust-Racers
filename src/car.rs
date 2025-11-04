@@ -1,7 +1,7 @@
 use crate::LapCounter;
 use bevy::prelude::*;
 use crate::map::GameMap;
-use crate::theta::{theta_star, ThetaCommand};
+use crate::theta::{theta_star, ThetaCheckpointList, ThetaCommand};
 use crate::TILE_SIZE;
 use crate::collisions::handle_collision;
 use crate::car_state::CarState;
@@ -91,6 +91,8 @@ pub fn move_player_car(
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
 
+
+
     // Turning
     if input.pressed(KeyCode::KeyA) {
         orientation.angle += TURNING_RATE * deltat * turn_mod;
@@ -174,9 +176,9 @@ pub fn move_player_car(
 }
 
 pub fn move_ai_cars(
-    mut game_map: ResMut<GameMap>,
+    game_map: Res<GameMap>,
     time: Res<Time>,
-    mut ai_cars: Query<(&mut Transform, &mut Velocity, &mut Orientation), (With<AIControlled>, Without<Background>)>,
+    mut ai_cars: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<AIControlled>)>,
 ) {
 
@@ -185,13 +187,11 @@ pub fn move_ai_cars(
 
     // Turning
     // Iterate through each AI-controlled car
-    for (mut transform, mut velocity, mut orientation) in ai_cars.iter_mut() {
+    for (mut transform, mut velocity, mut orientation, mut theta_checkpoint_list) in ai_cars.iter_mut() {
         let pos = transform.translation.truncate();
-        let current_pos = (pos.x, pos.y);
 
         // Get the current tile
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-
         // Modifiers from terrain
         let fric_mod = tile.friction_modifier;
         let speed_mod = tile.speed_modifier;
@@ -199,7 +199,7 @@ pub fn move_ai_cars(
         let decel_mod = tile.decel_modifier;
 
         // Get command from theta_star algorithm
-        let command = theta_star(current_pos, orientation.angle, &mut game_map.theta_checkpoint_list);
+        let command = theta_star((tile.x_coordinate,tile.y_coordinate), orientation.angle, &mut theta_checkpoint_list);
 
         // Execute the command
         match command {
@@ -306,7 +306,7 @@ pub fn spawn_cars(
         LapCounter::default(),
     ));
 
-
+    // Spawn AI car
     commands.spawn((
         Sprite::from_atlas_image(
             car_sheet_handle.clone(),
@@ -325,6 +325,7 @@ pub fn spawn_cars(
         AIControlled,
         LapCounter::default(),
         CarState::new(), // carstate for the AI
+        ThetaCheckpointList::new(Vec::new()),
     ));
 }
 
@@ -341,3 +342,4 @@ pub fn ai_car_fsm (
         car_state.update(&mut deltaTime, &mut transform, &mut velocity, &mut orientation);
     }
 }
+
