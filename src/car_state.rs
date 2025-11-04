@@ -14,6 +14,7 @@ enum Transition {
     None,
     ToOffense,
     ToDefense,
+    ToAttack,
 }
 
 impl CarState {
@@ -56,6 +57,7 @@ impl CarState {
                 Transition::None => s,
                 Transition::ToDefense => s.to_defense(),
                 Transition::ToOffense => s.to_offense(),
+                Transition::ToAttack => s.to_attack(),
             });
         }
     }
@@ -65,6 +67,7 @@ impl CarState {
 trait State: Send + Sync {
     fn to_defense(self: Box<Self>) -> Box<dyn State>;
     fn to_offense(self: Box<Self>) -> Box<dyn State>;
+    fn to_attack(self: Box<Self>) -> Box<dyn State>;
 
     // execute will return true in the case of a success
     // execute should contain some conditions to change to different states
@@ -140,6 +143,44 @@ impl State for Defense {
         }
     }
 }
+
+struct Attack {}
+
+impl State for Attack {
+    // TRANSITIONS BETWEEN STATES
+    // --------------------------
+    fn to_attack(self: Box<Self>) -> Box<dyn State> {
+        self // we're already in defense...
+    }
+
+    fn to_offense(self: Box<Self>) -> Box<dyn State> {
+        Box::new(Offense {})
+    }
+    // --------------------------
+
+    fn execute(&self,
+        transform: &mut Transform,
+        velocity: &mut Velocity,
+        orientation: &mut Orientation,
+    ) -> Transition {
+        // MAIN DRIVING LOGIC GOES HERE
+        // TODO: use transform, velocity, etc to move the car
+
+        info!("Attacking!");
+        info!("{:?}", transform.translation);
+
+        info!("SPAWN MISSILE HERE!");
+
+        let some_driving_condition: bool = true;
+        if some_driving_condition == true {
+            info!("Switching to offensive driving!");
+            Transition::ToOffense
+        } else {
+            Transition::None
+        }
+    }
+}
+
 
 // this is doing some weird rust ownership stuff I don't fully understand
 // i just sort of copied the structure from the rust book and added extra bevy functions
