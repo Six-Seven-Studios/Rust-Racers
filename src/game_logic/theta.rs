@@ -101,6 +101,9 @@ pub fn get_next_point(list: &ThetaCheckpointList) -> (f32, f32) {
 
 //Super basic starter implementation that only finds the shortest path to a goal and goes directly towards it
 pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
+    if checkpoints.checkpoints.is_empty() {
+        return ThetaCommand::Stop;
+    }
 
     //Grab the current checkpoint from the checkpoint list
     let current_cp = get_next_point(&checkpoints);
