@@ -516,7 +516,7 @@ pub fn setup_title_screen(
         Text2d::new("Server IP:"),
         TextColor(Color::BLACK),
         Transform {
-            translation: Vec3::new(290., 300., 1.),
+            translation: Vec3::new(220., 300., 1.),
             ..default()
         },
         TextFont {
