@@ -12,15 +12,23 @@ pub struct CarState {
 // enums for the different transitions between car driving types
 enum Transition {
     None,
-    ToOffense,
-    ToDefense,
+    ToAggressive,
+    ToNeutral,
     ToAttack,
 }
+
+/**
+
+
+
+**/
+
+
 
 impl CarState {
     pub fn new() -> CarState {
         CarState {
-            state: Some(Box::new(Offense {})), // default to offense
+            state: Some(Box::new(Aggressive {})), // default to aggressive
         }
     }
     /*
@@ -30,9 +38,9 @@ impl CarState {
         }
     }
 
-    pub fn to_offense(&mut self) {
+    pub fn to_aggressive(&mut self) {
         if let Some(s) = self.state.take() {
-            self.state = Some(s.to_offense())
+            self.state = Some(s.to_aggressive())
         }
     }
 
@@ -55,8 +63,8 @@ impl CarState {
             // transition based off of what each state returns
             self.state = Some(match transition {
                 Transition::None => s,
-                Transition::ToDefense => s.to_defense(),
-                Transition::ToOffense => s.to_offense(),
+                Transition::ToNeutral => s.to_neutral(),
+                Transition::ToAggressive => s.to_Aggressive(),
                 Transition::ToAttack => s.to_attack(),
             });
         }
@@ -65,8 +73,8 @@ impl CarState {
 
 // state defines a behavior shared by different CarState states
 trait State: Send + Sync {
-    fn to_defense(self: Box<Self>) -> Box<dyn State>;
-    fn to_offense(self: Box<Self>) -> Box<dyn State>;
+    fn to_neutral(self: Box<Self>) -> Box<dyn State>;
+    fn to_aggressive(self: Box<Self>) -> Box<dyn State>;
     fn to_attack(self: Box<Self>) -> Box<dyn State>;
 
     // execute will return true in the case of a success
@@ -79,16 +87,16 @@ trait State: Send + Sync {
     ) -> Transition;
 }
 
-// the state objects are offense, defense, etc.
-struct Offense {}
+// the state objects are aggressive, Neutral, etc.
+struct Aggressive {}
 
-impl State for Offense {
+impl State for Aggressive {
     // TRANSITIONS BETWEEN STATES
     // --------------------------
-    fn to_defense(self: Box<Self>) -> Box<dyn State> {
-        Box::new(Defense {})
+    fn to_neutral(self: Box<Self>) -> Box<dyn State> {
+        Box::new(Neutral {})
     }
-    fn to_offense(self: Box<Self>) -> Box<dyn State> {
+    fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
         self
     }
     // --------------------------
@@ -102,7 +110,7 @@ impl State for Offense {
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
             // info!("Switching to defensive driving!");
-            Transition::ToDefense
+            Transition::ToNeutral
         } else {
             Transition::None
         }
@@ -110,17 +118,19 @@ impl State for Offense {
     
 }
 
-struct Defense {}
+struct Neutral {}
 
-impl State for Defense {
+impl State for Neutral {
     // TRANSITIONS BETWEEN STATES
     // --------------------------
-    fn to_defense(self: Box<Self>) -> Box<dyn State> {
-        self // we're already in defense...
+    fn to_neutral(self: Box<Self>) -> Box<dyn State> {
+        self // we're already in Neutral...
     }
 
-    fn to_offense(self: Box<Self>) -> Box<dyn State> {
-        Box::new(Offense {})
+    fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
+        Box::new(Aggressive {})
+        // use theta star to target player
+        // increase velocity to ram
     }
     // --------------------------
 
@@ -137,7 +147,7 @@ impl State for Defense {
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
             // info!("Switching to offensive driving!");
-            Transition::ToOffense
+            Transition::ToAggressive
         } else {
             Transition::None
         }
@@ -150,11 +160,11 @@ impl State for Attack {
     // TRANSITIONS BETWEEN STATES
     // --------------------------
     fn to_attack(self: Box<Self>) -> Box<dyn State> {
-        self // we're already in defense...
+        self // we're already in Neutral...
     }
 
-    fn to_offense(self: Box<Self>) -> Box<dyn State> {
-        Box::new(Offense {})
+    fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
+        Box::new(Aggressive {})
     }
     // --------------------------
 
@@ -174,7 +184,7 @@ impl State for Attack {
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
             info!("Switching to offensive driving!");
-            Transition::ToOffense
+            Transition::ToAggressive
         } else {
             Transition::None
         }
