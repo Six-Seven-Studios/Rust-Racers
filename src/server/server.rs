@@ -1,3 +1,37 @@
+// Module declarations for shared code
+#[path = "../game_logic/mod.rs"]
+mod game_logic;
+
+// Client modules needed for dependencies
+#[path = "../car.rs"]
+mod car;
+#[path = "../multiplayer.rs"]
+mod multiplayer;
+#[path = "../networking_plugin.rs"]
+mod networking_plugin;
+#[path = "../networking.rs"]
+mod networking;
+#[path = "../lobby.rs"]
+mod lobby;
+#[path = "../title_screen.rs"]
+mod title_screen;
+
+// Server doesn't use GameState but lap_system needs it
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum GameState {
+    #[default]
+    Title,
+    Lobby,
+    Creating,
+    Joining,
+    Customizing,
+    Settings,
+    Playing,
+    PlayingDemo,
+    Victory,
+    Credits,
+}
+
 use bevy::prelude::*;
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::tasks::IoTaskPool;
@@ -7,6 +41,13 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use serde::Deserialize;
 use std::time::{Duration, Instant};
+
+use crate::game_logic::{
+    CAR_SIZE, TILE_SIZE,
+    GameMap, load_map_from_file,
+    physics::{PhysicsInput, apply_physics},
+    Velocity, Orientation,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -55,8 +96,7 @@ pub struct PlayerInput {
 pub struct PlayerState {
     pub x: f32,
     pub y: f32,
-    pub vx: f32,
-    pub vy: f32,
+    pub velocity: Vec2,
     pub angle: f32,
     pub inputs: PlayerInput,
     pub input_count: u64,
@@ -123,17 +163,6 @@ pub struct PlayerId(pub u32);
 pub struct Position {
     pub x: f32,
     pub y: f32,
-}
-
-#[derive(Component)]
-pub struct Velocity {
-    pub vx: f32,
-    pub vy: f32,
-}
-
-#[derive(Component)]
-pub struct Orientation {
-    pub angle: f32,
 }
 
 // Component for player input state
@@ -539,8 +568,7 @@ fn handle_client_message(
                                  states.insert(*player_id, PlayerState {
                                      x: 2752.0 + (*player_id as f32) * 100.0,
                                      y: 960.0,
-                                    vx: 0.0,
-                                    vy: 0.0,
+                                    velocity: Vec2::ZERO,
                                     angle: 0.0,
                                     inputs: PlayerInput::default(),
                                     input_count: 0,
@@ -782,6 +810,7 @@ fn get_local_ip() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 // System to apply physics simulation to all active players
+// Now uses terrain modifiers, collision detection, and map boundaries!
 fn physics_simulation_system(
     mut query: Query<(
         &PlayerId,
@@ -793,14 +822,9 @@ fn physics_simulation_system(
     )>,
     time: Res<Time>,
     lobbies: Res<Lobbies>,
+    game_map: Res<GameMap>,
 ) {
-    const ACCEL_RATE: f32 = 700.0;
-    const FRICTION: f32 = 0.95;
-    const TURNING_RATE: f32 = 3.0;
-    const MAX_SPEED: f32 = 350.0;
-
     let delta = time.delta_secs();
-    let accel = ACCEL_RATE * delta;
 
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
@@ -811,66 +835,99 @@ fn physics_simulation_system(
             .collect()
     };
 
+    // Collect all player positions for collision detection
+    let player_positions: Vec<(f32, f32, Vec2)> = query.iter()
+        .filter(|(_, _, _, _, _, lobby_member)| started_lobbies.contains(&lobby_member.lobby_name))
+        .map(|(_, pos, vel, _, _, _)| (pos.x, pos.y, **vel))
+        .collect();
+
     for (_player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
         // Only simulate physics for players in started lobbies
         if !started_lobbies.contains(&lobby_member.lobby_name) {
             continue;
         }
 
-        // Apply turning
-        if input.left {
-            orient.angle += TURNING_RATE * delta;
-        }
-        if input.right {
-            orient.angle -= TURNING_RATE * delta;
-        }
+        // Get current tile and terrain modifiers
+        let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+        let fric_mod = tile.friction_modifier;
+        let speed_mod = tile.speed_modifier;
+        let turn_mod = tile.turn_modifier;
+        let decel_mod = tile.decel_modifier;
 
-        // Calculate forward vector
-        let forward_x = orient.angle.cos();
-        let forward_y = orient.angle.sin();
+        // Create physics input from player input component
+        let physics_input = PhysicsInput {
+            forward: input.forward,
+            backward: input.backward,
+            left: input.left,
+            right: input.right,
+            drift: input.drift,
+        };
 
-        // Apply acceleration
-        if input.forward {
-            vel.vx += forward_x * accel;
-            vel.vy += forward_y * accel;
+        // Create a Vec2 position for physics calculation
+        let mut position_vec = Vec2::new(pos.x, pos.y);
 
-            // Clamp to max speed
-            let speed = (vel.vx * vel.vx + vel.vy * vel.vy).sqrt();
-            if speed > MAX_SPEED {
-                vel.vx = (vel.vx / speed) * MAX_SPEED;
-                vel.vy = (vel.vy / speed) * MAX_SPEED;
+        // Apply shared physics logic
+        apply_physics(
+            &mut position_vec,
+            &mut vel,
+            &mut orient,
+            &physics_input,
+            delta,
+            speed_mod,
+            fric_mod,
+            turn_mod,
+            decel_mod,
+        );
+
+        // Apply map boundaries
+        let half_width = game_map.width / 2.0;
+        let half_height = game_map.height / 2.0;
+        let car_half_size = (CAR_SIZE as f32) / 2.0;
+
+        position_vec.x = position_vec.x.clamp(-half_width + car_half_size, half_width - car_half_size);
+        position_vec.y = position_vec.y.clamp(-half_height + car_half_size, half_height - car_half_size);
+
+        // Check wall collisions (tile passability)
+        let new_tile = game_map.get_tile(position_vec.x, position_vec.y, TILE_SIZE as f32);
+        if !new_tile.passable {
+            // Hit a wall - reverse velocity
+            **vel *= -0.3;
+        } else {
+            // Check car-to-car collisions
+            let mut collision = false;
+            for (other_x, other_y, other_vel) in &player_positions {
+                // Skip self
+                if (*other_x - pos.x).abs() < 0.01 && (*other_y - pos.y).abs() < 0.01 {
+                    continue;
+                }
+
+                let distance = ((position_vec.x - other_x).powi(2) + (position_vec.y - other_y).powi(2)).sqrt();
+                if distance < CAR_SIZE as f32 {
+                    // Collision detected - bounce
+                    let bounce_dir = Vec2::new(pos.x - other_x, pos.y - other_y);
+                    let bounce_len = bounce_dir.length();
+
+                    if bounce_len > 0.01 {
+                        let norm = bounce_dir / bounce_len;
+
+                        let relative_vel = **vel - *other_vel;
+                        let relative_speed = relative_vel.dot(norm);
+
+                        if relative_speed < 0.0 {
+                            **vel += norm * relative_speed * -1.5;
+                        }
+                    }
+                    collision = true;
+                    break;
+                }
+            }
+
+            // Update position if no collision or after bounce
+            if !collision || vel.length() > 0.1 {
+                pos.x = position_vec.x;
+                pos.y = position_vec.y;
             }
         }
-
-        // Apply backward acceleration (slower)
-        if input.backward {
-            vel.vx -= forward_x * (accel / 2.0);
-            vel.vy -= forward_y * (accel / 2.0);
-
-            let speed = (vel.vx * vel.vx + vel.vy * vel.vy).sqrt();
-            if speed > MAX_SPEED / 2.0 {
-                vel.vx = (vel.vx / speed) * (MAX_SPEED / 2.0);
-                vel.vy = (vel.vy / speed) * (MAX_SPEED / 2.0);
-            }
-        }
-
-        // Apply friction when not accelerating
-        if !input.forward && !input.backward {
-            vel.vx *= FRICTION;
-            vel.vy *= FRICTION;
-
-            // Stop if moving very slowly
-            if vel.vx.abs() < 0.1 {
-                vel.vx = 0.0;
-            }
-            if vel.vy.abs() < 0.1 {
-                vel.vy = 0.0;
-            }
-        }
-
-        // Update position
-        pos.x += vel.vx * delta;
-        pos.y += vel.vy * delta;
     }
 }
 
@@ -911,8 +968,8 @@ fn broadcast_state_system(
                     "id": id,
                     "x": pos.x,
                     "y": pos.y,
-                    "vx": vel.vx,
-                    "vy": vel.vy,
+                    "vx": vel.x,
+                    "vy": vel.y,
                     "angle": orient.angle,
                     "input_count": input.input_count
                 })
@@ -977,8 +1034,8 @@ fn process_server_commands_system(
                 let entity = commands.spawn((
                     PlayerId(player_id),
                     Position { x, y },
-                    Velocity { vx: 0.0, vy: 0.0 },
-                    Orientation { angle: 0.0 },
+                    Velocity::new(),
+                    Orientation::new(0.0),
                     PlayerInputComponent::default(),
                     LobbyMember { lobby_name },
                 )).id();
@@ -1059,6 +1116,10 @@ fn main() {
     // Start the UDP listener in a separate thread
     server_listener(connected_clients_clone, lobbies_clone, Arc::clone(&cmd_sender));
 
+    // Load the game map for server-side physics
+    let game_map = load_map_from_file("assets/big-map.txt");
+    println!("Server loaded map: {}x{}", game_map.width, game_map.height);
+
     // Create headless server
     App::new()
         .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
@@ -1068,6 +1129,7 @@ fn main() {
         .insert_resource(Lobbies { list: lobbies })
         .insert_resource(PlayerEntities::default())
         .insert_resource(ServerCommandReceiver { receiver: cmd_receiver })
+        .insert_resource(game_map)
         .add_systems(Update, (
             process_server_commands_system,
             sync_input_from_lobbies_system,

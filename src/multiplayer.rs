@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use crate::car::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE};
+use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter};
 use crate::networking_plugin::{NetworkClient, PlayerPositions};
-use crate::lap_system::LapCounter;
 
 #[derive(Component)]
 pub struct NetworkPlayer {

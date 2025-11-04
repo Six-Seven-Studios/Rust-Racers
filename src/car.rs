@@ -1,64 +1,11 @@
-use crate::LapCounter;
+use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, TILE_SIZE, handle_collision};
+use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
+use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use bevy::prelude::*;
-use crate::map::GameMap;
-use crate::theta::{theta_star, ThetaCommand};
-use crate::TILE_SIZE;
-use crate::collisions::handle_collision;
-
-// Car-related constants
-pub const PLAYER_SPEED: f32 = 350.;
-pub const ACCEL_RATE: f32 = 700.;
-pub const FRICTION: f32 = 0.95;
-pub const TURNING_RATE: f32 = 3.0;
-pub const LATERAL_FRICTION: f32 = 8.0;
-pub const CAR_SIZE: u32 = 64;
 
 // Car-related components
 #[derive(Component)]
-pub struct Car;
-
-#[derive(Component)]
-pub struct PlayerControlled;
-
-#[derive(Component)]
-pub struct AIControlled;
-
-#[derive(Component)]
 pub struct Background;
-
-#[derive(Component)]
-pub struct Orientation {
-    pub angle: f32,
-}
-
-impl Orientation {
-    pub fn new(angle: f32) -> Self {
-        Self { angle }
-    }
-    
-    pub fn forward_vector(&self) -> Vec2 {
-        Vec2::new(self.angle.cos(), self.angle.sin())
-    }
-}
-
-#[derive(Component, Deref, DerefMut)]
-pub struct Velocity {
-    pub velocity: Vec2,
-}
-
-impl Velocity {
-    pub fn new() -> Self {
-        Self {
-            velocity: Vec2::ZERO,
-        }
-    }
-}
-
-impl From<Vec2> for Velocity {
-    fn from(velocity: Vec2) -> Self {
-        Self { velocity }
-    }
-}
 
 // Car movement system
 pub fn move_player_car(

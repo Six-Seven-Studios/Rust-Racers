@@ -1,5 +1,4 @@
-use crate::lap_system::Checkpoint;
-use crate::map::GameMap;
+use crate::game_logic::{Checkpoint, GameMap};
 
 #[derive(Default)]
 pub enum ThetaCommand {

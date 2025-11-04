@@ -1,4 +1,4 @@
-use crate::car::{Car, PlayerControlled, AIControlled};
+use crate::game_logic::{Car, PlayerControlled, AIControlled};
 use crate::multiplayer::NetworkPlayer;
 use crate::networking_plugin::NetworkClient;
 use crate::GameState;
