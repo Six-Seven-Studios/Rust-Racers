@@ -186,14 +186,14 @@ pub fn check_for_title_input(
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
                 destroy_screen(&mut commands, &customize_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
             }
         }
         GameState::Settings => {
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
                 destroy_screen(&mut commands, &settings_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
             }
         }
         _ => {
@@ -235,7 +235,7 @@ pub fn check_for_lobby_input(
                 }
 
                 destroy_screen(&mut commands, &lobby_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
             }
             else if input.just_pressed(KeyCode::Digit1){
                 // Send start lobby message to server
@@ -274,7 +274,7 @@ pub fn check_for_lobby_input(
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
                 destroy_screen(&mut commands, &create_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
             }
             else if input.just_pressed(KeyCode::Enter){
                 // Get the lobby name from the input
@@ -329,7 +329,7 @@ pub fn check_for_lobby_input(
             if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
                 destroy_screen(&mut commands, &join_query);
-                setup_title_screen(commands, asset_server);
+                setup_title_screen(commands, asset_server, server_address);
                 return;
             }
 
@@ -388,7 +388,9 @@ pub fn pause(
 
 pub fn setup_title_screen(
     mut commands: Commands,
-    asset_server: Res<AssetServer>) {
+    asset_server: Res<AssetServer>,
+    server_address: Res<ServerAddress>,
+) {
 
     commands.spawn((
         AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
@@ -528,17 +530,17 @@ pub fn setup_title_screen(
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/lobbyInput.png")),
         Transform {
-            translation: Vec3::new(450., 300., 1.),
+            translation: Vec3::new(500., 300., 1.),
             scale: Vec3::new(0.6, 0.6, 1.0),
             ..default()
         },
         MainScreenEntity
     ));
     commands.spawn((
-        Text2d::new("hi"),
+        Text2d::new(server_address.address.clone()),
         TextColor(Color::srgb(0.5, 0.5, 0.5)),  // Gray placeholder color
         Transform {
-            translation: Vec3::new(450., 300., 1.),
+            translation: Vec3::new(500., 300., 1.),
             ..default()
         },
         TextFont {
