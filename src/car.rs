@@ -4,6 +4,7 @@ use crate::map::GameMap;
 use crate::theta::{theta_star, ThetaCheckpointList, ThetaCommand};
 use crate::TILE_SIZE;
 use crate::collisions::handle_collision;
+use crate::car_state::CarState;
 
 // Car-related constants
 pub const PLAYER_SPEED: f32 = 350.;
@@ -323,8 +324,22 @@ pub fn spawn_cars(
         Car,
         AIControlled,
         LapCounter::default(),
+        CarState::new(), // carstate for the AI
         ThetaCheckpointList::new(Vec::new()),
     ));
+}
 
+// beginnings of the fsm system
+pub fn ai_car_fsm (
+    mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
+    mut deltaTime: Res<Time>, 
+    ) {
+    for (mut car_state, 
+        mut transform, 
+        mut velocity, 
+        mut orientation) 
+        in query.iter_mut() {
+        car_state.update(&mut deltaTime, &mut transform, &mut velocity, &mut orientation);
+    }
 }
 
