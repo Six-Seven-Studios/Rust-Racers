@@ -1,46 +1,41 @@
-mod map;
-mod terrain;
 mod car;
-mod collisions;
+mod game_logic;
 mod camera;
 mod credits;
 mod title_screen;
 mod lobby;
 mod intro;
-mod theta;
-mod lap_system;
 mod victory_screen;
 mod networking;
 mod multiplayer;
 mod networking_plugin;
-mod car_state;
 
-use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress};
-use lobby::{LobbyState, update_lobby_display};
-use map::{load_map_from_file, GameMap, spawn_map};
-use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
-use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
+use title_screen::{check_for_title_input, pause, setup_title_screen, sync_server_address, ServerAddress};
+use lobby::{update_lobby_display, LobbyState};
+use game_logic::{load_map_from_file, spawn_map};
+use car::{move_ai_cars, move_player_car, spawn_cars, Background};
+use camera::{move_camera, reset_camera_for_credits, WIN_H, WIN_W};
 use credits::{check_for_credits_input, setup_credits, show_credits};
 use victory_screen::setup_victory_screen;
 use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
-use lap_system::{spawn_lap_triggers, LapCounter, update_laps};
+use game_logic::{spawn_lap_triggers, update_laps};
 use networking_plugin::NetworkingPlugin;
 
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
-use crate::car::{AIControlled, Orientation, Velocity};
-use crate::theta::ThetaCheckpointList;
+use bevy::prelude::*;
+use crate::car::{ai_car_fsm, AIControlled};
+use crate::game_logic::theta::ThetaCheckpointList;
 // use bevy::render::
 
-
-
-const TILE_SIZE: u32 = 64;  //Tentative
+use crate::lobby::{populate_lobby_list, LobbyList, LobbyListDirty};
+use crate::title_screen::check_for_lobby_input;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
     Title,
     Lobby,
+    Creating,
     Joining,
     Customizing,
     Settings,
@@ -68,7 +63,7 @@ fn main() {
         .add_plugins(NetworkingPlugin)
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
-            address: String::new(),
+            address: "192.168.4.239".to_string(),
         })
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
@@ -76,26 +71,34 @@ fn main() {
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
+        .init_resource::<LobbyList>()
+        .init_resource::<LobbyListDirty>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
         .add_systems(OnEnter(GameState::PlayingDemo), (ai_car_setup).after(car_setup))
+        .add_systems(OnEnter(GameState::Playing), (ai_car_setup).after(car_setup))
+
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
         .add_systems(Update, (
             sync_server_address,
             check_for_title_input,
+            check_for_lobby_input,
             check_for_credits_input,
             update_lobby_display.run_if(in_state(GameState::Lobby)),
             //move_car.run_if(in_state(GameState::Playing)),
-            move_player_car.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            // Server now controls player physics, client just renders server position
+            // Client only controls game state in GameState::PlayingDemo
+            move_player_car.run_if(in_state(GameState::PlayingDemo)),
             //move_camera.after(move_car).run_if(in_state(GameState::Playing)),
-            move_camera.after(move_player_car).run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
+            move_camera.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
             update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
-            multiplayer::send_car_position.run_if(in_state(GameState::Playing)),
+            multiplayer::send_keyboard_input.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
+            populate_lobby_list.run_if(in_state(GameState::Joining)),
         ))
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))

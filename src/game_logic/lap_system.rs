@@ -1,3 +1,6 @@
+use crate::game_logic::{Car, PlayerControlled, AIControlled};
+use crate::multiplayer::NetworkPlayer;
+use crate::networking_plugin::NetworkClient;
 use crate::GameState;
 use crate::car::*;
 use bevy::prelude::*;
@@ -118,7 +121,7 @@ pub fn update_laps(
                 lap_counter.next_checkpoint += 1;
             }
             // debug
-            /* 
+            /*
             if player_flag.is_some() {
                 info!(
                     "PLAYER car: ({:.0}, {:.0})  chk: ({:.0}, {:.0})  delta: ({:.0}, {:.0})",
@@ -148,5 +151,6 @@ pub fn update_laps(
                 }
             }
         }
+
     }
 }

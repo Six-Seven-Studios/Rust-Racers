@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
-use std::io::{self, BufRead, BufReader, Write};
-use std::net::TcpStream;
+use std::{io, thread};
+use std::net::{UdpSocket, SocketAddr};
+use std::sync::mpsc::Sender;
+use bevy::tasks::IoTaskPool;
 use std::time::Duration;
-use std::sync::mpsc::{self, Sender, Receiver};
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -18,6 +19,16 @@ pub enum MessageType {
     StartLobby { name: String },
 
     CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
+
+    PlayerInput {
+        forward: bool,
+        backward: bool,
+        left: bool,
+        right: bool,
+        drift: bool,
+    },
+
+    Ping,
 }
 
 // Server response messages
@@ -59,6 +70,8 @@ pub struct PlayerPositionData {
     pub vx: f32,
     pub vy: f32,
     pub angle: f32,
+    #[serde(default)]
+    pub input_count: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,26 +80,38 @@ pub struct PositionsMessage {
 }
 
 pub struct Client {
-    stream: TcpStream,
+    socket: UdpSocket,
+    server_addr: SocketAddr,
 }
 
 impl Client {
     pub fn connect(address: String) -> io::Result<Self> {
-        let stream = TcpStream::connect(&address)?;
-        // Removed read timeout, we'll handle reading in a separate thread
+        // Parse the server address
+        let server_addr: SocketAddr = address.parse()
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid address: {}", e)))?;
+
+        // Bind to any available local port
+        let socket = UdpSocket::bind("0.0.0.0:0")?;
         println!("Connected to server at {}", address);
-        Ok(Self { stream })
+
+        Ok(Self { socket, server_addr })
     }
 
-    // Get a cloned stream for the listener thread
-    pub fn get_stream_clone(&self) -> io::Result<TcpStream> {
-        self.stream.try_clone()
+    // Get a cloned socket for the listener thread
+    pub fn get_socket_clone(&self) -> io::Result<UdpSocket> {
+        self.socket.try_clone()
+    }
+
+    pub fn clone(&self) -> Self {
+        Self {
+            socket: self.socket.try_clone().expect("Failed to clone UDP socket"),
+            server_addr: self.server_addr,
+        }
     }
 
     pub fn send(&mut self, message: MessageType) -> io::Result<()> {
         let text = serde_json::to_string(&message).unwrap() + "\n";
-        self.stream.write_all(text.as_bytes())?;
-        self.stream.flush()?;
+        self.socket.send_to(text.as_bytes(), self.server_addr)?;
         Ok(())
     }
 
@@ -110,18 +135,12 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
-    pub fn send_car_position(&mut self, x: f32, y: f32, vx: f32, vy: f32, angle: f32) -> io::Result<()> {
-        self.send(MessageType::CarPosition { x, y, vx, vy, angle })
+    pub fn send_player_input(&mut self, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
+        self.send(MessageType::PlayerInput { forward, backward, left, right, drift })
     }
 
-    pub fn try_read_message(&mut self) -> io::Result<Option<String>> {
-        let mut line = String::new();
-        match BufReader::new(&self.stream).read_line(&mut line) {
-            Ok(0) | Ok(_) if line.trim().is_empty() => Ok(None),
-            Ok(_) => Ok(Some(line)),
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(None),
-            Err(e) => Err(e),
-        }
+    pub fn send_ping(&mut self) -> io::Result<()> {
+        self.send(MessageType::Ping)
     }
 }
 
@@ -135,56 +154,72 @@ pub enum IncomingMessage {
 }
 
 // Function to spawn a listener thread that continuously reads from server
-pub fn spawn_listener_thread(stream: TcpStream, sender: Sender<IncomingMessage>) {
-    std::thread::spawn(move || {
-        let mut reader = BufReader::new(stream);
+pub fn spawn_listener_thread(socket: UdpSocket, sender: Sender<IncomingMessage>) {
+    let task_pool = IoTaskPool::get();
+    task_pool.spawn(async move {
+        let mut buf = [0u8; 65536]; // UDP buffer
+
         loop {
-            let mut line = String::new();
-            match reader.read_line(&mut line) {
-                Ok(0) => {
-                    println!("Server disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    let trimmed = line.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
+            match socket.recv_from(&mut buf) {
+                Ok((len, _addr)) => {
+                    let data = &buf[..len];
 
-                    // Try to parse welcome message
-                    if trimmed.starts_with("WELCOME PLAYER ") {
-                        if let Some(id_str) = trimmed.strip_prefix("WELCOME PLAYER ") {
-                            if let Ok(player_id) = id_str.parse::<u32>() {
-                                let _ = sender.send(IncomingMessage::Welcome(player_id));
-                            }
+                    // Convert bytes to string
+                    if let Ok(message_str) = std::str::from_utf8(data) {
+                        let trimmed = message_str.trim();
+                        if trimmed.is_empty() {
+                            continue;
                         }
-                        continue;
-                    }
 
-                    // Try parsing as ServerMessage
-                    if let Ok(msg) = serde_json::from_str::<ServerMessage>(trimmed) {
-                        let _ = sender.send(IncomingMessage::ServerMessage(msg));
-                        continue;
-                    }
+                        // Try to parse welcome message
+                        if trimmed.starts_with("WELCOME PLAYER ") {
+                            if let Some(id_str) = trimmed.strip_prefix("WELCOME PLAYER ") {
+                                if let Ok(player_id) = id_str.parse::<u32>() {
+                                    let _ = sender.send(IncomingMessage::Welcome(player_id));
+                                }
+                            }
+                            continue;
+                        }
 
-                    // Try parsing as LobbyStateMessage
-                    if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
-                        let _ = sender.send(IncomingMessage::LobbyState(msg));
-                        continue;
-                    }
+                        // Try parsing as ServerMessage
+                        if let Ok(msg) = serde_json::from_str::<ServerMessage>(trimmed) {
+                            let _ = sender.send(IncomingMessage::ServerMessage(msg));
+                            continue;
+                        }
 
-                    // Try parsing as PositionsMessage
-                    if let Ok(msg) = serde_json::from_str::<PositionsMessage>(trimmed) {
-                        let _ = sender.send(IncomingMessage::Positions(msg));
-                        continue;
-                    }
+                        // Try parsing as LobbyStateMessage
+                        if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
+                            let _ = sender.send(IncomingMessage::LobbyState(msg));
+                            continue;
+                        }
 
-                    println!("Unknown message from server: {}", trimmed);
+                        // Try parsing as PositionsMessage
+                        if let Ok(msg) = serde_json::from_str::<PositionsMessage>(trimmed) {
+                            let _ = sender.send(IncomingMessage::Positions(msg));
+                            continue;
+                        }
+
+                        println!("Unknown message from server: {}", trimmed);
+                    }
                 }
                 Err(e) => {
-                    println!("Error reading from server: {}", e);
+                    println!("Error receiving from server: {}", e);
                     break;
                 }
+            }
+        }
+    }).detach();
+}
+
+// Function to spawn a ping thread that pings the server every 5 seconds
+pub fn spawn_ping_thread(mut client: Client) {
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(5));
+
+            if let Err(e) = client.send_ping() {
+                println!("Failed to send ping: {}", e);
+                break;
             }
         }
     });

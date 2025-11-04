@@ -1,9 +1,6 @@
 use bevy::prelude::Component;
 use rand::prelude::*;
-use crate::lap_system::Checkpoint;
-use crate::map::GameMap;
 use rand::Rng;
-use crate::car::Car;
 
 #[derive(Default)]
 pub enum ThetaCommand {
@@ -85,6 +82,11 @@ impl ThetaCheckpointList {
 }
 
 pub fn get_next_point(list: &ThetaCheckpointList) -> (f32, f32) {
+    // Safety check: if checkpoints list is empty, return a default position
+    if list.checkpoints.is_empty() {
+        return (0.0, 0.0);
+    }
+
     let mut rng = rand::thread_rng();
 
     let curr_checkpoint: ThetaCheckpoint = list.checkpoints[list.current_checkpoint_index].clone();
@@ -107,8 +109,6 @@ pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut T
     //Grab the current checkpoint from the checkpoint list
     let current_cp = get_next_point(&checkpoints);
     let end_pos = (current_cp.0, current_cp.1);
-    println!("Current: {}, {}", start_pos.0, start_pos.1);
-    println!("Goal: {}, {}", end_pos.0, end_pos.1);
     //Calc that distance rq
     let dx = end_pos.0 - start_pos.0;
     let dy = end_pos.1 - start_pos.1;
@@ -118,7 +118,6 @@ pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut T
 
     let goal_threshold = 5.0; // pixels
     if distance < goal_threshold {
-        println!("ADVANCE");
         checkpoints.advance_checkpoint();
     }
 

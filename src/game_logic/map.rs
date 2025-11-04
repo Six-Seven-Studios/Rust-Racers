@@ -1,9 +1,8 @@
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use bevy::prelude::*;
-use crate::terrain::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL};
+use crate::game_logic::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL, ThetaCheckpoint, ThetaCheckpointList};
 use crate::Resource;
-use crate::theta::{ThetaCheckpoint, ThetaCheckpointList};
 
 #[derive(Resource)]
 pub struct GameMap {

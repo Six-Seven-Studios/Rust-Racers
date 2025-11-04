@@ -1,8 +1,7 @@
 use bevy::prelude::*;
-use crate::map::GameMap;
+use crate::game_logic::GameMap;
 use crate::car::{Car, Background, PlayerControlled};
 
-// Camera-related constants
 pub const WIN_W: f32 = 1280.;
 pub const WIN_H: f32 = 720.;
 

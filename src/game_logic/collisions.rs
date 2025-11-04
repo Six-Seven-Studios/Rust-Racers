@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use bevy::ecs::query::QueryFilter;
-use crate::car::{CAR_SIZE, Velocity};
-use crate::map::GameMap;
-use crate::TILE_SIZE;
+use crate::game_logic::{CAR_SIZE, Velocity, TILE_SIZE, GameMap};
 
-// Collision handler - does everything automatically
 pub fn handle_collision<F: QueryFilter>(
     new_position: Vec3,
     current_position: Vec2,

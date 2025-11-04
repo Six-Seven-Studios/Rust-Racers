@@ -1,65 +1,19 @@
-use crate::LapCounter;
+use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, TILE_SIZE, ThetaCheckpointList};
 use bevy::prelude::*;
-use crate::map::GameMap;
-use crate::theta::{theta_star, ThetaCheckpointList, ThetaCommand};
-use crate::TILE_SIZE;
-use crate::collisions::handle_collision;
-use crate::car_state::CarState;
+use crate::game_logic::{
+    handle_collision,
+    PLAYER_SPEED,
+    ACCEL_RATE,
+    TURNING_RATE,
+    LATERAL_FRICTION,
+};
 
-// Car-related constants
-pub const PLAYER_SPEED: f32 = 350.;
-pub const ACCEL_RATE: f32 = 700.;
-pub const FRICTION: f32 = 0.95;
-pub const TURNING_RATE: f32 = 3.0;
-pub const LATERAL_FRICTION: f32 = 8.0;
-pub const CAR_SIZE: u32 = 64;
+// Re-export components and constants for use by other modules
+pub use crate::game_logic::{Car, PlayerControlled, AIControlled, Velocity, Orientation, CAR_SIZE, CarState};
 
-// Car-related components
-#[derive(Component)]
-pub struct Car;
-
-#[derive(Component)]
-pub struct PlayerControlled;
-
-#[derive(Component)]
-pub struct AIControlled;
-
+// Client-specific components
 #[derive(Component)]
 pub struct Background;
-
-#[derive(Component)]
-pub struct Orientation {
-    pub angle: f32,
-}
-
-impl Orientation {
-    pub fn new(angle: f32) -> Self {
-        Self { angle }
-    }
-    
-    pub fn forward_vector(&self) -> Vec2 {
-        Vec2::new(self.angle.cos(), self.angle.sin())
-    }
-}
-
-#[derive(Component, Deref, DerefMut)]
-pub struct Velocity {
-    pub velocity: Vec2,
-}
-
-impl Velocity {
-    pub fn new() -> Self {
-        Self {
-            velocity: Vec2::ZERO,
-        }
-    }
-}
-
-impl From<Vec2> for Velocity {
-    fn from(velocity: Vec2) -> Self {
-        Self { velocity }
-    }
-}
 
 // Car movement system
 pub fn move_player_car(
@@ -90,8 +44,6 @@ pub fn move_player_car(
     let decel_mod = tile.decel_modifier;
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
-
-
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
@@ -189,9 +141,11 @@ pub fn move_ai_cars(
     // Iterate through each AI-controlled car
     for (mut transform, mut velocity, mut orientation, mut theta_checkpoint_list) in ai_cars.iter_mut() {
         let pos = transform.translation.truncate();
+        let current_pos = (pos.x, pos.y);
 
         // Get the current tile
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+
         // Modifiers from terrain
         let fric_mod = tile.friction_modifier;
         let speed_mod = tile.speed_modifier;
@@ -332,12 +286,12 @@ pub fn spawn_cars(
 // beginnings of the fsm system
 pub fn ai_car_fsm (
     mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
-    mut deltaTime: Res<Time>, 
+    mut deltaTime: Res<Time>,
     ) {
-    for (mut car_state, 
-        mut transform, 
-        mut velocity, 
-        mut orientation) 
+    for (mut car_state,
+        mut transform,
+        mut velocity,
+        mut orientation)
         in query.iter_mut() {
         car_state.update(&mut deltaTime, &mut transform, &mut velocity, &mut orientation);
     }
