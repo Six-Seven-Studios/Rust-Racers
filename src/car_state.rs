@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 use crate::car::{Velocity, Orientation};
+use rand::prelude::*;
+
+
 // defining some states for our car
 // https://doc.rust-lang.org/book/ch18-03-oo-design-patterns.html
 #[derive(Component)]
@@ -14,16 +17,22 @@ enum Transition {
     None,
     ToAggressive,
     ToNeutral,
-    ToAttack,
+    // ToAttack,
 }
 
 /**
 
-
+Random generator
 
 **/
 
+pub fn generateNumber() -> i32 {
+    
+    // Generates a value between 1 and 10
+    let mut rng = rand::rng();
+    return rng.random_range(1..=10);
 
+}
 
 impl CarState {
     pub fn new() -> CarState {
@@ -52,20 +61,21 @@ impl CarState {
     // this is what will be called every frame to control the behavior of the AI
     pub fn update(
         &mut self,
+        deltaTime: &mut Res<Time>,  
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
     ){
         if let Some(s) = self.state.take() {
             // do the current state's operations
-            let transition = s.execute(transform, velocity, orientation);
+            let transition = s.execute(deltaTime, transform, velocity, orientation);
             
             // transition based off of what each state returns
             self.state = Some(match transition {
                 Transition::None => s,
                 Transition::ToNeutral => s.to_neutral(),
-                Transition::ToAggressive => s.to_Aggressive(),
-                Transition::ToAttack => s.to_attack(),
+                Transition::ToAggressive => s.to_aggressive(),
+                // Transition::ToAttack => s.to_attack(),
             });
         }
     }
@@ -75,12 +85,13 @@ impl CarState {
 trait State: Send + Sync {
     fn to_neutral(self: Box<Self>) -> Box<dyn State>;
     fn to_aggressive(self: Box<Self>) -> Box<dyn State>;
-    fn to_attack(self: Box<Self>) -> Box<dyn State>;
+    // fn to_attack(self: Box<Self>) -> Box<dyn State>;
 
     // execute will return true in the case of a success
     // execute should contain some conditions to change to different states
     fn execute(
         &self,
+        deltaTime: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -101,6 +112,7 @@ impl State for Aggressive {
     }
     // --------------------------
     fn execute(&self,
+        deltaTime: &mut Res<Time>, 
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -135,6 +147,7 @@ impl State for Neutral {
     // --------------------------
 
     fn execute(&self,
+        deltaTime: &mut Res<Time>, 
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -144,8 +157,8 @@ impl State for Neutral {
 
         // info!("Driving defensively!");
         // info!("{:?}", transform.translation);
-        let some_driving_condition: bool = true;
-        if some_driving_condition == true {
+        let rage_meter = generateNumber();
+        if rage_meter >= 9 {
             // info!("Switching to offensive driving!");
             Transition::ToAggressive
         } else {
@@ -154,43 +167,43 @@ impl State for Neutral {
     }
 }
 
-struct Attack {}
+// struct Attack {}
 
-impl State for Attack {
-    // TRANSITIONS BETWEEN STATES
-    // --------------------------
-    fn to_attack(self: Box<Self>) -> Box<dyn State> {
-        self // we're already in Neutral...
-    }
+// impl State for Attack {
+//     // TRANSITIONS BETWEEN STATES
+//     // --------------------------
+//     fn to_attack(self: Box<Self>) -> Box<dyn State> {
+//         self // we're already in Neutral...
+//     }
 
-    fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
-        Box::new(Aggressive {})
-    }
-    // --------------------------
+//     fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
+//         Box::new(Aggressive {})
+//     }
+//     // --------------------------
 
-    fn execute(&self,
-        transform: &mut Transform,
-        velocity: &mut Velocity,
-        orientation: &mut Orientation,
-    ) -> Transition {
-        // MAIN DRIVING LOGIC GOES HERE
-        // TODO: use transform, velocity, etc to move the car
+//     fn execute(&self,
+//         transform: &mut Transform,
+//         velocity: &mut Velocity,
+//         orientation: &mut Orientation,
+//     ) -> Transition {
+//         // MAIN DRIVING LOGIC GOES HERE
+//         // TODO: use transform, velocity, etc to move the car
 
-        info!("Attacking!");
-        info!("{:?}", transform.translation);
+//         info!("Attacking!");
+//         info!("{:?}", transform.translation);
 
-        info!("SPAWN MISSILE HERE!");
+//         info!("SPAWN MISSILE HERE!");
 
-        let some_driving_condition: bool = true;
-        if some_driving_condition == true {
-            info!("Switching to offensive driving!");
-            Transition::ToAggressive
-        } else {
-            Transition::None
-        }
-    }
-}
+//         let some_driving_condition: bool = true;
+//         if some_driving_condition == true {
+//             info!("Switching to offensive driving!");
+//             Transition::ToAggressive
+//         } else {
+//             Transition::None
+//         }
+//     }
+// }
 
 
-// this is doing some weird rust ownership stuff I don't fully understand
-// i just sort of copied the structure from the rust book and added extra bevy functions
+// // this is doing some weird rust ownership stuff I don't fully understand
+// // i just sort of copied the structure from the rust book and added extra bevy functions
