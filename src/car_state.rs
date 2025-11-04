@@ -33,8 +33,8 @@ Random generator
 
 **/
 
-pub fn generateNumber() -> i32 {
-    
+pub fn generate_number() -> i32 {
+
     // Generates a value between 1 and 10
     let mut rng = rand::rng();
     return rng.random_range(1..=10);
@@ -68,7 +68,7 @@ impl CarState {
     // this is what will be called every frame to control the behavior of the AI
     pub fn update(
         &mut self,
-        deltaTime: &mut Res<Time>,  
+        delta_time: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -78,7 +78,7 @@ impl CarState {
 
 
 
-            let transition: Transition = s.execute(deltaTime, transform, velocity, orientation);
+            let transition: Transition = s.execute(delta_time, transform, velocity, orientation);
             
             // transition based off of what each state returns
             self.state = Some(match transition {
@@ -101,7 +101,7 @@ trait State: Send + Sync {
     // execute should contain some conditions to change to different states
     fn execute(
         &mut self,
-        deltaTime: &mut Res<Time>,
+        delta_time: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -125,7 +125,7 @@ impl State for Aggressive {
     // --------------------------
     fn execute(
         &mut self,
-        deltaTime: &mut Res<Time>, 
+        delta_time: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
@@ -175,19 +175,19 @@ impl State for Neutral {
     // --------------------------
     fn execute(
         &mut self,
-        deltaTime: &mut Res<Time>, 
+        delta_time: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         // TODO: use transform, velocity, etc to move the car
-        self.decision_timer.tick(deltaTime.delta());
-        // info!("{:?} ticking...", deltaTime.delta_secs());
+        self.decision_timer.tick(delta_time.delta());
+        // info!("{:?} ticking...", delta_time.delta_secs());
 
         // using theta* here to drive normally
         if self.decision_timer.just_finished() {
-            let rage_meter = generateNumber();
+            let rage_meter = generate_number();
             info!("{:?}", rage_meter);
             if rage_meter >= 9 {
                 info!("Switching to offensive driving!");

@@ -69,7 +69,11 @@ pub fn move_player_car(
         let curr_speed =  velocity.length();
         if curr_speed > 0.0 {
             let new_speed = (curr_speed - decel_rate).max(0.0);
-            **velocity = velocity.normalize() * new_speed;
+            if new_speed > 0.0 {
+                **velocity = velocity.normalize() * new_speed;
+            } else {
+                **velocity = Vec2::ZERO;
+            }
         }
     }
 
@@ -279,14 +283,14 @@ pub fn spawn_cars(
 // beginnings of the fsm system
 pub fn ai_car_fsm (
     mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
-    mut deltaTime: Res<Time>, 
+    mut delta_time: Res<Time>,
     ) {
-    for (mut car_state, 
-        mut transform, 
-        mut velocity, 
-        mut orientation) 
+    for (mut car_state,
+        mut transform,
+        mut velocity,
+        mut orientation)
         in query.iter_mut() {
-        car_state.update(&mut deltaTime, &mut transform, &mut velocity, &mut orientation);
+        car_state.update(&mut delta_time, &mut transform, &mut velocity, &mut orientation);
     }
 }
 
