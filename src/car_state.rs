@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::car::{Velocity, Orientation};
 use rand::prelude::*;
+use std::time::Duration;
 
 
 // defining some states for our car
@@ -37,7 +38,7 @@ pub fn generateNumber() -> i32 {
 impl CarState {
     pub fn new() -> CarState {
         CarState {
-            state: Some(Box::new(Aggressive {})), // default to aggressive
+            state: Some(Box::new(Neutral::new())), // default to aggressive
         }
     }
     /*
@@ -66,7 +67,7 @@ impl CarState {
         velocity: &mut Velocity,
         orientation: &mut Orientation,
     ){
-        if let Some(s) = self.state.take() {
+        if let Some(mut s) = self.state.take() {
             // do the current state's operations
             let transition = s.execute(deltaTime, transform, velocity, orientation);
             
@@ -90,7 +91,7 @@ trait State: Send + Sync {
     // execute will return true in the case of a success
     // execute should contain some conditions to change to different states
     fn execute(
-        &self,
+        &mut self,
         deltaTime: &mut Res<Time>,
         transform: &mut Transform,
         velocity: &mut Velocity,
@@ -99,26 +100,33 @@ trait State: Send + Sync {
 }
 
 // the state objects are aggressive, Neutral, etc.
-struct Aggressive {}
+struct Aggressive {
+    
+}
 
 impl State for Aggressive {
     // TRANSITIONS BETWEEN STATES
     // --------------------------
     fn to_neutral(self: Box<Self>) -> Box<dyn State> {
-        Box::new(Neutral {})
+        Box::new(Neutral::new())
     }
     fn to_aggressive(self: Box<Self>) -> Box<dyn State> {
         self
     }
     // --------------------------
-    fn execute(&self,
+    fn execute(
+        &mut self,
         deltaTime: &mut Res<Time>, 
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
-        // info!("Driving aggressively!");
+        info!("Driving aggressively!");
+
+        // using theta* to pursue the player
+
+        
         let some_driving_condition: bool = true;
         if some_driving_condition == true {
             // info!("Switching to defensive driving!");
@@ -130,7 +138,18 @@ impl State for Aggressive {
     
 }
 
-struct Neutral {}
+struct Neutral {
+    decision_timer: Timer,
+}
+
+impl Neutral {
+    pub fn new() -> Self {
+        Self {
+            // slower decision interval
+            decision_timer: Timer::new(Duration::from_millis(500), TimerMode::Repeating),
+        }
+    }
+}
 
 impl State for Neutral {
     // TRANSITIONS BETWEEN STATES
@@ -145,8 +164,8 @@ impl State for Neutral {
         // increase velocity to ram
     }
     // --------------------------
-
-    fn execute(&self,
+    fn execute(
+        &mut self,
         deltaTime: &mut Res<Time>, 
         transform: &mut Transform,
         velocity: &mut Velocity,
@@ -154,16 +173,20 @@ impl State for Neutral {
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         // TODO: use transform, velocity, etc to move the car
+        self.decision_timer.tick(deltaTime.delta());
+        // info!("{:?} ticking...", deltaTime.delta_secs());
 
-        // info!("Driving defensively!");
-        // info!("{:?}", transform.translation);
-        let rage_meter = generateNumber();
-        if rage_meter >= 9 {
-            // info!("Switching to offensive driving!");
-            Transition::ToAggressive
-        } else {
-            Transition::None
+        // using theta* here to drive normally
+        if self.decision_timer.just_finished() {
+            let rage_meter = generateNumber();
+            info!("{:?}", rage_meter);
+            if rage_meter >= 9 {
+                info!("Switching to offensive driving!");
+                return Transition::ToAggressive
+            }
+            
         }
+        Transition::None
     }
 }
 

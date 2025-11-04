@@ -331,7 +331,7 @@ pub fn spawn_cars(
 // beginnings of the fsm system
 pub fn ai_car_fsm (
     mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
-    mut deltaTime: &mut Res<Time>, 
+    mut deltaTime: Res<Time>, 
     ) {
     for (mut car_state, 
         mut transform, 
