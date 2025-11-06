@@ -118,10 +118,13 @@ fn camera_setup(mut commands: Commands)
 fn car_setup(
     commands: Commands,
     asset_server: Res<AssetServer>,
-    texture_atlases: ResMut<Assets<TextureAtlasLayout>>)
+    texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    state: Res<State<GameState>>)
 {
-    // Spawn cars using the car module
-    spawn_cars(commands, asset_server, texture_atlases);
+    // spawn_cars now detects the game mode and spawns accordingly
+    // - Playing (multiplayer): Only player car
+    // - PlayingDemo: Player car + AI car
+    spawn_cars(commands, asset_server, texture_atlases, state);
 }
 fn ai_car_setup(
     mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>
