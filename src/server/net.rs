@@ -307,6 +307,10 @@ fn handle_client_message(
         }
 
         MessageType::Ping => {
+            // Send Pong response to client
+            let _ = send_to_client(id, connected_clients, &json!({
+                "type": "pong",
+            }));
             Ok(())
         }
     }
