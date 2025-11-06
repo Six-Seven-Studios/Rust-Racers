@@ -112,12 +112,14 @@ pub fn move_player_car(
     let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
 
     // Handle collision detection and response
+    // Convert Query to iterator of (position, velocity) pairs
+    let other_cars_iter = other_cars.iter().map(|(t, v)| (t.translation.truncate(), v.velocity));
     let should_update = handle_collision(
         new_position,
         transform.translation.truncate(),
         &mut velocity.velocity,
         &game_map,
-        &other_cars,
+        other_cars_iter,
     );
 
     // Update position only if no collision occurred
@@ -213,12 +215,14 @@ pub fn move_ai_cars(
         let new_position = (transform.translation + change.extend(0.)).clamp(min, max);
 
         // Handle collision detection and response
+        // Convert Query to iterator of (position, velocity) pairs
+        let other_cars_iter = other_cars.iter().map(|(t, v)| (t.translation.truncate(), v.velocity));
         let should_update = handle_collision(
             new_position,
             transform.translation.truncate(),
             &mut velocity.velocity,
             &game_map,
-            &other_cars,
+            other_cars_iter,
         );
 
         // Update position only if no collision occurred

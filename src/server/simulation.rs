@@ -93,38 +93,19 @@ pub fn physics_simulation_system(
         let new_position_3d = position_vec.extend(0.0);
         let current_position_2d = Vec2::new(pos.x, pos.y);
 
-        // Handle collisions using the shared collision logic
-        let mut collision_occurred = false;
+        // Convert player_data Vec to iterator of (position, velocity) pairs
+        let other_players_iter = player_data.iter().map(|(p, v)| (p.truncate(), *v));
 
-        // Check car-to-car collisions
-        for (other_pos, other_vel) in &player_data {
-            // Skip self
-            if (other_pos.x - pos.x).abs() < 0.01 && (other_pos.y - pos.y).abs() < 0.01 {
-                continue;
-            }
+        let should_update = handle_collision(
+            new_position_3d,
+            current_position_2d,
+            &mut **vel,
+            &game_map,
+            other_players_iter,
+        );
 
-            let distance = new_position_3d.truncate().distance(other_pos.truncate());
-            if distance < CAR_SIZE as f32 {
-                let bounce_direction = (current_position_2d - other_pos.truncate()).normalize_or_zero();
-                let relative_speed = (**vel - *other_vel).dot(bounce_direction);
-
-                if relative_speed < 0.0 {
-                    **vel += bounce_direction * relative_speed * -1.5; // Bounce strength
-                }
-                collision_occurred = true;
-                break;
-            }
-        }
-
-        // Check wall collisions
-        let tile = game_map.get_tile(new_position_3d.x, new_position_3d.y, TILE_SIZE as f32);
-        if !tile.passable {
-            **vel *= -0.3;
-            collision_occurred = true;
-        }
-
-        // Update position if collision allows it (wall collision returns false, car collision returns true)
-        if !collision_occurred || (tile.passable && vel.length() > 0.1) {
+        // Update position if collision allows it
+        if should_update {
             pos.x = position_vec.x;
             pos.y = position_vec.y;
         }
