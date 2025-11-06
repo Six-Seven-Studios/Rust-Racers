@@ -1,11 +1,14 @@
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
 use std::sync::mpsc::{self, Receiver};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread, spawn_ping_thread};
+use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread};
 use crate::lobby::{LobbyState, setup_lobby, LobbyList, LobbyListDirty, LobbyInfo};
 use crate::GameState;
 use crate::title_screen::destroy_screen;
+use std::time::{Duration, Instant};
+use std::thread;
 
 // Resource to hold the client connection
 #[derive(Resource)]
@@ -21,6 +24,23 @@ impl Default for NetworkClient {
             client: None,
             player_id: None,
             current_lobby: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Resource)]
+pub struct Latency {
+    now: Arc<Mutex<Instant>>,
+    average_latency: Arc<Mutex<f32>>,
+    count: Arc<Mutex<u32>>,
+}
+
+impl Default for Latency {
+    fn default() -> Self {
+        Self {
+            now: Arc::new(Mutex::new(Instant::now())),
+            average_latency: Arc::new(Mutex::new(0.0)),
+            count: Arc::new(Mutex::new(0)),
         }
     }
 }
@@ -49,7 +69,9 @@ impl Plugin for NetworkingPlugin {
             .insert_resource(MessageReceiver { receiver: Mutex::new(receiver) })
             .insert_resource(MessageSender { sender })
             .insert_resource(PlayerPositions::default())
-            .add_systems(Update, process_network_messages);
+            .insert_resource(Latency::default())
+            .add_systems(Update, process_network_messages)
+            .add_systems(Update, ping_server_system.run_if(on_timer(Duration::from_secs(5))));
     }
 }
 
@@ -71,6 +93,7 @@ fn process_network_messages(
     asset_server: Res<AssetServer>,
     mut list: ResMut<LobbyList>,
     mut dirty: ResMut<LobbyListDirty>,
+    latency: Res<Latency>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -104,7 +127,7 @@ fn process_network_messages(
                         }
                         dirty.0 = true;
                     }
-                    ServerMessage::GameStarted { lobby } => {
+                    ServerMessage::GameStarted { lobby, time } => {
                         println!("Game started for lobby: {}", lobby);
 
                         // Destroy lobby screen entities
@@ -112,8 +135,26 @@ fn process_network_messages(
                             commands.entity(entity).despawn();
                         }
 
+                        let average_latency = latency.average_latency.lock().unwrap();
+
+                        // Sleep to mimick the synchronized start - account for latency delays
+                        thread::sleep(Duration::from_millis(time - *average_latency as u64));
+
                         // Transition to Playing state
                         next_state.set(GameState::Playing);
+                    }
+                    ServerMessage::Pong => {
+                        let now = Instant::now();
+                        let mut time = latency.now.lock().unwrap();
+                        let new_latency = now.duration_since(*time).as_millis() / 2;
+
+                        let mut count = latency.count.lock().unwrap();
+                        *count += 1;
+
+                        let mut average_latency = latency.average_latency.lock().unwrap();
+                        *average_latency += (new_latency as f32 - *average_latency) / *count as f32;
+                        
+                        println!("Received Pong");
                     }
                 }
             }
@@ -167,10 +208,28 @@ pub fn connect_to_server(
     // Spawn the listener thread
     spawn_listener_thread(socket_clone, sender.sender.clone());
 
-    // Spawn the ping thread
-    spawn_ping_thread(client.clone());
-
     network_client.client = Some(client);
 
     Ok(())
+}
+
+// Function to ping the server
+pub fn ping_server_system(mut network_client: ResMut<NetworkClient>, latency: Res<Latency>) {
+    if network_client.client.is_none() {
+        println!("No connection to server");
+        return;
+    }
+
+    let mut time = latency.now.lock().unwrap();
+    *time = Instant::now();
+
+    if let Some(client) = &mut network_client.client {
+        if let Err(e) = client.send_ping() {
+            println!("Failed to send ping: {}", e);
+            return;
+        }
+        else {
+            println!("Pinged server");
+        }
+    }
 }

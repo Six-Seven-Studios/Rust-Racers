@@ -3,7 +3,7 @@ use std::{io, thread};
 use std::net::{UdpSocket, SocketAddr};
 use std::sync::mpsc::Sender;
 use bevy::tasks::IoTaskPool;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -45,7 +45,10 @@ pub enum ServerMessage {
     ActiveLobbies { lobbies: Vec<LobbyInfo> },
 
     #[serde(rename = "game_started")]
-    GameStarted { lobby: String },
+    GameStarted { lobby: String, time: u64 },
+
+    #[serde(rename = "pong")]
+    Pong,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -209,18 +212,4 @@ pub fn spawn_listener_thread(socket: UdpSocket, sender: Sender<IncomingMessage>)
             }
         }
     }).detach();
-}
-
-// Function to spawn a ping thread that pings the server every 5 seconds
-pub fn spawn_ping_thread(mut client: Client) {
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_secs(5));
-
-            if let Err(e) = client.send_ping() {
-                println!("Failed to send ping: {}", e);
-                break;
-            }
-        }
-    });
 }

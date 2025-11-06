@@ -74,7 +74,8 @@ pub fn broadcast_game_start(
 ) {
     let payload = json!({
         "type": "game_started",
-        "lobby": lobby_name
+        "lobby": lobby_name,
+        "time": 1000
     }).to_string() + "\n";
 
     // Send to all players in the lobby
