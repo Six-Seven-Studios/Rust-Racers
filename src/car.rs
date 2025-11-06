@@ -232,6 +232,7 @@ pub fn spawn_cars(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    state: Res<State<crate::GameState>>,
 ) {
     let car_sheet_handle = asset_server.load("red-car.png");
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
@@ -257,27 +258,29 @@ pub fn spawn_cars(
         LapCounter::default(),
     ));
 
-    // Spawn AI car
-    commands.spawn((
-        Sprite::from_atlas_image(
-            car_sheet_handle.clone(),
-            TextureAtlas {
-                layout: car_layout_handle.clone(),
-                index: 0,
+    // Spawn AI car IF in demo mode
+    if *state.get() == crate::GameState::PlayingDemo {
+        commands.spawn((
+            Sprite::from_atlas_image(
+                car_sheet_handle.clone(),
+                TextureAtlas {
+                    layout: car_layout_handle.clone(),
+                    index: 0,
+                },
+            ),
+            Transform {
+                translation: Vec3::new(2752., 960., 10.),
+                ..default()
             },
-        ),
-        Transform {
-            translation: Vec3::new(2752., 960., 10.),
-            ..default()
-        },
-        Velocity::new(),
-        Orientation::new(0.0),
-        Car,
-        AIControlled,
-        LapCounter::default(),
-        CarState::new(), // carstate for the AI
-        ThetaCheckpointList::new(Vec::new()),
-    ));
+            Velocity::new(),
+            Orientation::new(0.0),
+            Car,
+            AIControlled,
+            LapCounter::default(),
+            CarState::new(), // carstate for the AI
+            ThetaCheckpointList::new(Vec::new()),
+        ));
+    }
 }
 
 // beginnings of the fsm system

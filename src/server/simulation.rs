@@ -7,6 +7,7 @@ use crate::game_logic::{
     GameMap,
     physics::{PhysicsInput, apply_physics},
     Velocity, Orientation,
+    handle_collision,
 };
 use crate::types::*;
 use crate::lobby_management::timeout_cleanup;
@@ -37,10 +38,10 @@ pub fn physics_simulation_system(
             .collect()
     };
 
-    // Collect all player positions for collision detection
-    let player_positions: Vec<(f32, f32, Vec2)> = query.iter()
+    // Collect all player data for collision detection
+    let player_data: Vec<(Vec3, Vec2)> = query.iter()
         .filter(|(_, _, _, _, _, lobby_member)| started_lobbies.contains(&lobby_member.lobby_name))
-        .map(|(_, pos, vel, _, _, _)| (pos.x, pos.y, **vel))
+        .map(|(_, pos, vel, _, _, _)| (Vec3::new(pos.x, pos.y, 0.0), **vel))
         .collect();
 
     for (_player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
@@ -89,46 +90,43 @@ pub fn physics_simulation_system(
         position_vec.x = position_vec.x.clamp(-half_width + car_half_size, half_width - car_half_size);
         position_vec.y = position_vec.y.clamp(-half_height + car_half_size, half_height - car_half_size);
 
-        // Check wall collisions (tile passability)
-        let new_tile = game_map.get_tile(position_vec.x, position_vec.y, TILE_SIZE as f32);
-        if !new_tile.passable {
-            // Hit a wall - reverse velocity
+        let new_position_3d = position_vec.extend(0.0);
+        let current_position_2d = Vec2::new(pos.x, pos.y);
+
+        // Handle collisions using the shared collision logic
+        let mut collision_occurred = false;
+
+        // Check car-to-car collisions
+        for (other_pos, other_vel) in &player_data {
+            // Skip self
+            if (other_pos.x - pos.x).abs() < 0.01 && (other_pos.y - pos.y).abs() < 0.01 {
+                continue;
+            }
+
+            let distance = new_position_3d.truncate().distance(other_pos.truncate());
+            if distance < CAR_SIZE as f32 {
+                let bounce_direction = (current_position_2d - other_pos.truncate()).normalize_or_zero();
+                let relative_speed = (**vel - *other_vel).dot(bounce_direction);
+
+                if relative_speed < 0.0 {
+                    **vel += bounce_direction * relative_speed * -1.5; // Bounce strength
+                }
+                collision_occurred = true;
+                break;
+            }
+        }
+
+        // Check wall collisions
+        let tile = game_map.get_tile(new_position_3d.x, new_position_3d.y, TILE_SIZE as f32);
+        if !tile.passable {
             **vel *= -0.3;
-        } else {
-            // Check car-to-car collisions
-            let mut collision = false;
-            for (other_x, other_y, other_vel) in &player_positions {
-                // Skip self
-                if (*other_x - pos.x).abs() < 0.01 && (*other_y - pos.y).abs() < 0.01 {
-                    continue;
-                }
+            collision_occurred = true;
+        }
 
-                let distance = ((position_vec.x - other_x).powi(2) + (position_vec.y - other_y).powi(2)).sqrt();
-                if distance < CAR_SIZE as f32 {
-                    // Collision detected - bounce
-                    let bounce_dir = Vec2::new(pos.x - other_x, pos.y - other_y);
-                    let bounce_len = bounce_dir.length();
-
-                    if bounce_len > 0.01 {
-                        let norm = bounce_dir / bounce_len;
-
-                        let relative_vel = **vel - *other_vel;
-                        let relative_speed = relative_vel.dot(norm);
-
-                        if relative_speed < 0.0 {
-                            **vel += norm * relative_speed * -1.5;
-                        }
-                    }
-                    collision = true;
-                    break;
-                }
-            }
-
-            // Update position if no collision or after bounce
-            if !collision || vel.length() > 0.1 {
-                pos.x = position_vec.x;
-                pos.y = position_vec.y;
-            }
+        // Update position if collision allows it (wall collision returns false, car collision returns true)
+        if !collision_occurred || (tile.passable && vel.length() > 0.1) {
+            pos.x = position_vec.x;
+            pos.y = position_vec.y;
         }
     }
 }
