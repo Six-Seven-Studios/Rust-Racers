@@ -92,6 +92,7 @@ fn main() {
             update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             multiplayer::send_keyboard_input.run_if(in_state(GameState::Playing)),
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
+            multiplayer::interpolate_networked_cars.run_if(in_state(GameState::Playing)),
             populate_lobby_list.run_if(in_state(GameState::Joining)),
         ))
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)

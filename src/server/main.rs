@@ -82,7 +82,7 @@ fn main() {
     // Create headless server
     App::new()
         .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
-            Duration::from_millis(16),
+            Duration::from_millis(50),
         )))
         .insert_resource(connected_clients)
         .insert_resource(Lobbies { list: lobbies })
