@@ -1,5 +1,6 @@
 use serde_json::json;
 use std::time::Instant;
+use std::sync::{Arc, Mutex};
 
 use crate::types::*;
 
@@ -88,7 +89,12 @@ pub fn broadcast_game_start(
 }
 
 /// Clean up when a client disconnects
-pub fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &LobbyList) {
+pub fn disconnect_cleanup(
+    id: u32, 
+    connected: &ConnectedClients, 
+    lobbies: &LobbyList, 
+    cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
+) {
     // Get the address before removing
     let addr = connected.addrs.lock().unwrap().get(&id).copied();
 
@@ -119,6 +125,13 @@ pub fn disconnect_cleanup(id: u32, connected: &ConnectedClients, lobbies: &Lobby
                 println!("Should never get here because players should have at least one element");
             }
         }
+
+        let sender = cmd_sender.lock().unwrap();
+        if lobby.started {
+            let _ = sender.send(ServerCommand::DespawnPlayer {
+                player_id: id,
+            });
+        }
     }
 
     // Remove the empty lobbies
@@ -134,6 +147,7 @@ pub fn timeout_cleanup(
     connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
     timeout_seconds: u64,
+    cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) {
     let now = Instant::now();
     let mut timed_out_clients = Vec::new();
@@ -151,6 +165,6 @@ pub fn timeout_cleanup(
     // Disconnect timed out clients
     for id in timed_out_clients {
         println!("Client {} timed out", id);
-        disconnect_cleanup(id, connected_clients, lobbies);
+        disconnect_cleanup(id, connected_clients, lobbies, cmd_sender);
     }
 }

@@ -88,6 +88,7 @@ fn main() {
         .insert_resource(Lobbies { list: lobbies })
         .insert_resource(PlayerEntities::default())
         .insert_resource(ServerCommandReceiver { receiver: cmd_receiver })
+        .insert_resource(ServerCommandSender { sender: cmd_sender })
         .insert_resource(game_map)
         .add_systems(Update, (
             process_server_commands_system,
