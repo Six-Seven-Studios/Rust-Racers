@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::game_logic::{ACCEL_RATE, TURNING_RATE, PLAYER_SPEED, LATERAL_FRICTION, Velocity, Orientation};
 
 /// Input state for physics simulation
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct PhysicsInput {
     pub forward: bool,
     pub backward: bool,

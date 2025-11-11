@@ -10,6 +10,7 @@ mod networking;
 mod multiplayer;
 mod networking_plugin;
 mod car_state;
+mod prediction;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
@@ -25,6 +26,7 @@ use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::game_logic::{TILE_SIZE, AIControlled, Orientation, Velocity, ThetaCheckpointList};
+use crate::prediction::{ClientPredictionState, predict_local_movement, apply_smooth_correction};
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
@@ -61,6 +63,7 @@ fn main() {
         .insert_resource(ServerAddress {
             address: String::new(),
         })
+        .init_resource::<ClientPredictionState>()
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
         .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
@@ -90,8 +93,13 @@ fn main() {
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
             update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
-            multiplayer::send_keyboard_input.run_if(in_state(GameState::Playing)),
+            // Client-side prediction: predict movement immediately on input
+            predict_local_movement.run_if(in_state(GameState::Playing)),
+            // Send inputs to server (no longer using send_keyboard_input)
+            // Reconcile with server state when it arrives
             multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
+            // Apply smooth visual correction after reconciliation
+            apply_smooth_correction.run_if(in_state(GameState::Playing)),
             populate_lobby_list.run_if(in_state(GameState::Joining)),
         ))
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)

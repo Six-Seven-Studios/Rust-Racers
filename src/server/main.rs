@@ -17,6 +17,8 @@ mod networking;
 mod lobby;
 #[path = "../title_screen.rs"]
 mod title_screen;
+#[path = "../prediction/mod.rs"]
+mod prediction;
 
 // Server modules
 mod types;
