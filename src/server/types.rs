@@ -190,3 +190,9 @@ pub enum ServerCommand {
 pub struct ServerCommandReceiver {
     pub receiver: Arc<Mutex<std::sync::mpsc::Receiver<ServerCommand>>>,
 }
+
+// Resource for receiving commands in Bevy systems
+#[derive(Resource)]
+pub struct ServerCommandSender {
+    pub sender: Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
+}

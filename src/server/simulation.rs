@@ -237,7 +237,8 @@ pub fn process_server_commands_system(
 pub fn timeout_cleanup_system(
     connected_clients: Res<ConnectedClients>,
     lobbies: Res<Lobbies>,
+    cmd_sender: Res<ServerCommandSender>,
 ) {
     const TIMEOUT_SECONDS: u64 = 10;
-    timeout_cleanup(&connected_clients, &lobbies.list, TIMEOUT_SECONDS);
+    timeout_cleanup(&connected_clients, &lobbies.list, TIMEOUT_SECONDS, &cmd_sender.sender);
 }
