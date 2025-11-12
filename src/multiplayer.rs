@@ -74,29 +74,27 @@ pub fn get_car_positions(
     for (id, player_pos) in &player_positions.positions {
         // Reconcile our own player with server state (client-side prediction)
         if Some(*id) == my_id {
-            if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
+            if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.single_mut() {
                 let last_ack_sequence = player_pos.last_processed_sequence;
 
-                // Step 1: Reset to server's authoritative state
-                let server_pos = Vec2::new(player_pos.x, player_pos.y);
-                transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
-                transform.rotation = Quat::from_rotation_z(player_pos.angle);
-                velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
-                orientation.angle = player_pos.angle;
-
-                // Step 2: Remove acknowledged inputs from buffer
+                // Step 1: Remove acknowledged inputs from buffer
                 buffer.states.retain(|state| state.sequence > last_ack_sequence);
 
-                // Step 3: Replay all unacknowledged inputs
-                let mut pos = server_pos;
+                // Step 2: Create local variables starting from server's authoritative state
+                // We don't mutate the player's actual components until we have the final result
+                let mut replay_pos = Vec2::new(player_pos.x, player_pos.y);
+                let mut replay_vel = Velocity::from(Vec2::new(player_pos.vx, player_pos.vy));
+                let mut replay_orient = Orientation::new(player_pos.angle);
+
+                // Step 3: Replay all unacknowledged inputs using local variables
                 if !buffer.states.is_empty() {
                     for predicted_state in &buffer.states {
-                        let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+                        let tile = game_map.get_tile(replay_pos.x, replay_pos.y, TILE_SIZE as f32);
 
                         apply_physics(
-                            &mut pos,
-                            &mut velocity,
-                            &mut orientation,
+                            &mut replay_pos,
+                            &mut replay_vel,
+                            &mut replay_orient,
                             &predicted_state.input,
                             FIXED_TIMESTEP,
                             tile.speed_modifier,
@@ -107,9 +105,12 @@ pub fn get_car_positions(
                     }
                 }
 
-                // Update transform to final replayed position
-                transform.translation = pos.extend(transform.translation.z);
-                transform.rotation = Quat::from_rotation_z(orientation.angle);
+                // Step 4: Update everything at once with final replayed values
+                // This is the only place we modify the player's actual state
+                transform.translation = replay_pos.extend(transform.translation.z);
+                transform.rotation = Quat::from_rotation_z(replay_orient.angle);
+                velocity.velocity = replay_vel.velocity;
+                orientation.angle = replay_orient.angle;
             }
             continue;
         }
