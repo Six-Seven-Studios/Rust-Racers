@@ -1,5 +1,5 @@
 // Network and physics timing
-pub const FIXED_TIMESTEP: f32 = 1.0 / 30.0; // 33.33ms - 30 Hz
+pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; // 16.67ms - 60 Hz
 
 // Physics constants
 pub const FRICTION: f32 = 0.95;

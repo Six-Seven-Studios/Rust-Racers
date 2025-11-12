@@ -63,7 +63,7 @@ fn main() {
             address: String::new(),
         })
         .init_resource::<client_prediction::InputSequence>()
-        .insert_resource(Time::<Fixed>::from_hz(30.0))  // 30 Hz fixed update (30fps for input/physics)
+        .insert_resource(Time::<Fixed>::from_hz(60.0))  // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
         .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
