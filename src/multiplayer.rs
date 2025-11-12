@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter};
+use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter, FIXED_TIMESTEP, TILE_SIZE, GameMap, apply_physics};
 use crate::networking_plugin::{NetworkClient, PlayerPositions};
 use crate::client_prediction::PredictionBuffer;
 
@@ -55,21 +55,6 @@ impl InterpolationBuffer {
     }
 }
 
-pub fn send_keyboard_input(
-    mut network_client: ResMut<NetworkClient>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
-    let Some(client) = network_client.client.as_mut() else { return };
-
-    let forward = input.pressed(KeyCode::KeyW);
-    let backward = input.pressed(KeyCode::KeyS);
-    let left = input.pressed(KeyCode::KeyA);
-    let right = input.pressed(KeyCode::KeyD);
-    let drift = input.pressed(KeyCode::Space);
-
-    let _ = client.send_player_input(forward, backward, left, right, drift);
-}
-
 pub fn get_car_positions(
     network_client: Res<NetworkClient>,
     mut network_cars: Query<(&NetworkPlayer, &mut InterpolationBuffer)>,
@@ -79,6 +64,7 @@ pub fn get_car_positions(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     player_positions: Res<PlayerPositions>,
     time: Res<Time>,
+    game_map: Res<GameMap>,
 ) {
     if network_client.client.is_none() { return }
     let my_id = network_client.player_id;
@@ -86,24 +72,44 @@ pub fn get_car_positions(
 
     // Process all positions from the resource
     for (id, player_pos) in &player_positions.positions {
-        // Reconcile our own player with server state
+        // Reconcile our own player with server state (client-side prediction)
         if Some(*id) == my_id {
-            if let Ok((mut transform, mut velocity, mut orientation, buffer)) = player_car.get_single_mut() {
-                let server_seq = player_pos.input_count;
+            if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
+                let last_ack_sequence = player_pos.last_processed_sequence;
+
+                // Step 1: Reset to server's authoritative state
                 let server_pos = Vec2::new(player_pos.x, player_pos.y);
+                transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
+                transform.rotation = Quat::from_rotation_z(player_pos.angle);
+                velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
+                orientation.angle = player_pos.angle;
 
-                // Find our prediction at this sequence
-                if let Some(predicted_state) = buffer.states.iter().find(|s| s.sequence == server_seq) {
-                    let error = (predicted_state.position - server_pos).length();
+                // Step 2: Remove acknowledged inputs from buffer
+                buffer.states.retain(|state| state.sequence > last_ack_sequence);
 
-                    // If prediction error is too large, snap to server position
-                    if error > 100.0 {
-                        transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
-                        transform.rotation = Quat::from_rotation_z(player_pos.angle);
-                        velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
-                        orientation.angle = player_pos.angle;
+                // Step 3: Replay all unacknowledged inputs
+                let mut pos = server_pos;
+                if !buffer.states.is_empty() {
+                    for predicted_state in &buffer.states {
+                        let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+
+                        apply_physics(
+                            &mut pos,
+                            &mut velocity,
+                            &mut orientation,
+                            &predicted_state.input,
+                            FIXED_TIMESTEP,
+                            tile.speed_modifier,
+                            tile.friction_modifier,
+                            tile.turn_modifier,
+                            tile.decel_modifier,
+                        );
                     }
                 }
+
+                // Update transform to final replayed position
+                transform.translation = pos.extend(transform.translation.z);
+                transform.rotation = Quat::from_rotation_z(orientation.angle);
             }
             continue;
         }

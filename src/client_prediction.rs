@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE};
+use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, FIXED_TIMESTEP};
 use crate::networking_plugin::NetworkClient;
 
 // Track input sequence numbers
@@ -35,13 +35,13 @@ impl PredictionBuffer {
 }
 
 // Send input and predict movement locally
+// Runs at fixed 60 Hz - must run in FixedUpdate schedule
 pub fn send_keyboard_input(
     mut network_client: ResMut<NetworkClient>,
     input: Res<ButtonInput<KeyCode>>,
     mut input_sequence: ResMut<InputSequence>,
     mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut PredictionBuffer), With<PlayerControlled>>,
     game_map: Res<crate::game_logic::GameMap>,
-    time: Res<Time>,
 ) {
     let Some(client) = network_client.client.as_mut() else { return };
 
@@ -54,23 +54,24 @@ pub fn send_keyboard_input(
     input_sequence.current += 1;
     let sequence = input_sequence.current;
 
-    // Send input to server (server will count inputs on its end)
-    let _ = client.send_player_input(forward, backward, left, right, drift);
+    // Send input to server with sequence number
+    let _ = client.send_player_input(sequence, forward, backward, left, right, drift);
 
     // Predict movement locally for instant feedback
     if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
         let physics_input = PhysicsInput { forward, backward, left, right, drift };
 
-        let mut pos = transform.translation.truncate();
+        let old_pos = transform.translation.truncate();
+        let mut pos = old_pos;
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
-        // Apply physics locally
+        // Apply physics locally with fixed timestep (same as server)
         crate::game_logic::apply_physics(
             &mut pos,
             &mut velocity,
             &mut orientation,
             &physics_input,
-            time.delta_secs(),
+            FIXED_TIMESTEP,
             tile.speed_modifier,
             tile.friction_modifier,
             tile.turn_modifier,

@@ -21,6 +21,7 @@ pub enum MessageType {
     CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
 
     PlayerInput {
+        sequence: u64,
         forward: bool,
         backward: bool,
         left: bool,
@@ -74,7 +75,7 @@ pub struct PlayerPositionData {
     pub vy: f32,
     pub angle: f32,
     #[serde(default)]
-    pub input_count: u64,
+    pub last_processed_sequence: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -138,8 +139,8 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
-    pub fn send_player_input(&mut self, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
-        self.send(MessageType::PlayerInput { forward, backward, left, right, drift })
+    pub fn send_player_input(&mut self, sequence: u64, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
+        self.send(MessageType::PlayerInput { sequence, forward, backward, left, right, drift })
     }
 
     pub fn send_ping(&mut self) -> io::Result<()> {

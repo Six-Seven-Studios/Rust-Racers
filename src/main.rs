@@ -63,6 +63,7 @@ fn main() {
             address: String::new(),
         })
         .init_resource::<client_prediction::InputSequence>()
+        .insert_resource(Time::<Fixed>::from_hz(30.0))  // 30 Hz fixed update (30fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
         .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
@@ -92,11 +93,14 @@ fn main() {
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
             update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
-            client_prediction::send_keyboard_input.run_if(in_state(GameState::Playing)),
-            multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
             multiplayer::interpolate_networked_cars.run_if(in_state(GameState::Playing)),
             populate_lobby_list.run_if(in_state(GameState::Joining)),
         ))
+        .add_systems(FixedUpdate, (
+            // Client-side prediction and reconciliation run at fixed 30 Hz
+            client_prediction::send_keyboard_input.run_if(in_state(GameState::Playing)),
+            multiplayer::get_car_positions.run_if(in_state(GameState::Playing)),
+        ).chain())
         .add_systems(OnEnter(GameState::Victory), setup_victory_screen)
         .add_systems(OnEnter(GameState::Credits), (reset_camera_for_credits, setup_credits))
         .add_systems(Update, show_credits.run_if(in_state(GameState::Credits)))

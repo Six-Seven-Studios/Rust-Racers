@@ -31,6 +31,7 @@ pub enum MessageType {
     ListLobbies,
     StartLobby { name: String },
     PlayerInput {
+        sequence: u64,
         forward: bool,
         backward: bool,
         left: bool,
@@ -92,7 +93,7 @@ pub struct PlayerState {
     pub velocity: bevy::math::Vec2,
     pub angle: f32,
     pub inputs: PlayerInput,
-    pub input_count: u64,
+    pub last_processed_sequence: u64,
 }
 
 // Lobby structure
@@ -143,7 +144,7 @@ pub struct PlayerInputComponent {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
-    pub input_count: u64,
+    pub last_processed_sequence: u64,
 }
 
 impl Default for PlayerInputComponent {
@@ -154,7 +155,7 @@ impl Default for PlayerInputComponent {
             left: false,
             right: false,
             drift: false,
-            input_count: 0,
+            last_processed_sequence: 0,
         }
     }
 }

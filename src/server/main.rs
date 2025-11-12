@@ -32,7 +32,7 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use game_logic::{GameMap, load_map_from_file};
+use game_logic::{GameMap, load_map_from_file, FIXED_TIMESTEP};
 use types::*;
 use utils::*;
 use net::*;
@@ -80,10 +80,11 @@ fn main() {
     let game_map = load_map_from_file("assets/big-map.txt");
     println!("Server loaded map: {}x{}", game_map.width, game_map.height);
 
-    // Create headless server
+    // Create headless server with 60 Hz fixed timestep (same as client)
+    // Using Update schedule since run_loop already controls the rate
     App::new()
         .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
-            Duration::from_millis(50),
+            Duration::from_secs_f32(FIXED_TIMESTEP),
         )))
         .insert_resource(connected_clients)
         .insert_resource(Lobbies { list: lobbies })
@@ -94,8 +95,8 @@ fn main() {
             process_server_commands_system,
             sync_input_from_lobbies_system,
             physics_simulation_system,
+            broadcast_state_system,
             timeout_cleanup_system,
         ).chain())
-        .add_systems(FixedUpdate, broadcast_state_system)
         .run();
 }

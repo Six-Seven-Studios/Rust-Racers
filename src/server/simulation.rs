@@ -3,7 +3,7 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    CAR_SIZE, TILE_SIZE,
+    CAR_SIZE, TILE_SIZE, FIXED_TIMESTEP,
     GameMap,
     physics::{PhysicsInput, apply_physics},
     Velocity, Orientation,
@@ -14,6 +14,7 @@ use crate::lobby_management::timeout_cleanup;
 
 /// System to apply physics simulation to all active players
 /// Uses terrain modifiers, collision detection, and map boundaries
+/// Runs at fixed 60 Hz (FIXED_TIMESTEP) in FixedUpdate schedule
 pub fn physics_simulation_system(
     mut query: Query<(
         &PlayerId,
@@ -23,11 +24,9 @@ pub fn physics_simulation_system(
         &PlayerInputComponent,
         &LobbyMember,
     )>,
-    time: Res<Time>,
     lobbies: Res<Lobbies>,
     game_map: Res<GameMap>,
 ) {
-    let delta = time.delta_secs();
 
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
@@ -44,7 +43,7 @@ pub fn physics_simulation_system(
         .map(|(_, pos, vel, _, _, _)| (Vec3::new(pos.x, pos.y, 0.0), **vel))
         .collect();
 
-    for (_player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
+    for (player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
         // Only simulate physics for players in started lobbies
         if !started_lobbies.contains(&lobby_member.lobby_name) {
             continue;
@@ -69,13 +68,13 @@ pub fn physics_simulation_system(
         // Create a Vec2 position for physics calculation
         let mut position_vec = Vec2::new(pos.x, pos.y);
 
-        // Apply shared physics logic
+        // Apply shared physics logic with fixed timestep (deterministic)
         apply_physics(
             &mut position_vec,
             &mut vel,
             &mut orient,
             &physics_input,
-            delta,
+            FIXED_TIMESTEP,
             speed_mod,
             fric_mod,
             turn_mod,
@@ -152,7 +151,7 @@ pub fn broadcast_state_system(
                     "vx": vel.x,
                     "vy": vel.y,
                     "angle": orient.angle,
-                    "input_count": input.input_count
+                    "last_processed_sequence": input.last_processed_sequence
                 })
             }).collect();
 
@@ -193,7 +192,7 @@ pub fn sync_input_from_lobbies_system(
                 input_component.left = state.inputs.left;
                 input_component.right = state.inputs.right;
                 input_component.drift = state.inputs.drift;
-                input_component.input_count = state.input_count;
+                input_component.last_processed_sequence = state.last_processed_sequence;
             }
         }
     }

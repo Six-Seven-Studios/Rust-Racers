@@ -2,6 +2,7 @@
 // Server doesn't need client prediction, but shared modules (car.rs, multiplayer.rs) import it
 
 use bevy::prelude::*;
+use crate::game_logic::physics::PhysicsInput;
 
 #[derive(Resource, Default)]
 pub struct InputSequence {
@@ -11,6 +12,7 @@ pub struct InputSequence {
 #[derive(Clone)]
 pub struct PredictedState {
     pub sequence: u64,
+    pub input: PhysicsInput,
     pub position: Vec2,
     pub velocity: Vec2,
     pub angle: f32,
