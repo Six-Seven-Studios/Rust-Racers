@@ -1,18 +1,13 @@
-// Simple client-side prediction for responsive controls
-// Predicts movement locally and stores buffer for comparison with server
-
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
 use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, FIXED_TIMESTEP};
 use crate::networking_plugin::NetworkClient;
 
-// Track input sequence numbers
 #[derive(Resource, Default)]
 pub struct InputSequence {
     pub current: u64,
 }
 
-// Store a single predicted state
 #[derive(Clone)]
 pub struct PredictedState {
     pub sequence: u64,
@@ -22,7 +17,6 @@ pub struct PredictedState {
     pub angle: f32,
 }
 
-// Buffer of recent predictions
 #[derive(Component)]
 pub struct PredictionBuffer {
     pub states: Vec<PredictedState>,
@@ -35,7 +29,6 @@ impl PredictionBuffer {
 }
 
 // Send input and predict movement locally
-// Runs at fixed 60 Hz - must run in FixedUpdate schedule
 pub fn send_keyboard_input(
     mut network_client: ResMut<NetworkClient>,
     input: Res<ButtonInput<KeyCode>>,
@@ -65,7 +58,7 @@ pub fn send_keyboard_input(
         let mut pos = old_pos;
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
-        // Apply physics locally with fixed timestep (same as server)
+        // Apply physics locally with fixed timestep
         crate::game_logic::apply_physics(
             &mut pos,
             &mut velocity,
@@ -78,7 +71,7 @@ pub fn send_keyboard_input(
             tile.decel_modifier,
         );
 
-        // Update visuals immediately (responsive!)
+        // Update visuals immediately
         transform.translation = pos.extend(transform.translation.z);
         transform.rotation = Quat::from_rotation_z(orientation.angle);
 
@@ -91,7 +84,7 @@ pub fn send_keyboard_input(
             angle: orientation.angle,
         });
 
-        // Keep last 60 states (~1 second at 60fps)
+        // Keep last 60 states
         if buffer.states.len() > 60 {
             buffer.states.remove(0);
         }

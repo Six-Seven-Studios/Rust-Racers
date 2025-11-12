@@ -80,7 +80,7 @@ fn main() {
     let game_map = load_map_from_file("assets/big-map.txt");
     println!("Server loaded map: {}x{}", game_map.width, game_map.height);
 
-    // Create headless server with 60 Hz fixed timestep (same as client)
+    // Create headless server with 60 Hz timestep
     // Using Update schedule since run_loop already controls the rate
     App::new()
         .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(

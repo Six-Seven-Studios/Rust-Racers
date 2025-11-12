@@ -14,7 +14,7 @@ use crate::lobby_management::timeout_cleanup;
 
 /// System to apply physics simulation to all active players
 /// Uses terrain modifiers, collision detection, and map boundaries
-/// Runs at fixed 60 Hz (FIXED_TIMESTEP) in FixedUpdate schedule
+/// Runs at 60 Hz
 pub fn physics_simulation_system(
     mut query: Query<(
         &PlayerId,
