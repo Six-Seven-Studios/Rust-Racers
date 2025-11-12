@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::input::ButtonInput;
 use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter};
 use crate::networking_plugin::{NetworkClient, PlayerPositions};
+use crate::client_prediction::PredictionBuffer;
 
 #[derive(Component)]
 pub struct NetworkPlayer {
@@ -72,7 +73,7 @@ pub fn send_keyboard_input(
 pub fn get_car_positions(
     network_client: Res<NetworkClient>,
     mut network_cars: Query<(&NetworkPlayer, &mut InterpolationBuffer)>,
-    mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<NetworkPlayer>)>,
+    mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut PredictionBuffer), (With<PlayerControlled>, Without<NetworkPlayer>)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -85,14 +86,24 @@ pub fn get_car_positions(
 
     // Process all positions from the resource
     for (id, player_pos) in &player_positions.positions {
-        // Update our own player car from server position
+        // Reconcile our own player with server state
         if Some(*id) == my_id {
-            // TODO: Add client-side prediction here (jeremy)
-            if let Ok((mut transform, mut velocity, mut orientation)) = player_car.get_single_mut() {
-                transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
-                transform.rotation = Quat::from_rotation_z(player_pos.angle);
-                velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
-                orientation.angle = player_pos.angle;
+            if let Ok((mut transform, mut velocity, mut orientation, buffer)) = player_car.get_single_mut() {
+                let server_seq = player_pos.input_count;
+                let server_pos = Vec2::new(player_pos.x, player_pos.y);
+
+                // Find our prediction at this sequence
+                if let Some(predicted_state) = buffer.states.iter().find(|s| s.sequence == server_seq) {
+                    let error = (predicted_state.position - server_pos).length();
+
+                    // If prediction error is too large, snap to server position
+                    if error > 100.0 {
+                        transform.translation = Vec3::new(player_pos.x, player_pos.y, transform.translation.z);
+                        transform.rotation = Quat::from_rotation_z(player_pos.angle);
+                        velocity.velocity = Vec2::new(player_pos.vx, player_pos.vy);
+                        orientation.angle = player_pos.angle;
+                    }
+                }
             }
             continue;
         }

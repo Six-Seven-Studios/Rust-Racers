@@ -19,6 +19,7 @@ mod lobby;
 mod title_screen;
 
 // Server modules
+mod client_prediction;
 mod types;
 mod utils;
 mod net;
