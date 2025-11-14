@@ -289,15 +289,50 @@ pub fn spawn_cars(
 
 // beginnings of the fsm system
 pub fn ai_car_fsm (
-    mut query: Query<(&mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
+    mut ai_query: Query<(Entity, &mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
+    other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
     mut delta_time: Res<Time>,
     ) {
-    for (mut car_state,
+    // define proximity threshold (in game units)
+    const PROXIMITY_THRESHOLD: f32 = 300.0;
+    
+    for (entity,
+        mut car_state,
         mut transform,
         mut velocity,
         mut orientation)
-        in query.iter_mut() {
-        car_state.update(&mut delta_time, &mut transform, &mut velocity, &mut orientation);
+        in ai_query.iter_mut() {
+        
+        // check for nearby cars
+        let ai_pos = transform.translation.truncate();
+        let mut closest_car_distance = f32::MAX;
+        let mut closest_car_position = None;
+        
+        for other_transform in other_cars.iter() {
+            let other_pos = other_transform.translation.truncate();
+            let distance = ai_pos.distance(other_pos);
+            
+            if distance < closest_car_distance {
+                closest_car_distance = distance;
+                closest_car_position = Some(other_pos);
+            }
+        }
+        
+        // determine if any car is within proximity threshold
+        let car_nearby = closest_car_distance < PROXIMITY_THRESHOLD;
+
+        // pass all the properties to the update function
+        // maybe roll this into a struct in the future for readability
+        
+        car_state.update(
+            &mut delta_time,
+            &mut transform,
+            &mut velocity,
+            &mut orientation,
+            car_nearby,
+            closest_car_position,
+            closest_car_distance
+        );
     }
 }
 
