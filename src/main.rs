@@ -11,6 +11,7 @@ mod multiplayer;
 mod client_prediction;
 mod networking_plugin;
 mod car_state;
+mod interpolation;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
@@ -72,7 +73,7 @@ fn main() {
         .init_resource::<LobbyState>()
         .init_resource::<LobbyList>()
         .init_resource::<LobbyListDirty>()
-        .init_resource::<multiplayer::InterpolationDelay>()
+        .init_resource::<interpolation::InterpolationDelay>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
@@ -94,7 +95,7 @@ fn main() {
             move_ai_cars.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
             ai_car_fsm.run_if(in_state(GameState::PlayingDemo)),
             update_laps.run_if(in_state(GameState::Playing).or(in_state(GameState::PlayingDemo))),
-            multiplayer::interpolate_networked_cars.run_if(in_state(GameState::Playing)),
+            interpolation::interpolate_networked_cars.run_if(in_state(GameState::Playing)),
             populate_lobby_list.run_if(in_state(GameState::Joining)),
         ))
         .add_systems(FixedUpdate, (

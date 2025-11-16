@@ -9,6 +9,8 @@ mod car;
 mod car_state;
 #[path = "../multiplayer.rs"]
 mod multiplayer;
+#[path = "../interpolation.rs"]
+mod interpolation;
 #[path = "../networking_plugin.rs"]
 mod networking_plugin;
 #[path = "../networking.rs"]
