@@ -9,6 +9,75 @@ pub struct NetworkPlayer {
     pub player_id: u32,
 }
 
+// Resource to track adaptive interpolation delay
+#[derive(Resource)]
+pub struct InterpolationDelay {
+    pub delay: f32,
+    packet_intervals: [f32; 10],
+    interval_index: usize,
+    consecutive_underruns: u32,
+    consecutive_overruns: u32,
+}
+
+impl Default for InterpolationDelay {
+    fn default() -> Self {
+        Self {
+            delay: 0.030,
+            packet_intervals: [0.016; 10],
+            interval_index: 0,
+            consecutive_underruns: 0,
+            consecutive_overruns: 0,
+        }
+    }
+}
+
+impl InterpolationDelay {
+    pub fn record_packet_interval(&mut self, interval: f32) {
+        self.packet_intervals[self.interval_index] = interval;
+        self.interval_index = (self.interval_index + 1) % self.packet_intervals.len();
+    }
+
+    pub fn calculate_jitter(&self) -> (f32, f32) {
+        let sum: f32 = self.packet_intervals.iter().sum();
+        let avg = sum / self.packet_intervals.len() as f32;
+        let max = self.packet_intervals.iter().cloned().fold(0.0f32, f32::max);
+        (avg, max)
+    }
+
+    pub fn adjust_delay(&mut self, alpha: f32) {
+        const ADJUST_RATE: f32 = 0.001;
+        const MIN_DELAY: f32 = 0.016;
+        const MAX_DELAY: f32 = 0.100;
+
+        if alpha >= 0.95 {
+            self.consecutive_underruns += 1;
+            self.consecutive_overruns = 0;
+
+            if self.consecutive_underruns > 5 {
+                self.delay = (self.delay + ADJUST_RATE).min(MAX_DELAY);
+                self.consecutive_underruns = 0;
+            }
+        } else if alpha < 0.3 {
+            self.consecutive_overruns += 1;
+            self.consecutive_underruns = 0;
+
+            if self.consecutive_overruns > 30 {
+                self.delay = (self.delay - ADJUST_RATE).max(MIN_DELAY);
+                self.consecutive_overruns = 0;
+            }
+        } else {
+            self.consecutive_underruns = 0;
+            self.consecutive_overruns = 0;
+        }
+
+        let (avg_interval, _) = self.calculate_jitter();
+        let jitter_based_delay = avg_interval * 1.5;
+
+        self.delay = self.delay * 0.95 + jitter_based_delay * 0.05;
+        self.delay = self.delay.clamp(MIN_DELAY, MAX_DELAY);
+    }
+}
+
 // Buffers two consecutive server states for smooth client-side interpolation
 #[derive(Component)]
 pub struct InterpolationBuffer {
@@ -65,6 +134,7 @@ pub fn get_car_positions(
     player_positions: Res<PlayerPositions>,
     time: Res<Time>,
     game_map: Res<GameMap>,
+    mut interp_delay: ResMut<InterpolationDelay>,
 ) {
     if network_client.client.is_none() { return }
     let my_id = network_client.player_id;
@@ -125,6 +195,7 @@ pub fn get_car_positions(
             &mut commands,
             &asset_server,
             &mut texture_atlases,
+            &mut interp_delay,
         );
     }
 }
@@ -132,12 +203,13 @@ pub fn get_car_positions(
 pub fn interpolate_networked_cars(
     mut network_cars: Query<(&InterpolationBuffer, &mut Transform, &mut Orientation, &mut Velocity), With<NetworkPlayer>>,
     time: Res<Time>,
+    mut interp_delay: ResMut<InterpolationDelay>,
 ) {
     let current_time = time.elapsed_secs();
 
-    // Render delay: Set to ~1.5x your server tick rate (e.g., 80ms tick → 120ms delay)
-    const RENDER_DELAY: f32 = 0.080;
-    let render_time = current_time - RENDER_DELAY;
+    // Use adaptive render delay (dynamically adjusts based on network conditions)
+    let render_delay = interp_delay.delay;
+    let render_time = current_time - render_delay;
 
     for (buffer, mut transform, mut orientation, mut velocity) in network_cars.iter_mut() {
         if !buffer.initialized {
@@ -156,6 +228,9 @@ pub fn interpolate_networked_cars(
         } else {
             1.0
         };
+
+        // Adjust delay based on alpha performance
+        interp_delay.adjust_delay(alpha);
 
         let interpolated_pos = hermite_position(
             buffer.prev_position,
@@ -215,10 +290,16 @@ fn buffer_networked_car(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
+    interp_delay: &mut InterpolationDelay,
 ) {
     // Try to find existing car and buffer the new state
     for (net_player, mut buffer) in network_cars.iter_mut() {
         if net_player.player_id == id {
+            // Calculate interval since last update and record it
+            let interval = timestamp - buffer.curr_timestamp;
+            if interval > 0.0 {
+                interp_delay.record_packet_interval(interval);
+            }
             buffer.push_state(x, y, angle, vx, vy, timestamp);
             return;
         }

@@ -72,6 +72,7 @@ fn main() {
         .init_resource::<LobbyState>()
         .init_resource::<LobbyList>()
         .init_resource::<LobbyListDirty>()
+        .init_resource::<multiplayer::InterpolationDelay>()
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(OnEnter(GameState::Playing), (car_setup, spawn_map, spawn_lap_triggers).after(load_map1))
         .add_systems(OnEnter(GameState::PlayingDemo), (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo))
