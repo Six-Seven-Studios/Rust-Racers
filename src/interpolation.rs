@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::game_logic::{Velocity, Orientation};
 use crate::multiplayer::NetworkPlayer;
 
-/// Resource to track adaptive interpolation delay
+// Resource to track adaptive interpolation delay
 #[derive(Resource)]
 pub struct InterpolationDelay {
     pub delay: f32,
@@ -71,7 +71,7 @@ impl InterpolationDelay {
     }
 }
 
-/// Buffers two consecutive server states for smooth client-side interpolation
+// Buffers two consecutive server states
 #[derive(Component)]
 pub struct InterpolationBuffer {
     pub prev_position: Vec2,
@@ -117,7 +117,7 @@ impl InterpolationBuffer {
     }
 }
 
-/// Interpolates networked car positions between server updates for smooth rendering
+// Interpolates networked car positions between server updates
 pub fn interpolate_networked_cars(
     mut network_cars: Query<(&InterpolationBuffer, &mut Transform, &mut Orientation, &mut Velocity), With<NetworkPlayer>>,
     time: Res<Time>,
@@ -171,12 +171,6 @@ pub fn interpolate_networked_cars(
 }
 
 // Interpolation methods
-
-#[allow(dead_code)]
-fn lerp_position(p0: Vec2, p1: Vec2, alpha: f32) -> Vec2 {
-    p0.lerp(p1, alpha)
-}
-
 fn hermite_position(p0: Vec2, p1: Vec2, v0: Vec2, v1: Vec2, alpha: f32, duration: f32) -> Vec2 {
     let tangent_from = v0 * duration;
     let tangent_to = v1 * duration;
