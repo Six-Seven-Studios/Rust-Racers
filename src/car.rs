@@ -2,6 +2,7 @@ use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, ThetaChec
 use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
+use crate::client_prediction::PredictionBuffer;
 use bevy::prelude::*;
 
 // Car-related components
@@ -260,6 +261,7 @@ pub fn spawn_cars(
         Car,
         PlayerControlled,
         LapCounter::default(),
+        PredictionBuffer::new(),
     ));
 
     // Spawn AI car IF in demo mode

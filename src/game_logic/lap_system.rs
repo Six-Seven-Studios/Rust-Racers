@@ -41,7 +41,7 @@ pub fn spawn_lap_triggers(
         FinishLine,
         Sprite::from_image(finish_line_handle),
         Transform {
-            translation: Vec3::new(2752., 960., 10.),
+            translation: Vec3::new(2752., 960., 5.),
             ..default()
         },
     ));

@@ -266,7 +266,8 @@ fn handle_client_message(
                             velocity: bevy::math::Vec2::ZERO,
                             angle: 0.0,
                             inputs: PlayerInput::default(),
-                            input_count: 0,
+                            last_processed_sequence: 0,
+                            input_queue: Vec::new(),
                         });
                     }
                 }
@@ -302,8 +303,12 @@ fn handle_client_message(
             Ok(())
         }
 
-        MessageType::PlayerInput { forward, backward, left, right, drift } => {
-            handle_player_input(id, forward, backward, left, right, drift, connected_clients, lobbies)
+        MessageType::PlayerInput { sequence, forward, backward, left, right, drift } => {
+            handle_player_input(id, sequence, forward, backward, left, right, drift, connected_clients, lobbies)
+        }
+
+        MessageType::PlayerInputBuffer { inputs } => {
+            handle_player_input_buffer(id, inputs, connected_clients, lobbies)
         }
 
         MessageType::Ping => {
@@ -316,9 +321,10 @@ fn handle_client_message(
     }
 }
 
-/// Handle player input message
+/// Handle player input message (legacy single input)
 fn handle_player_input(
     id: u32,
+    sequence: u64,
     forward: bool,
     backward: bool,
     left: bool,
@@ -341,7 +347,13 @@ fn handle_player_input(
         let mut states = lobby.states.lock().unwrap();
 
         if let Some(player_state) = states.get_mut(&id) {
-            player_state.input_count += 1;
+            // Ignore old/duplicate inputs
+            if sequence <= player_state.last_processed_sequence {
+                return Ok(());
+            }
+
+            // Store client's sequence number as last processed
+            player_state.last_processed_sequence = sequence;
             player_state.inputs = PlayerInput {
                 forward,
                 backward,
@@ -349,6 +361,45 @@ fn handle_player_input(
                 right,
                 drift,
             };
+        } else {
+            panic!("Player {} does not have a current state", id);
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle buffered player inputs
+fn handle_player_input_buffer(
+    id: u32,
+    inputs: Vec<InputData>,
+    _connected_clients: &ConnectedClients,
+    lobbies: &LobbyList,
+) -> io::Result<()> {
+    // Find the lobby that the player is in
+    let lobby_index_opt: Option<usize> = {
+        let guard = lobbies.lock().unwrap();
+        guard.iter().position(|lobby| {
+            lobby.players.lock().unwrap().contains(&id)
+        })
+    };
+
+    if let Some(lobby_index) = lobby_index_opt {
+        let guard = lobbies.lock().unwrap();
+        let lobby = &guard[lobby_index];
+        let mut states = lobby.states.lock().unwrap();
+
+        if let Some(player_state) = states.get_mut(&id) {
+            // Add all inputs to the queue, filtering out old/duplicate ones
+            for input in inputs {
+                // Only add inputs newer than what we've already processed
+                if input.sequence > player_state.last_processed_sequence {
+                    player_state.input_queue.push(input);
+                }
+            }
+
+            // Sort by sequence to ensure correct order
+            player_state.input_queue.sort_by_key(|input| input.sequence);
         } else {
             panic!("Player {} does not have a current state", id);
         }
