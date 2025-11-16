@@ -266,7 +266,7 @@ fn handle_client_message(
                             velocity: bevy::math::Vec2::ZERO,
                             angle: 0.0,
                             inputs: PlayerInput::default(),
-                            input_count: 0,
+                            last_processed_sequence: 0,
                         });
                     }
                 }
@@ -302,8 +302,8 @@ fn handle_client_message(
             Ok(())
         }
 
-        MessageType::PlayerInput { forward, backward, left, right, drift } => {
-            handle_player_input(id, forward, backward, left, right, drift, connected_clients, lobbies)
+        MessageType::PlayerInput { sequence, forward, backward, left, right, drift } => {
+            handle_player_input(id, sequence, forward, backward, left, right, drift, connected_clients, lobbies)
         }
 
         MessageType::Ping => {
@@ -319,6 +319,7 @@ fn handle_client_message(
 /// Handle player input message
 fn handle_player_input(
     id: u32,
+    sequence: u64,
     forward: bool,
     backward: bool,
     left: bool,
@@ -341,7 +342,13 @@ fn handle_player_input(
         let mut states = lobby.states.lock().unwrap();
 
         if let Some(player_state) = states.get_mut(&id) {
-            player_state.input_count += 1;
+            // Ignore old/duplicate inputs
+            if sequence <= player_state.last_processed_sequence {
+                return Ok(());
+            }
+
+            // Store client's sequence number as last processed
+            player_state.last_processed_sequence = sequence;
             player_state.inputs = PlayerInput {
                 forward,
                 backward,
