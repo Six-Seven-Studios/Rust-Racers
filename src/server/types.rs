@@ -1,9 +1,31 @@
 use bevy::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+// Single input with sequence number (shared with client)
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InputData {
+    pub sequence: u64,
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub drift: bool,
+}
+
+// Single position snapshot with sequence number
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PositionSnapshot {
+    pub sequence: u64,
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub angle: f32,
+}
 
 // Server doesn't use GameState but lap_system needs it
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -37,6 +59,9 @@ pub enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
+    },
+    PlayerInputBuffer {
+        inputs: Vec<InputData>,
     },
     Ping,
 }
@@ -94,6 +119,8 @@ pub struct PlayerState {
     pub angle: f32,
     pub inputs: PlayerInput,
     pub last_processed_sequence: u64,
+    // Queue of pending inputs to process
+    pub input_queue: Vec<InputData>,
 }
 
 // Lobby structure

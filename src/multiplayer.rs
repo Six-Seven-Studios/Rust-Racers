@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter, FIXED_TIMESTEP, TILE_SIZE, GameMap, apply_physics};
+use crate::game_logic::{Car, Velocity, Orientation, PlayerControlled, CAR_SIZE, LapCounter, CLIENT_TIMESTEP, TILE_SIZE, GameMap, apply_physics};
 use crate::networking_plugin::{NetworkClient, PlayerPositions};
 use crate::client_prediction::PredictionBuffer;
 use crate::interpolation::{InterpolationDelay, InterpolationBuffer};
@@ -50,7 +50,7 @@ pub fn get_car_positions(
                             &mut replay_vel,
                             &mut replay_orient,
                             &predicted_state.input,
-                            FIXED_TIMESTEP,
+                            CLIENT_TIMESTEP,
                             tile.speed_modifier,
                             tile.friction_modifier,
                             tile.turn_modifier,

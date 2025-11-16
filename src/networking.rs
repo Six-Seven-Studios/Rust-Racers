@@ -5,6 +5,28 @@ use std::sync::mpsc::Sender;
 use bevy::tasks::IoTaskPool;
 use std::time::{Duration, Instant};
 
+// Single input with sequence number
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InputData {
+    pub sequence: u64,
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub drift: bool,
+}
+
+// Single position snapshot with sequence number
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PositionSnapshot {
+    pub sequence: u64,
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub angle: f32,
+}
+
 #[derive(Serialize)]
 #[serde(tag = "type")]
 pub enum MessageType {
@@ -27,6 +49,11 @@ pub enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
+    },
+
+    // New buffered input message
+    PlayerInputBuffer {
+        inputs: Vec<InputData>,
     },
 
     Ping,
@@ -76,6 +103,9 @@ pub struct PlayerPositionData {
     pub angle: f32,
     #[serde(default)]
     pub last_processed_sequence: u64,
+    // Array of position snapshots (one per processed input)
+    #[serde(default)]
+    pub snapshots: Vec<PositionSnapshot>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -141,6 +171,10 @@ impl Client {
 
     pub fn send_player_input(&mut self, sequence: u64, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
         self.send(MessageType::PlayerInput { sequence, forward, backward, left, right, drift })
+    }
+
+    pub fn send_player_input_buffer(&mut self, inputs: Vec<InputData>) -> io::Result<()> {
+        self.send(MessageType::PlayerInputBuffer { inputs })
     }
 
     pub fn send_ping(&mut self) -> io::Result<()> {

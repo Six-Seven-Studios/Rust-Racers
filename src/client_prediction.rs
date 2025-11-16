@@ -1,11 +1,18 @@
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, FIXED_TIMESTEP};
+use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, CLIENT_TIMESTEP};
 use crate::networking_plugin::NetworkClient;
+use crate::networking::InputData;
 
 #[derive(Resource, Default)]
 pub struct InputSequence {
     pub current: u64,
+}
+
+// Buffer to accumulate inputs before sending to server
+#[derive(Resource, Default)]
+pub struct InputBuffer {
+    pub pending_inputs: Vec<InputData>,
 }
 
 #[derive(Clone)]
@@ -28,11 +35,12 @@ impl PredictionBuffer {
     }
 }
 
-// Send input and predict movement locally
+// Capture input, predict movement locally, and buffer for sending
 pub fn send_keyboard_input(
     mut network_client: ResMut<NetworkClient>,
     input: Res<ButtonInput<KeyCode>>,
     mut input_sequence: ResMut<InputSequence>,
+    mut input_buffer: ResMut<InputBuffer>,
     mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut PredictionBuffer), With<PlayerControlled>>,
     game_map: Res<crate::game_logic::GameMap>,
 ) {
@@ -47,8 +55,21 @@ pub fn send_keyboard_input(
     input_sequence.current += 1;
     let sequence = input_sequence.current;
 
-    // Send input to server with sequence number
-    let _ = client.send_player_input(sequence, forward, backward, left, right, drift);
+    // Buffer this input to send later
+    input_buffer.pending_inputs.push(InputData {
+        sequence,
+        forward,
+        backward,
+        left,
+        right,
+        drift,
+    });
+
+    // Send buffered inputs to server (client sends at 60 Hz)
+    if !input_buffer.pending_inputs.is_empty() {
+        let _ = client.send_player_input_buffer(input_buffer.pending_inputs.clone());
+        input_buffer.pending_inputs.clear();
+    }
 
     // Predict movement locally for instant feedback
     if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
@@ -58,13 +79,13 @@ pub fn send_keyboard_input(
         let mut pos = old_pos;
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
-        // Apply physics locally with fixed timestep
+        // Apply physics locally with client timestep
         crate::game_logic::apply_physics(
             &mut pos,
             &mut velocity,
             &mut orientation,
             &physics_input,
-            FIXED_TIMESTEP,
+            CLIENT_TIMESTEP,
             tile.speed_modifier,
             tile.friction_modifier,
             tile.turn_modifier,
@@ -84,8 +105,8 @@ pub fn send_keyboard_input(
             angle: orientation.angle,
         });
 
-        // Keep last 60 states
-        if buffer.states.len() > 60 {
+        // Keep last 120 states (2 seconds at 60 Hz)
+        if buffer.states.len() > 120 {
             buffer.states.remove(0);
         }
     }

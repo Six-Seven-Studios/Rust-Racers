@@ -267,6 +267,7 @@ fn handle_client_message(
                             angle: 0.0,
                             inputs: PlayerInput::default(),
                             last_processed_sequence: 0,
+                            input_queue: Vec::new(),
                         });
                     }
                 }
@@ -306,6 +307,10 @@ fn handle_client_message(
             handle_player_input(id, sequence, forward, backward, left, right, drift, connected_clients, lobbies)
         }
 
+        MessageType::PlayerInputBuffer { inputs } => {
+            handle_player_input_buffer(id, inputs, connected_clients, lobbies)
+        }
+
         MessageType::Ping => {
             // Send Pong response to client
             let _ = send_to_client(id, connected_clients, &json!({
@@ -316,7 +321,7 @@ fn handle_client_message(
     }
 }
 
-/// Handle player input message
+/// Handle player input message (legacy single input)
 fn handle_player_input(
     id: u32,
     sequence: u64,
@@ -356,6 +361,45 @@ fn handle_player_input(
                 right,
                 drift,
             };
+        } else {
+            panic!("Player {} does not have a current state", id);
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle buffered player inputs
+fn handle_player_input_buffer(
+    id: u32,
+    inputs: Vec<InputData>,
+    _connected_clients: &ConnectedClients,
+    lobbies: &LobbyList,
+) -> io::Result<()> {
+    // Find the lobby that the player is in
+    let lobby_index_opt: Option<usize> = {
+        let guard = lobbies.lock().unwrap();
+        guard.iter().position(|lobby| {
+            lobby.players.lock().unwrap().contains(&id)
+        })
+    };
+
+    if let Some(lobby_index) = lobby_index_opt {
+        let guard = lobbies.lock().unwrap();
+        let lobby = &guard[lobby_index];
+        let mut states = lobby.states.lock().unwrap();
+
+        if let Some(player_state) = states.get_mut(&id) {
+            // Add all inputs to the queue, filtering out old/duplicate ones
+            for input in inputs {
+                // Only add inputs newer than what we've already processed
+                if input.sequence > player_state.last_processed_sequence {
+                    player_state.input_queue.push(input);
+                }
+            }
+
+            // Sort by sequence to ensure correct order
+            player_state.input_queue.sort_by_key(|input| input.sequence);
         } else {
             panic!("Player {} does not have a current state", id);
         }

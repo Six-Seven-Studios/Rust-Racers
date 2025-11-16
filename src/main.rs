@@ -64,6 +64,7 @@ fn main() {
             address: String::new(),
         })
         .init_resource::<client_prediction::InputSequence>()
+        .init_resource::<client_prediction::InputBuffer>()
         .insert_resource(Time::<Fixed>::from_hz(60.0))  // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
