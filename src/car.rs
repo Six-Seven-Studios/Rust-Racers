@@ -38,7 +38,32 @@ pub fn move_player_car(
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
 
+    //LOS DEBUG, ADD 'mut gizmos: Gizmos' to function input
+    /*
+    println!("Car Position: {}, {}", tile.x_coordinate, tile.y_coordinate);
+    let los = game_map.line_of_sight((tile.x_coordinate, tile.y_coordinate), (77.0, 17.0));
+    if(los)
+    {
+        println!("Line of sight found")
+    } else { println!("Line of sight not found") };
 
+    let world_pos1 = game_map.tile_to_world(tile.x_coordinate, tile.y_coordinate, 64.0);
+    let world_pos2 = game_map.tile_to_world(77.0, 17.0, 64.0);
+
+    // Choose color based on LOS result
+    let color = if los {
+        Color::srgb(0.0, 1.0, 0.0) // Green for clear LOS
+    } else {
+        Color::srgb(1.0, 0.0, 0.0) // Red for blocked
+    };
+
+    // Draw line between points
+    gizmos.line_2d(world_pos1, world_pos2, color);
+
+    // Draw dots at endpoints
+    gizmos.circle_2d(world_pos1, 8.0, color);
+    gizmos.circle_2d(world_pos2, 8.0, color);
+    */
 
     // Turning
     if input.pressed(KeyCode::KeyA) {

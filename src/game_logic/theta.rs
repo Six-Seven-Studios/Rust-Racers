@@ -108,8 +108,8 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
     //Grab the current checkpoint from the checkpoint list
     let current_cp = get_next_point(&checkpoints);
     let end_pos = (current_cp.0, current_cp.1);
-    println!("Current: {}, {}", start_pos.0, start_pos.1);
-    println!("Goal: {}, {}", end_pos.0, end_pos.1);
+    // println!("Current: {}, {}", start_pos.0, start_pos.1);
+    // println!("Goal: {}, {}", end_pos.0, end_pos.1);
     //Calc that distance rq
     let dx = end_pos.0 - start_pos.0;
     let dy = end_pos.1 - start_pos.1;
@@ -212,7 +212,7 @@ pub fn compute_cost(s: f32, s_prime: f32)
 {
     /*
 
-    if lineofsight(parent(s),s')
+    if gamemap.lineofsight(parent(s),s')
     {
         // Path 2
         if(g(parent(s)) + c(parent(s),s') < g(s'))
@@ -231,53 +231,5 @@ pub fn compute_cost(s: f32, s_prime: f32)
         }
     }
 
-     */
-}
-
-pub fn line_of_sight(node1: f32, node2: f32)
-{
-    /*
-      let x0 = node1.x;
-      let y0 = node1.y;
-      let x1 = node2.x;
-      let y1 = node2.y;
-      let dx = abs(x1 - x0);
-      let dy = -abs(y1 - y0);
-
-      let sX = -1;
-      let sY = -1;
-      if(x0 < x1) {
-        sX = 1;
-      }
-      if(y0 < y1) {
-        sY = 1;
-      }
-
-      let e = dx + dy;
-      while(true) {
-        let point = getNode(x0, y0);
-        if(point does not exist OR point is not walkable) {
-          return false;
-        }
-        if(x0 == x1 AND y0 == y1) {
-          return true;
-        }
-        let e2 = 2 * e;
-        if(e2 >= dy) {
-          if(x0 == x1) {
-            return true;
-          }
-          e += dy;
-          x0 += sX;
-        }
-        if(e2 <= dx) {
-          if(y0 == y1) {
-            return true;
-          }
-          e += dx;
-          y0 += sY;
-        }
-      }
-    
      */
 }
