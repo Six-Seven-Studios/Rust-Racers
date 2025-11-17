@@ -1,4 +1,4 @@
-use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision};
+use crate::game_logic::{LapCounter, GameMap, bad_pure_pursuit, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision};
 use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
@@ -152,7 +152,7 @@ pub fn move_ai_cars(
         let decel_mod = tile.decel_modifier;
 
         // Get command from theta_star algorithm
-        let command = theta_star((tile.x_coordinate,tile.y_coordinate), orientation.angle, &mut theta_checkpoint_list);
+        let command = bad_pure_pursuit((tile.x_coordinate, tile.y_coordinate), orientation.angle, &mut theta_checkpoint_list);
 
         // Execute the command
         match command {
