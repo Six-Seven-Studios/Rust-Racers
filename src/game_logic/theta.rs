@@ -189,12 +189,12 @@ pub fn theta_star()
     */
 }
 
-pub fn Update_Vertex(s: f32, s_prime: f32)
+pub fn update_vertex(s: f32, s_prime: f32)
 {
     /*
 
     g_old:=g(s');
-    Compute_Cost(s,s');
+    compute_cost(s,s');
     if(g(s') < g_old)
     {
         if(s' is a member of open)
@@ -208,7 +208,7 @@ pub fn Update_Vertex(s: f32, s_prime: f32)
     */
 }
 
-pub fn Compute_Cost(s: f32, s_prime: f32)
+pub fn compute_cost(s: f32, s_prime: f32)
 {
     /*
 
@@ -231,5 +231,53 @@ pub fn Compute_Cost(s: f32, s_prime: f32)
         }
     }
 
+     */
+}
+
+pub fn line_of_sight(node1: f32, node2: f32)
+{
+    /*
+      let x0 = node1.x;
+      let y0 = node1.y;
+      let x1 = node2.x;
+      let y1 = node2.y;
+      let dx = abs(x1 - x0);
+      let dy = -abs(y1 - y0);
+
+      let sX = -1;
+      let sY = -1;
+      if(x0 < x1) {
+        sX = 1;
+      }
+      if(y0 < y1) {
+        sY = 1;
+      }
+
+      let e = dx + dy;
+      while(true) {
+        let point = getNode(x0, y0);
+        if(point does not exist OR point is not walkable) {
+          return false;
+        }
+        if(x0 == x1 AND y0 == y1) {
+          return true;
+        }
+        let e2 = 2 * e;
+        if(e2 >= dy) {
+          if(x0 == x1) {
+            return true;
+          }
+          e += dy;
+          x0 += sX;
+        }
+        if(e2 <= dx) {
+          if(y0 == y1) {
+            return true;
+          }
+          e += dx;
+          y0 += sY;
+        }
+      }
+    
      */
 }
