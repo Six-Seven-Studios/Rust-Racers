@@ -3,7 +3,7 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    CAR_SIZE, TILE_SIZE,
+    CAR_SIZE, TILE_SIZE, SERVER_TIMESTEP,
     GameMap,
     physics::{PhysicsInput, apply_physics},
     Velocity, Orientation,
@@ -13,22 +13,20 @@ use crate::types::*;
 use crate::lobby_management::timeout_cleanup;
 
 /// System to apply physics simulation to all active players
-/// Uses terrain modifiers, collision detection, and map boundaries
+/// Processes all buffered inputs and generates position snapshots
+/// Runs at 20 Hz
 pub fn physics_simulation_system(
     mut query: Query<(
         &PlayerId,
         &mut Position,
         &mut Velocity,
         &mut Orientation,
-        &PlayerInputComponent,
+        &mut PlayerInputComponent,
         &LobbyMember,
     )>,
-    time: Res<Time>,
     lobbies: Res<Lobbies>,
     game_map: Res<GameMap>,
 ) {
-    let delta = time.delta_secs();
-
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
         let guard = lobbies.list.lock().unwrap();
@@ -38,76 +36,86 @@ pub fn physics_simulation_system(
             .collect()
     };
 
-    // Collect all player data for collision detection
-    let player_data: Vec<(Vec3, Vec2)> = query.iter()
-        .filter(|(_, _, _, _, _, lobby_member)| started_lobbies.contains(&lobby_member.lobby_name))
-        .map(|(_, pos, vel, _, _, _)| (Vec3::new(pos.x, pos.y, 0.0), **vel))
-        .collect();
-
-    for (_player_id, mut pos, mut vel, mut orient, input, lobby_member) in query.iter_mut() {
+    // Process each player
+    for (player_id, mut pos, mut vel, mut orient, mut input_component, lobby_member) in query.iter_mut() {
         // Only simulate physics for players in started lobbies
         if !started_lobbies.contains(&lobby_member.lobby_name) {
             continue;
         }
 
-        // Get current tile and terrain modifiers
-        let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-        let fric_mod = tile.friction_modifier;
-        let speed_mod = tile.speed_modifier;
-        let turn_mod = tile.turn_modifier;
-        let decel_mod = tile.decel_modifier;
+        // Find the lobby to access input queue
+        let guard = lobbies.list.lock().unwrap();
+        let lobby_opt = guard.iter().find(|l| l.name == lobby_member.lobby_name);
 
-        // Create physics input from player input component
-        let physics_input = PhysicsInput {
-            forward: input.forward,
-            backward: input.backward,
-            left: input.left,
-            right: input.right,
-            drift: input.drift,
-        };
+        if let Some(lobby) = lobby_opt {
+            let mut states = lobby.states.lock().unwrap();
 
-        // Create a Vec2 position for physics calculation
-        let mut position_vec = Vec2::new(pos.x, pos.y);
+            if let Some(player_state) = states.get_mut(&player_id.0) {
+                // Process all inputs in the queue
+                let inputs_to_process: Vec<InputData> = player_state.input_queue.drain(..).collect();
 
-        // Apply shared physics logic
-        apply_physics(
-            &mut position_vec,
-            &mut vel,
-            &mut orient,
-            &physics_input,
-            delta,
-            speed_mod,
-            fric_mod,
-            turn_mod,
-            decel_mod,
-        );
+                for input_data in inputs_to_process {
+                    // Get current tile and terrain modifiers
+                    let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
-        // Apply map boundaries
-        let half_width = game_map.width / 2.0;
-        let half_height = game_map.height / 2.0;
-        let car_half_size = (CAR_SIZE as f32) / 2.0;
+                    // Create physics input
+                    let physics_input = PhysicsInput {
+                        forward: input_data.forward,
+                        backward: input_data.backward,
+                        left: input_data.left,
+                        right: input_data.right,
+                        drift: input_data.drift,
+                    };
 
-        position_vec.x = position_vec.x.clamp(-half_width + car_half_size, half_width - car_half_size);
-        position_vec.y = position_vec.y.clamp(-half_height + car_half_size, half_height - car_half_size);
+                    // Apply physics for this input (using CLIENT_TIMESTEP since inputs are at 60 Hz)
+                    let mut position_vec = Vec2::new(pos.x, pos.y);
+                    apply_physics(
+                        &mut position_vec,
+                        &mut vel,
+                        &mut orient,
+                        &physics_input,
+                        crate::game_logic::CLIENT_TIMESTEP,  // Use client timestep for each input
+                        tile.speed_modifier,
+                        tile.friction_modifier,
+                        tile.turn_modifier,
+                        tile.decel_modifier,
+                    );
 
-        let new_position_3d = position_vec.extend(0.0);
-        let current_position_2d = Vec2::new(pos.x, pos.y);
+                    // Apply map boundaries
+                    let half_width = game_map.width / 2.0;
+                    let half_height = game_map.height / 2.0;
+                    let car_half_size = (CAR_SIZE as f32) / 2.0;
 
-        // Convert player_data Vec to iterator of (position, velocity) pairs
-        let other_players_iter = player_data.iter().map(|(p, v)| (p.truncate(), *v));
+                    position_vec.x = position_vec.x.clamp(-half_width + car_half_size, half_width - car_half_size);
+                    position_vec.y = position_vec.y.clamp(-half_height + car_half_size, half_height - car_half_size);
 
-        let should_update = handle_collision(
-            new_position_3d,
-            current_position_2d,
-            &mut **vel,
-            &game_map,
-            other_players_iter,
-        );
+                    // Update position
+                    pos.x = position_vec.x;
+                    pos.y = position_vec.y;
 
-        // Update position if collision allows it
-        if should_update {
-            pos.x = position_vec.x;
-            pos.y = position_vec.y;
+                    // Update player state with processed input
+                    player_state.last_processed_sequence = input_data.sequence;
+                    player_state.x = pos.x;
+                    player_state.y = pos.y;
+                    player_state.velocity = vel.velocity;
+                    player_state.angle = orient.angle;
+                    player_state.inputs = PlayerInput {
+                        forward: input_data.forward,
+                        backward: input_data.backward,
+                        left: input_data.left,
+                        right: input_data.right,
+                        drift: input_data.drift,
+                    };
+                }
+
+                // Update input component with latest state
+                input_component.last_processed_sequence = player_state.last_processed_sequence;
+                input_component.forward = player_state.inputs.forward;
+                input_component.backward = player_state.inputs.backward;
+                input_component.left = player_state.inputs.left;
+                input_component.right = player_state.inputs.right;
+                input_component.drift = player_state.inputs.drift;
+            }
         }
     }
 }
@@ -152,7 +160,7 @@ pub fn broadcast_state_system(
                     "vx": vel.x,
                     "vy": vel.y,
                     "angle": orient.angle,
-                    "input_count": input.input_count
+                    "last_processed_sequence": input.last_processed_sequence
                 })
             }).collect();
 
@@ -193,7 +201,7 @@ pub fn sync_input_from_lobbies_system(
                 input_component.left = state.inputs.left;
                 input_component.right = state.inputs.right;
                 input_component.drift = state.inputs.drift;
-                input_component.input_count = state.input_count;
+                input_component.last_processed_sequence = state.last_processed_sequence;
             }
         }
     }
@@ -237,7 +245,8 @@ pub fn process_server_commands_system(
 pub fn timeout_cleanup_system(
     connected_clients: Res<ConnectedClients>,
     lobbies: Res<Lobbies>,
+    cmd_sender: Res<ServerCommandSender>,
 ) {
     const TIMEOUT_SECONDS: u64 = 10;
-    timeout_cleanup(&connected_clients, &lobbies.list, TIMEOUT_SECONDS);
+    timeout_cleanup(&connected_clients, &lobbies.list, TIMEOUT_SECONDS, &cmd_sender.sender);
 }
