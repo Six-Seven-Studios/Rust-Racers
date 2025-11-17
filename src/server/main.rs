@@ -9,6 +9,8 @@ mod car;
 mod car_state;
 #[path = "../multiplayer.rs"]
 mod multiplayer;
+#[path = "../interpolation.rs"]
+mod interpolation;
 #[path = "../networking_plugin.rs"]
 mod networking_plugin;
 #[path = "../networking.rs"]
@@ -19,6 +21,7 @@ mod lobby;
 mod title_screen;
 
 // Server modules
+mod client_prediction;
 mod types;
 mod utils;
 mod net;
@@ -31,7 +34,7 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use game_logic::{GameMap, load_map_from_file};
+use game_logic::{GameMap, load_map_from_file, SERVER_TIMESTEP};
 use types::*;
 use utils::*;
 use net::*;
@@ -79,10 +82,11 @@ fn main() {
     let game_map = load_map_from_file("assets/big-map.txt");
     println!("Server loaded map: {}x{}", game_map.width, game_map.height);
 
-    // Create headless server
+    // Create headless server with 20 Hz timestep
+    // Using Update schedule since run_loop already controls the rate
     App::new()
         .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
-            Duration::from_millis(16),
+            Duration::from_secs_f32(SERVER_TIMESTEP),
         )))
         .insert_resource(connected_clients)
         .insert_resource(Lobbies { list: lobbies })
@@ -94,8 +98,8 @@ fn main() {
             process_server_commands_system,
             sync_input_from_lobbies_system,
             physics_simulation_system,
+            broadcast_state_system,
             timeout_cleanup_system,
         ).chain())
-        .add_systems(FixedUpdate, broadcast_state_system)
         .run();
 }
