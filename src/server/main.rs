@@ -31,7 +31,7 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use game_logic::{GameMap, load_map_from_file};
+use game_logic::{GameMap, load_map_from_file, theta_grid};
 use types::*;
 use utils::*;
 use net::*;
