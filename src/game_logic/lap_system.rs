@@ -47,32 +47,57 @@ pub fn spawn_lap_triggers(
     ));
 
     // spawning checkpoints via a list
-    let checkpoint_handle = asset_server.load("checkpoint.png");
-    let checkpoint_positions = vec![
-        // first check
-        Vec3::new(2752., 1500., 10.),
+    // let checkpoint_handle = asset_server.load("twoBarrels.png");
+    // let checkpoint_positions = vec![
+    //     // first check
+    //     Vec3::new(2752., 1500., 10.),
 
-        Vec3::new(2752., 2800., 10.),
+    //     Vec3::new(2752., 2800., 10.),
 
-        Vec3::new(400., 2800., 10.),
+    //     Vec3::new(400., 2800., 10.),
 
-        Vec3::new(-1600., 400., 10.),
+    //     Vec3::new(-1600., 400., 10.),
 
-        Vec3::new(-2044., -1493., 10.),
+    //     Vec3::new(-2044., -1493., 10.),
 
-        Vec3::new(-1979., -2794., 10.),
+    //     Vec3::new(-1979., -2794., 10.),
 
-        Vec3::new(1515., -2736., 10.),
+    //     Vec3::new(1515., -2736., 10.),
 
-        Vec3::new(2099., -150., 10.),
+    //     Vec3::new(2099., -150., 10.),
+    // ];
+
+    // for (i, pos) in checkpoint_positions.iter().enumerate() {
+    //     commands.spawn((
+    //         Checkpoint { index: i },
+    //         Sprite::from_image(checkpoint_handle.clone()),
+    //         Transform {
+    //             translation: *pos,
+    //             ..default()
+    //         },
+    //     ));
+    // }
+
+    let checkpoint_handle = asset_server.load("twoBarrels.png");
+    let checkpoint_data = vec![
+        // (position, rotation in radians)
+        (Vec3::new(2752., 1500., 10.), 0.0),
+        (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),  
+        (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),  
+        (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),        
+        (Vec3::new(-2044., -1493., 10.), 0.0),
+        (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
+        (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
+        (Vec3::new(2100., -150., 10.), 0.0),
     ];
 
-    for (i, pos) in checkpoint_positions.iter().enumerate() {
+    for (i, (pos, rotation)) in checkpoint_data.iter().enumerate() {
         commands.spawn((
             Checkpoint { index: i },
             Sprite::from_image(checkpoint_handle.clone()),
             Transform {
                 translation: *pos,
+                rotation: Quat::from_rotation_z(*rotation),
                 ..default()
             },
         ));
