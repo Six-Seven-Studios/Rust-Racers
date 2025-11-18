@@ -72,13 +72,22 @@ impl CarState {
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
+        car_nearby: bool,
+        closest_car_position: Option<Vec2>,
+        closest_car_distance: f32,
     ){
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
 
-
-
-            let transition: Transition = s.execute(delta_time, transform, velocity, orientation);
+            let transition: Transition = s.execute(
+                delta_time,
+                transform,
+                velocity,
+                orientation,
+                car_nearby,
+                closest_car_position,
+                closest_car_distance
+            );
             
             // transition based off of what each state returns
             self.state = Some(match transition {
@@ -105,6 +114,9 @@ trait State: Send + Sync {
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
+        car_nearby: bool,
+        closest_car_position: Option<Vec2>,
+        closest_car_distance: f32,
     ) -> Transition;
 }
 
@@ -129,16 +141,24 @@ impl State for Aggressive {
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
+        car_nearby: bool,
+        closest_car_position: Option<Vec2>,
+        closest_car_distance: f32,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
-        info!("Driving aggressively!");
+        if car_nearby {
+            if let Some(target_pos) = closest_car_position {
+                let ai_pos = transform.translation.truncate();
+                let direction = (target_pos - ai_pos).normalize_or_zero();
+                info!("[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!", closest_car_distance);
+                // TODO: use theta* to pursue the target position
+                // TODO: increase velocity and adjust orientation to ram the target
+            }
+        }
 
-        // using theta* to pursue the player
-
-        
-        let some_driving_condition: bool = true;
-        if some_driving_condition == true {
-            // info!("Switching to defensive driving!");
+        // transition back to neutral if no car is nearby
+        if !car_nearby {
+            info!("[+] No cars nearby, switching back to neutral driving");
             Transition::ToNeutral
         } else {
             Transition::None
@@ -179,21 +199,23 @@ impl State for Neutral {
         transform: &mut Transform,
         velocity: &mut Velocity,
         orientation: &mut Orientation,
+        car_nearby: bool,
+        closest_car_position: Option<Vec2>,
+        closest_car_distance: f32,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         // TODO: use transform, velocity, etc to move the car
         self.decision_timer.tick(delta_time.delta());
-        // info!("{:?} ticking...", delta_time.delta_secs());
+
+        // check if a car is nearby - if so, immediately switch to aggressive
+        if car_nearby {
+            info!("[+] car detected at distance {:.1}! Switching to aggressive mode!", closest_car_distance);
+            return Transition::ToAggressive;
+        }
 
         // using theta* here to drive normally
         if self.decision_timer.just_finished() {
-            let rage_meter = generate_number();
-            info!("{:?}", rage_meter);
-            if rage_meter >= 9 {
-                info!("Switching to offensive driving!");
-                return Transition::ToAggressive
-            }
-            
+            info!("[+] Neutral driving - no cars nearby");
         }
         Transition::None
     }

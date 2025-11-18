@@ -152,3 +152,8 @@ fn ai_car_setup(
 fn load_map_demo(mut commands: Commands) {
     commands.insert_resource(load_map_from_file("assets/big-map.txt"));
 }
+
+// map2
+fn load_map2(mut commands: Commands) {
+    commands.insert_resource(load_map_from_file("assets/map2.txt"));
+}

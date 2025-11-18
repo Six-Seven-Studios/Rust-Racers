@@ -108,8 +108,8 @@ pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut T
     //Grab the current checkpoint from the checkpoint list
     let current_cp = get_next_point(&checkpoints);
     let end_pos = (current_cp.0, current_cp.1);
-    println!("Current: {}, {}", start_pos.0, start_pos.1);
-    println!("Goal: {}, {}", end_pos.0, end_pos.1);
+    // println!("Current: {}, {}", start_pos.0, start_pos.1);
+    // println!("Goal: {}, {}", end_pos.0, end_pos.1);
     //Calc that distance rq
     let dx = end_pos.0 - start_pos.0;
     let dy = end_pos.1 - start_pos.1;
