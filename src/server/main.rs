@@ -19,6 +19,8 @@ mod networking;
 mod lobby;
 #[path = "../title_screen.rs"]
 mod title_screen;
+#[path = "../drift_settings.rs"]
+mod drift_settings;
 
 // Server modules
 mod client_prediction;

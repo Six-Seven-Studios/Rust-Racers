@@ -2,6 +2,7 @@ use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use crate::GameState;
+use crate::drift_settings::DriftSettings;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::lobby::{LobbyState, setup_lobby};
@@ -18,6 +19,9 @@ pub struct CreateScreenEntity;
 
 #[derive(Component)]
 pub struct SettingsScreenEntity;
+
+#[derive(Component)]
+pub struct EasyDriftLabel;
 
 #[derive(Component)]
 pub struct CustomizingScreenEntity;
@@ -73,6 +77,7 @@ pub fn check_for_title_input(
     mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
     mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
     server_address: Res<ServerAddress>,
+    mut drift_settings: ResMut<DriftSettings>,
 ) {
     match *current_state.get() {
         GameState::Title => {
@@ -174,7 +179,7 @@ pub fn check_for_title_input(
             else if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Settings);
                 destroy_screen(&mut commands, &title_query);
-                setup_settings(commands, asset_server);
+                setup_settings(commands, asset_server, drift_settings.easy_mode);
             }
             // Theta* DEMO
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit4){
@@ -190,7 +195,10 @@ pub fn check_for_title_input(
             }
         }
         GameState::Settings => {
-            if input.just_pressed(KeyCode::Escape){
+            if input.just_pressed(KeyCode::KeyE) {
+                drift_settings.toggle();
+            }
+            else if input.just_pressed(KeyCode::Escape){
                 next_state.set(GameState::Title);
                 destroy_screen(&mut commands, &settings_query);
                 setup_title_screen(commands, asset_server, server_address);
@@ -782,7 +790,9 @@ fn setup_join_lobby(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_settings(
     mut commands: Commands,
-    asset_server: Res<AssetServer>){
+    asset_server: Res<AssetServer>,
+    easy_mode_enabled: bool
+){
     commands.spawn((
         Text2d::new("Welcome to Settings"),
         TextColor(Color::BLACK),
@@ -807,6 +817,33 @@ fn setup_settings(
             ..default()
         },
         SettingsScreenEntity
+    ));
+    commands.spawn((
+        Text2d::new(format!("Easy Drift Mode: {}", if easy_mode_enabled { "ON" } else { "OFF" })),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(0., -100., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 45.0,
+            ..default()
+        },
+        SettingsScreenEntity,
+        EasyDriftLabel,
+    ));
+    commands.spawn((
+        Text2d::new("Press E to toggle easier drifting"),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(0., -160., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 28.0,
+            ..default()
+        },
+        SettingsScreenEntity,
     ));
 }
 fn setup_customizing(
@@ -866,6 +903,19 @@ fn setup_customizing(
         },
         CustomizingScreenEntity
     ));
+}
+
+pub fn update_easy_drift_label(
+    drift_settings: Res<DriftSettings>,
+    mut label_query: Query<&mut Text2d, With<EasyDriftLabel>>,
+) {
+    if !drift_settings.is_changed() {
+        return;
+    }
+
+    if let Ok(mut text) = label_query.get_single_mut() {
+        text.0 = format!("Easy Drift Mode: {}", drift_settings.mode_label());
+    }
 }
 
 pub fn destroy_screen<CurrentScreen: Component>(

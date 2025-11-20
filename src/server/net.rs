@@ -303,8 +303,8 @@ fn handle_client_message(
             Ok(())
         }
 
-        MessageType::PlayerInput { sequence, forward, backward, left, right, drift } => {
-            handle_player_input(id, sequence, forward, backward, left, right, drift, connected_clients, lobbies)
+        MessageType::PlayerInput { sequence, forward, backward, left, right, drift, easy_drift } => {
+            handle_player_input(id, sequence, forward, backward, left, right, drift, easy_drift, connected_clients, lobbies)
         }
 
         MessageType::PlayerInputBuffer { inputs } => {
@@ -330,6 +330,7 @@ fn handle_player_input(
     left: bool,
     right: bool,
     drift: bool,
+    easy_drift: bool,
     _connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) -> io::Result<()> {
@@ -360,6 +361,7 @@ fn handle_player_input(
                 left,
                 right,
                 drift,
+                easy_drift,
             };
         } else {
             panic!("Player {} does not have a current state", id);

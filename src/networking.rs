@@ -14,6 +14,7 @@ pub struct InputData {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
+    pub easy_drift: bool,
 }
 
 // Single position snapshot with sequence number
@@ -49,6 +50,7 @@ pub enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
+        easy_drift: bool,
     },
 
     // New buffered input message
@@ -169,8 +171,8 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
-    pub fn send_player_input(&mut self, sequence: u64, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
-        self.send(MessageType::PlayerInput { sequence, forward, backward, left, right, drift })
+    pub fn send_player_input(&mut self, sequence: u64, forward: bool, backward: bool, left: bool, right: bool, drift: bool, easy_drift: bool) -> io::Result<()> {
+        self.send(MessageType::PlayerInput { sequence, forward, backward, left, right, drift, easy_drift })
     }
 
     pub fn send_player_input_buffer(&mut self, inputs: Vec<InputData>) -> io::Result<()> {

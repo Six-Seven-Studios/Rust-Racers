@@ -12,6 +12,7 @@ mod client_prediction;
 mod networking_plugin;
 mod car_state;
 mod interpolation;
+mod drift_settings;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
@@ -63,6 +64,7 @@ fn main() {
         .insert_resource(ServerAddress {
             address: String::new(),
         })
+        .init_resource::<drift_settings::DriftSettings>()
         .init_resource::<client_prediction::InputSequence>()
         .init_resource::<client_prediction::InputBuffer>()
         .insert_resource(Time::<Fixed>::from_hz(60.0))  // 60 Hz fixed update (60fps for input/physics)
@@ -86,6 +88,9 @@ fn main() {
             check_for_title_input,
             check_for_lobby_input,
             check_for_credits_input,
+        ))
+        .add_systems(Update, title_screen::update_easy_drift_label.run_if(in_state(GameState::Settings)))
+        .add_systems(Update, (
             update_lobby_display.run_if(in_state(GameState::Lobby)),
             //move_car.run_if(in_state(GameState::Playing)),
             // Server now controls player physics, client just renders server position

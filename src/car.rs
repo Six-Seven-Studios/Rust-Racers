@@ -1,8 +1,19 @@
 use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision};
-use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
+use crate::game_logic::{
+    PLAYER_SPEED,
+    ACCEL_RATE,
+    FRICTION,
+    TURNING_RATE,
+    LATERAL_FRICTION,
+    EASY_DRIFT_TURN_MULTIPLIER,
+    EASY_DRIFT_SPEED_BONUS,
+    EASY_DRIFT_LATERAL_FRICTION,
+    CAR_SIZE,
+};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
+use crate::drift_settings::DriftSettings;
 use bevy::prelude::*;
 
 // Car-related components
@@ -14,6 +25,7 @@ pub fn move_player_car(
     game_map: Res<GameMap>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
+    drift_settings: Res<DriftSettings>,
     player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
@@ -24,6 +36,17 @@ pub fn move_player_car(
 
     // Space bar to drift
     let is_drifting = input.pressed(KeyCode::Space);
+    let easy_mode = drift_settings.easy_mode;
+    let turn_scale = if is_drifting && easy_mode {
+        EASY_DRIFT_TURN_MULTIPLIER
+    } else {
+        1.0
+    };
+    let speed_bonus = if is_drifting && easy_mode {
+        EASY_DRIFT_SPEED_BONUS
+    } else {
+        1.0
+    };
 
     // PLACEHOLDER LOGIC FOR TILE COLLISIONS
 
@@ -43,10 +66,10 @@ pub fn move_player_car(
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
-        orientation.angle += TURNING_RATE * deltat * turn_mod;
+        orientation.angle += TURNING_RATE * deltat * turn_mod * turn_scale;
     }
     if input.pressed(KeyCode::KeyD) {
-        orientation.angle -= TURNING_RATE * deltat * turn_mod;
+        orientation.angle -= TURNING_RATE * deltat * turn_mod * turn_scale;
     }
 
     // Accelerate forward in the direction of car orientation
@@ -54,14 +77,14 @@ pub fn move_player_car(
         let forward = orientation.forward_vector() * accel;
         **velocity += forward;
         // println!("{},{}", x, y); commented by dvdzs for lap logic
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED*speed_mod);
+        **velocity = velocity.clamp_length_max(PLAYER_SPEED * speed_mod * speed_bonus);
     }
 
     // Accelerate in the direction opposite of orientation
     if input.pressed(KeyCode::KeyS) {
         let backward = -orientation.forward_vector() * (accel / 2.0);
         **velocity += backward;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED*(speed_mod / 2.0));
+        **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 2.0) * speed_bonus);
     }
 
     // Friction when not accelerating
@@ -78,15 +101,20 @@ pub fn move_player_car(
         }
     }
 
-    // Apply lateral friction when not drifting to reduce sliding
-    if !is_drifting && velocity.length() > 0.01 {
+    // Apply lateral friction when not drifting (or in easy mode drifts) to reduce sliding
+    if (!is_drifting || easy_mode) && velocity.length() > 0.01 {
         let forward = orientation.forward_vector();
         let right = Vec2::new(-forward.y, forward.x);
 
         let forward_speed = velocity.dot(forward);
         let lateral_speed = velocity.dot(right);
 
-        let damping = (1.0 - LATERAL_FRICTION * deltat).max(0.0);
+        let damping_strength = if is_drifting && easy_mode {
+            EASY_DRIFT_LATERAL_FRICTION
+        } else {
+            LATERAL_FRICTION
+        };
+        let damping = (1.0 - damping_strength * deltat).max(0.0);
         let new_lateral_speed = lateral_speed * damping;
 
         **velocity = forward * forward_speed + right * new_lateral_speed;
@@ -337,4 +365,3 @@ pub fn ai_car_fsm (
         );
     }
 }
-

@@ -65,6 +65,7 @@ pub fn physics_simulation_system(
                         left: input_data.left,
                         right: input_data.right,
                         drift: input_data.drift,
+                        easy_drift: input_data.easy_drift,
                     };
 
                     // Apply physics for this input (using CLIENT_TIMESTEP since inputs are at 60 Hz)
@@ -105,6 +106,7 @@ pub fn physics_simulation_system(
                         left: input_data.left,
                         right: input_data.right,
                         drift: input_data.drift,
+                        easy_drift: input_data.easy_drift,
                     };
                 }
 
@@ -115,6 +117,7 @@ pub fn physics_simulation_system(
                 input_component.left = player_state.inputs.left;
                 input_component.right = player_state.inputs.right;
                 input_component.drift = player_state.inputs.drift;
+                input_component.easy_drift = player_state.inputs.easy_drift;
             }
         }
     }

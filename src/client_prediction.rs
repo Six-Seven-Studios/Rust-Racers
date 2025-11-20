@@ -3,6 +3,7 @@ use bevy::input::ButtonInput;
 use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, CLIENT_TIMESTEP};
 use crate::networking_plugin::NetworkClient;
 use crate::networking::InputData;
+use crate::drift_settings::DriftSettings;
 
 #[derive(Resource, Default)]
 pub struct InputSequence {
@@ -43,6 +44,7 @@ pub fn send_keyboard_input(
     mut input_buffer: ResMut<InputBuffer>,
     mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut PredictionBuffer), With<PlayerControlled>>,
     game_map: Res<crate::game_logic::GameMap>,
+    drift_settings: Res<DriftSettings>,
 ) {
     let Some(client) = network_client.client.as_mut() else { return };
 
@@ -56,6 +58,7 @@ pub fn send_keyboard_input(
     let sequence = input_sequence.current;
 
     // Buffer this input to send later
+    let easy_drift = drift_settings.easy_mode;
     input_buffer.pending_inputs.push(InputData {
         sequence,
         forward,
@@ -63,6 +66,7 @@ pub fn send_keyboard_input(
         left,
         right,
         drift,
+        easy_drift,
     });
 
     // Send buffered inputs to server (client sends at 60 Hz)
@@ -73,7 +77,7 @@ pub fn send_keyboard_input(
 
     // Predict movement locally for instant feedback
     if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
-        let physics_input = PhysicsInput { forward, backward, left, right, drift };
+        let physics_input = PhysicsInput { forward, backward, left, right, drift, easy_drift };
 
         let old_pos = transform.translation.truncate();
         let mut pos = old_pos;

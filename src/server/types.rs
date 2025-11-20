@@ -14,6 +14,7 @@ pub struct InputData {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
+    pub easy_drift: bool,
 }
 
 // Single position snapshot with sequence number
@@ -59,6 +60,7 @@ pub enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
+        easy_drift: bool,
     },
     PlayerInputBuffer {
         inputs: Vec<InputData>,
@@ -96,6 +98,7 @@ pub struct PlayerInput {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
+    pub easy_drift: bool,
 }
 
 impl Default for PlayerInput {
@@ -106,6 +109,7 @@ impl Default for PlayerInput {
             left: false,
             right: false,
             drift: false,
+            easy_drift: false,
         }
     }
 }
@@ -171,6 +175,7 @@ pub struct PlayerInputComponent {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
+    pub easy_drift: bool,
     pub last_processed_sequence: u64,
 }
 
@@ -182,6 +187,7 @@ impl Default for PlayerInputComponent {
             left: false,
             right: false,
             drift: false,
+            easy_drift: false,
             last_processed_sequence: 0,
         }
     }
