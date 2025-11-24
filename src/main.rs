@@ -5,14 +5,13 @@ mod client_prediction;
 mod credits;
 mod drift_settings;
 mod game_logic;
-mod interpolation;
-mod intro;
 mod lobby;
 mod multiplayer;
 mod networking;
 mod networking_plugin;
 mod title_screen;
 mod victory_screen;
+mod interpolation;
 
 use bevy::render::camera::{Projection, ScalingMode};
 use bevy::{prelude::*, window::PresentMode};
