@@ -6,6 +6,7 @@ pub mod terrain;
 pub mod theta;
 pub mod lap_system;
 pub mod map;
+pub mod difficulty;
 
 pub use constants::*;
 pub use components::*;
@@ -15,3 +16,4 @@ pub use terrain::*;
 pub use theta::*;
 pub use lap_system::*;
 pub use map::*;
+pub use difficulty::*;
