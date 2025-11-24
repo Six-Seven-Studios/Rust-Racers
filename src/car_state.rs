@@ -1,8 +1,7 @@
+use crate::game_logic::{Orientation, Velocity};
 use bevy::prelude::*;
-use crate::game_logic::{Velocity, Orientation};
 use rand::prelude::*;
 use std::time::Duration;
-
 
 // defining some states for our car
 // https://doc.rust-lang.org/book/ch18-03-oo-design-patterns.html
@@ -34,11 +33,9 @@ Random generator
 **/
 
 pub fn generate_number() -> i32 {
-
     // Generates a value between 1 and 10
     let mut rng = rand::rng();
     return rng.random_range(1..=10);
-
 }
 
 impl CarState {
@@ -60,7 +57,7 @@ impl CarState {
         }
     }
 
-    
+
     pub fn execute(&self) -> Transition {
         self.state.as_ref().unwrap().execute(self)
     }
@@ -75,7 +72,7 @@ impl CarState {
         car_nearby: bool,
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
-    ){
+    ) {
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
 
@@ -86,9 +83,9 @@ impl CarState {
                 orientation,
                 car_nearby,
                 closest_car_position,
-                closest_car_distance
+                closest_car_distance,
             );
-            
+
             // transition based off of what each state returns
             self.state = Some(match transition {
                 Transition::None => s,
@@ -121,9 +118,7 @@ trait State: Send + Sync {
 }
 
 // the state objects are aggressive, Neutral, etc.
-struct Aggressive {
-    
-}
+struct Aggressive {}
 
 impl State for Aggressive {
     // TRANSITIONS BETWEEN STATES
@@ -150,7 +145,10 @@ impl State for Aggressive {
             if let Some(target_pos) = closest_car_position {
                 let ai_pos = transform.translation.truncate();
                 let direction = (target_pos - ai_pos).normalize_or_zero();
-                info!("[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!", closest_car_distance);
+                info!(
+                    "[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!",
+                    closest_car_distance
+                );
                 // TODO: use theta* to pursue the target position
                 // TODO: increase velocity and adjust orientation to ram the target
             }
@@ -164,7 +162,6 @@ impl State for Aggressive {
             Transition::None
         }
     }
-    
 }
 
 struct Neutral {
@@ -209,7 +206,10 @@ impl State for Neutral {
 
         // check if a car is nearby - if so, immediately switch to aggressive
         if car_nearby {
-            info!("[+] car detected at distance {:.1}! Switching to aggressive mode!", closest_car_distance);
+            info!(
+                "[+] car detected at distance {:.1}! Switching to aggressive mode!",
+                closest_car_distance
+            );
             return Transition::ToAggressive;
         }
 
@@ -256,7 +256,6 @@ impl State for Neutral {
 //         }
 //     }
 // }
-
 
 // // this is doing some weird rust ownership stuff I don't fully understand
 // // i just sort of copied the structure from the rust book and added extra bevy functions

@@ -1,15 +1,8 @@
-use bevy::prelude::*;
 use crate::game_logic::{
-    ACCEL_RATE,
-    TURNING_RATE,
-    PLAYER_SPEED,
-    LATERAL_FRICTION,
-    EASY_DRIFT_TURN_MULTIPLIER,
-    EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_LATERAL_FRICTION,
-    Velocity,
-    Orientation,
+    ACCEL_RATE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS, EASY_DRIFT_TURN_MULTIPLIER,
+    LATERAL_FRICTION, Orientation, PLAYER_SPEED, TURNING_RATE, Velocity,
 };
+use bevy::prelude::*;
 
 /// Input state for physics simulation
 #[derive(Clone, Default)]
@@ -71,7 +64,8 @@ pub fn apply_physics(
     if input.backward {
         let backward_accel = -forward * (accel / 2.0);
         **velocity += backward_accel;
-        **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_modifier / 2.0) * drift_speed_bonus);
+        **velocity =
+            velocity.clamp_length_max(PLAYER_SPEED * (speed_modifier / 2.0) * drift_speed_bonus);
     }
 
     // Apply friction when not accelerating

@@ -1,7 +1,7 @@
+use crate::game_logic::{Car, Checkpoint, GameMap};
 use bevy::prelude::Component;
-use rand::prelude::*;
-use crate::game_logic::{Checkpoint, GameMap, Car};
 use rand::Rng;
+use rand::prelude::*;
 
 #[derive(Default)]
 pub enum ThetaCommand {
@@ -11,7 +11,6 @@ pub enum ThetaCommand {
     TurnLeft,
     TurnRight,
 }
-
 
 #[derive(Clone)]
 pub struct ThetaCheckpoint {
@@ -31,7 +30,6 @@ pub struct ThetaCheckpointList {
     pub current_checkpoint_index: usize,
 }
 
-
 impl ThetaCheckpointList {
     pub fn new(checkpoints: Vec<ThetaCheckpoint>) -> Self {
         ThetaCheckpointList {
@@ -41,7 +39,8 @@ impl ThetaCheckpointList {
     }
 
     pub fn advance_checkpoint(&mut self) {
-        self.current_checkpoint_index = (self.current_checkpoint_index + 1) % self.checkpoints.len();
+        self.current_checkpoint_index =
+            (self.current_checkpoint_index + 1) % self.checkpoints.len();
     }
     pub fn load_checkpoint_list(&mut self, map_num: u8) -> ThetaCheckpointList {
         let mut checkpoints: Vec<ThetaCheckpoint> = Vec::new();
@@ -72,12 +71,12 @@ impl ThetaCheckpointList {
             checkpoints.push(ThetaCheckpoint::new((89.0, 91.0), (89.0, 94.0)));
             checkpoints.push(ThetaCheckpoint::new((91.0, 89.0), (94.0, 89.0)));
             checkpoints.push(ThetaCheckpoint::new((91.0, 34.0), (93.0, 44.0)));
-
         } else if (map_num == 2) {
             // No checkpoints implemented yet!
             panic!("Checkpoints not implemented for map 2 yet!");
+        } else {
+            panic!("Invalid map num: {}", map_num);
         }
-        else { panic!("Invalid map num: {}", map_num); }
         return ThetaCheckpointList::new(checkpoints);
     }
 }
@@ -87,20 +86,27 @@ pub fn get_next_point(list: &ThetaCheckpointList) -> (f32, f32) {
 
     let curr_checkpoint: ThetaCheckpoint = list.checkpoints[list.current_checkpoint_index].clone();
 
+    let rand_x: f32 = if (curr_checkpoint.point1.0 < curr_checkpoint.point2.0) {
+        rng.gen_range(curr_checkpoint.point1.0..=curr_checkpoint.point2.0)
+    } else {
+        rng.gen_range(curr_checkpoint.point2.0..=curr_checkpoint.point1.0)
+    };
 
-    let rand_x: f32 =
-        if (curr_checkpoint.point1.0 < curr_checkpoint.point2.0){rng.gen_range(curr_checkpoint.point1.0..=curr_checkpoint.point2.0)}
-        else{ rng.gen_range(curr_checkpoint.point2.0..=curr_checkpoint.point1.0)};
-
-    let rand_y: f32 =
-        if (curr_checkpoint.point1.1 < curr_checkpoint.point2.1){rng.gen_range(curr_checkpoint.point1.1..=curr_checkpoint.point2.1)}
-        else{ rng.gen_range(curr_checkpoint.point2.1..=curr_checkpoint.point1.1)};
+    let rand_y: f32 = if (curr_checkpoint.point1.1 < curr_checkpoint.point2.1) {
+        rng.gen_range(curr_checkpoint.point1.1..=curr_checkpoint.point2.1)
+    } else {
+        rng.gen_range(curr_checkpoint.point2.1..=curr_checkpoint.point1.1)
+    };
 
     return (rand_x, rand_y);
 }
 
 //Super basic starter implementation that only finds the shortest path to a goal and goes directly towards it
-pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
+pub fn theta_star(
+    start_pos: (f32, f32),
+    current_angle: f32,
+    checkpoints: &mut ThetaCheckpointList,
+) -> ThetaCommand {
     if checkpoints.checkpoints.is_empty() {
         return ThetaCommand::Stop;
     }

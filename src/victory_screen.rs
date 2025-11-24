@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::title_screen::TitleScreenAudio;
+use bevy::prelude::*;
 
 pub fn setup_victory_screen(
     mut commands: Commands,

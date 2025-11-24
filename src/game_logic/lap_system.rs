@@ -1,7 +1,7 @@
-use crate::game_logic::{Car, PlayerControlled, AIControlled};
+use crate::GameState;
+use crate::game_logic::{AIControlled, Car, PlayerControlled};
 use crate::multiplayer::NetworkPlayer;
 use crate::networking_plugin::NetworkClient;
-use crate::GameState;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -16,9 +16,9 @@ impl Default for LapCounter {
     fn default() -> Self {
         Self {
             current_lap: 0,
-            total_laps: 2, // two for now 
+            total_laps: 2, // two for now
             has_finished: false,
-            next_checkpoint: 0, 
+            next_checkpoint: 0,
         }
     }
 }
@@ -27,15 +27,11 @@ impl Default for LapCounter {
 pub struct FinishLine;
 
 #[derive(Component)]
-pub struct Checkpoint{
+pub struct Checkpoint {
     pub index: usize, // order of checkpoints
 }
 
-pub fn spawn_lap_triggers(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-
+pub fn spawn_lap_triggers(mut commands: Commands, asset_server: Res<AssetServer>) {
     let finish_line_handle = asset_server.load("finish_line.png");
     commands.spawn((
         FinishLine,
@@ -82,9 +78,9 @@ pub fn spawn_lap_triggers(
     let checkpoint_data = vec![
         // (position, rotation in radians)
         (Vec3::new(2752., 1500., 10.), 0.0),
-        (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),  
-        (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),  
-        (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),        
+        (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),
+        (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),
+        (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),
         (Vec3::new(-2044., -1493., 10.), 0.0),
         (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
         (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
@@ -102,8 +98,6 @@ pub fn spawn_lap_triggers(
             },
         ));
     }
-    
-
 }
 
 pub fn update_laps(
@@ -125,7 +119,7 @@ pub fn update_laps(
         .iter()
         .map(|(t, c)| (t.translation, c.index))
         .collect();
-    
+
     // sort to ensure 0, 1, 2, 3
     checkpoint_data.sort_by_key(|(_, i)| *i);
 
@@ -133,8 +127,9 @@ pub fn update_laps(
         let car_pos = car_transform.translation.truncate();
 
         // check next checkpoint
-        if let Some((checkpoint_pos, index)) =
-            checkpoint_data.iter().find(|(_, i)| *i == lap_counter.next_checkpoint)
+        if let Some((checkpoint_pos, index)) = checkpoint_data
+            .iter()
+            .find(|(_, i)| *i == lap_counter.next_checkpoint)
         {
             let delta = car_pos - checkpoint_pos.truncate();
 
@@ -145,7 +140,7 @@ pub fn update_laps(
                 lap_counter.next_checkpoint += 1;
             }
             // debug
-            /* 
+            /*
             if player_flag.is_some() {
                 info!(
                     "PLAYER car: ({:.0}, {:.0})  chk: ({:.0}, {:.0})  delta: ({:.0}, {:.0})",

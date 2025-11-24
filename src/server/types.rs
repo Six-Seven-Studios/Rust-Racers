@@ -48,11 +48,19 @@ pub enum GameState {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum MessageType {
-    CreateLobby { name: String },
-    JoinLobby { name: String },
-    LeaveLobby { name: String },
+    CreateLobby {
+        name: String,
+    },
+    JoinLobby {
+        name: String,
+    },
+    LeaveLobby {
+        name: String,
+    },
     ListLobbies,
-    StartLobby { name: String },
+    StartLobby {
+        name: String,
+    },
     PlayerInput {
         sequence: u64,
         forward: bool,

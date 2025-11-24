@@ -29,12 +29,12 @@
 //     asset_server: Res<AssetServer>) {
 
 //     commands.insert_resource(CreditsTimer(Timer::from_seconds(20.0, TimerMode::Once)));
-    
+
 //     // for mut car_visibility in cars.iter_mut() {
 //     //     *car_visibility = Visibility::Hidden;
 //     // }
 //     // **background = Visibility::Hidden;
-    
+
 //     commands.spawn((
 //         Sprite::from_image(asset_server.load("credits/rust-racers.png")),
 //         Transform {
@@ -129,13 +129,13 @@
 
 // // Show credits animation
 // pub fn show_intro(
-//     time: Res<Time>, 
+//     time: Res<Time>,
 //     mut popup: Query<(&mut PopupTimer, &mut Transform), With<CreditsEntity>>,
 //     mut credits_timer: ResMut<CreditsTimer>,
 //     mut exit: EventWriter<bevy::app::AppExit>,
 // ) {
 //     let mut counter = 2.;
-    
+
 //     for (mut timer, mut transform) in popup.iter_mut() {
 //         timer.tick(time.delta());
 //         if timer.just_finished() {
@@ -143,9 +143,9 @@
 //             counter += 1.;
 //         }
 //     }
-    
+
 //     credits_timer.0.tick(time.delta());
-    
+
 //     if credits_timer.0.just_finished() {
 //         exit.write(bevy::app::AppExit::Success);
 //     }

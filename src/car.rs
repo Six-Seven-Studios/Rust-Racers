@@ -1,19 +1,14 @@
-use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision};
-use crate::game_logic::{
-    PLAYER_SPEED,
-    ACCEL_RATE,
-    FRICTION,
-    TURNING_RATE,
-    LATERAL_FRICTION,
-    EASY_DRIFT_TURN_MULTIPLIER,
-    EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_LATERAL_FRICTION,
-    CAR_SIZE,
-};
-use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
+use crate::game_logic::{
+    ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
+    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
+};
+use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
+use crate::game_logic::{
+    GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand, handle_collision, theta_star,
+};
 use bevy::prelude::*;
 
 // Car-related components
@@ -26,7 +21,10 @@ pub fn move_player_car(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     drift_settings: Res<DriftSettings>,
-    player_car: Single<(&mut Transform, &mut Velocity, &mut Orientation), (With<PlayerControlled>, Without<Background>)>,
+    player_car: Single<
+        (&mut Transform, &mut Velocity, &mut Orientation),
+        (With<PlayerControlled>, Without<Background>),
+    >,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
     let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
@@ -53,16 +51,14 @@ pub fn move_player_car(
     // Get the current tile
     let pos = transform.translation.truncate();
     let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-    
+
     // Modifiers from terrain
-    let fric_mod  = tile.friction_modifier;
+    let fric_mod = tile.friction_modifier;
     let speed_mod = tile.speed_modifier;
-    let turn_mod  = tile.turn_modifier;
+    let turn_mod = tile.turn_modifier;
     let decel_mod = tile.decel_modifier;
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
-
-
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
@@ -90,7 +86,7 @@ pub fn move_player_car(
     // Friction when not accelerating
     if !input.any_pressed([KeyCode::KeyW, KeyCode::KeyS]) {
         let decel_rate = decel_mod * fric_mod * deltat;
-        let curr_speed =  velocity.length();
+        let curr_speed = velocity.length();
         if curr_speed > 0.0 {
             let new_speed = (curr_speed - decel_rate).max(0.0);
             if new_speed > 0.0 {
@@ -142,7 +138,9 @@ pub fn move_player_car(
 
     // Handle collision detection and response
     // Convert Query to iterator of (position, velocity) pairs
-    let other_cars_iter = other_cars.iter().map(|(t, v)| (t.translation.truncate(), v.velocity));
+    let other_cars_iter = other_cars
+        .iter()
+        .map(|(t, v)| (t.translation.truncate(), v.velocity));
     let should_update = handle_collision(
         new_position,
         transform.translation.truncate(),
@@ -160,16 +158,25 @@ pub fn move_player_car(
 pub fn move_ai_cars(
     game_map: Res<GameMap>,
     time: Res<Time>,
-    mut ai_cars: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
+    mut ai_cars: Query<
+        (
+            &mut Transform,
+            &mut Velocity,
+            &mut Orientation,
+            &mut ThetaCheckpointList,
+        ),
+        (With<AIControlled>, Without<Background>),
+    >,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<AIControlled>)>,
 ) {
-
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
 
     // Turning
     // Iterate through each AI-controlled car
-    for (mut transform, mut velocity, mut orientation, mut theta_checkpoint_list) in ai_cars.iter_mut() {
+    for (mut transform, mut velocity, mut orientation, mut theta_checkpoint_list) in
+        ai_cars.iter_mut()
+    {
         let pos = transform.translation.truncate();
 
         // Get the current tile
@@ -181,7 +188,11 @@ pub fn move_ai_cars(
         let decel_mod = tile.decel_modifier;
 
         // Get command from theta_star algorithm
-        let command = theta_star((tile.x_coordinate,tile.y_coordinate), orientation.angle, &mut theta_checkpoint_list);
+        let command = theta_star(
+            (tile.x_coordinate, tile.y_coordinate),
+            orientation.angle,
+            &mut theta_checkpoint_list,
+        );
 
         // Execute the command
         match command {
@@ -207,7 +218,6 @@ pub fn move_ai_cars(
             }
         }
 
-
         // Apply friction when not accelerating forward
         if !matches!(command, ThetaCommand::Forward) {
             let decel_rate = decel_mod * fric_mod * deltat;
@@ -221,7 +231,6 @@ pub fn move_ai_cars(
                 }
             }
         }
-
 
         // Updated position
         let change = **velocity * deltat;
@@ -245,7 +254,9 @@ pub fn move_ai_cars(
 
         // Handle collision detection and response
         // Convert Query to iterator of (position, velocity) pairs
-        let other_cars_iter = other_cars.iter().map(|(t, v)| (t.translation.truncate(), v.velocity));
+        let other_cars_iter = other_cars
+            .iter()
+            .map(|(t, v)| (t.translation.truncate(), v.velocity));
         let should_update = handle_collision(
             new_position,
             transform.translation.truncate(),
@@ -318,42 +329,46 @@ pub fn spawn_cars(
 }
 
 // beginnings of the fsm system
-pub fn ai_car_fsm (
-    mut ai_query: Query<(Entity, &mut CarState, &mut Transform, &mut Velocity, &mut Orientation), With<AIControlled>>,
+pub fn ai_car_fsm(
+    mut ai_query: Query<
+        (
+            Entity,
+            &mut CarState,
+            &mut Transform,
+            &mut Velocity,
+            &mut Orientation,
+        ),
+        With<AIControlled>,
+    >,
     other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
     mut delta_time: Res<Time>,
-    ) {
+) {
     // define proximity threshold (in game units)
     const PROXIMITY_THRESHOLD: f32 = 300.0;
-    
-    for (entity,
-        mut car_state,
-        mut transform,
-        mut velocity,
-        mut orientation)
-        in ai_query.iter_mut() {
-        
+
+    for (entity, mut car_state, mut transform, mut velocity, mut orientation) in ai_query.iter_mut()
+    {
         // check for nearby cars
         let ai_pos = transform.translation.truncate();
         let mut closest_car_distance = f32::MAX;
         let mut closest_car_position = None;
-        
+
         for other_transform in other_cars.iter() {
             let other_pos = other_transform.translation.truncate();
             let distance = ai_pos.distance(other_pos);
-            
+
             if distance < closest_car_distance {
                 closest_car_distance = distance;
                 closest_car_position = Some(other_pos);
             }
         }
-        
+
         // determine if any car is within proximity threshold
         let car_nearby = closest_car_distance < PROXIMITY_THRESHOLD;
 
         // pass all the properties to the update function
         // maybe roll this into a struct in the future for readability
-        
+
         car_state.update(
             &mut delta_time,
             &mut transform,
@@ -361,7 +376,7 @@ pub fn ai_car_fsm (
             &mut orientation,
             car_nearby,
             closest_car_position,
-            closest_car_distance
+            closest_car_distance,
         );
     }
 }
