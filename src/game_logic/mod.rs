@@ -7,6 +7,7 @@ pub mod theta;
 pub mod theta_grid;
 pub mod lap_system;
 pub mod map;
+pub mod difficulty;
 
 pub use constants::*;
 pub use components::*;
@@ -17,3 +18,4 @@ pub use theta::*;
 pub use theta_grid::*;
 pub use lap_system::*;
 pub use map::*;
+pub use difficulty::*;

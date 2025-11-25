@@ -15,7 +15,7 @@ mod interpolation;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
-use game_logic::{load_map_from_file, GameMap, spawn_map};
+use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty};
 use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
@@ -27,6 +27,7 @@ use networking_plugin::NetworkingPlugin;
 
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 use crate::game_logic::{TILE_SIZE, AIControlled, Orientation, Velocity, ThetaCheckpointList};
+
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
@@ -42,6 +43,7 @@ pub enum GameState {
     Victory,
     Credits,
 }
+
 
 fn main() {
     App::new()
@@ -59,6 +61,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(NetworkingPlugin)
+        .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
             address: String::new(),

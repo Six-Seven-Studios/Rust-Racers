@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::game_logic::{Velocity, Orientation};
+use crate::game_logic::{Velocity, Orientation, CpuDifficulty};
 use rand::prelude::*;
 use std::time::Duration;
 
@@ -75,6 +75,7 @@ impl CarState {
         car_nearby: bool,
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
+        difficulty: &CpuDifficulty,
     ){
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
@@ -86,7 +87,8 @@ impl CarState {
                 orientation,
                 car_nearby,
                 closest_car_position,
-                closest_car_distance
+                closest_car_distance,
+                difficulty,
             );
             
             // transition based off of what each state returns
@@ -117,6 +119,7 @@ trait State: Send + Sync {
         car_nearby: bool,
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
+        difficulty: &CpuDifficulty,
     ) -> Transition;
 }
 
@@ -144,13 +147,15 @@ impl State for Aggressive {
         car_nearby: bool,
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
+        difficulty: &CpuDifficulty,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         if car_nearby {
             if let Some(target_pos) = closest_car_position {
                 let ai_pos = transform.translation.truncate();
                 let direction = (target_pos - ai_pos).normalize_or_zero();
-                info!("[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!", closest_car_distance);
+                // info!("[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!", closest_car_distance);
+                info!("cpu difficulty: {:?}", difficulty);
                 // TODO: use theta* to pursue the target position
                 // TODO: increase velocity and adjust orientation to ram the target
             }
@@ -202,6 +207,7 @@ impl State for Neutral {
         car_nearby: bool,
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
+        difficulty: &CpuDifficulty,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         // TODO: use transform, velocity, etc to move the car
