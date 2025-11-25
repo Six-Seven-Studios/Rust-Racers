@@ -100,7 +100,7 @@ pub fn get_next_point(list: &ThetaCheckpointList) -> (f32, f32) {
 }
 
 //Super basic starter implementation that only finds the shortest path to a goal and goes directly towards it
-pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
+pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
     if checkpoints.checkpoints.is_empty() {
         return ThetaCommand::Stop;
     }
@@ -153,4 +153,83 @@ pub fn theta_star(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut T
     } else {
         ThetaCommand::TurnRight
     }
+}
+
+//psuedocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
+pub fn theta_star()
+{
+    /*
+    open:=closed:=emptyset
+    g(s_start):=0;
+    parent(s_start):=s_start;
+    open.Insert(s_start,s_start)+h(s_start);
+
+    While open != emptyset
+    {
+        s:=open.Pop();
+        if s=s_goal
+        {
+            return "path found";
+        }
+        closed:=closed (union) {s};
+        foreach s' is a member of neighbor_visible(s)
+        {
+            if s' isn't a member of closed
+            {
+                if s' isnt a member of open
+                {
+                    g(s'):=infinity
+                    parent(s'):=NULL;
+                }
+                UpdateVertex(s,s');
+            }
+        }
+    }
+    return "no path found";
+    */
+}
+
+pub fn update_vertex(s: f32, s_prime: f32)
+{
+    /*
+
+    g_old:=g(s');
+    compute_cost(s,s');
+    if(g(s') < g_old)
+    {
+        if(s' is a member of open)
+        {
+            open.Remove(s');
+        }
+        open.Insert(s',g(s')+h(s'));
+    }
+
+
+    */
+}
+
+pub fn compute_cost(s: f32, s_prime: f32)
+{
+    /*
+
+    if gamemap.lineofsight(parent(s),s')
+    {
+        // Path 2
+        if(g(parent(s)) + c(parent(s),s') < g(s'))
+        {
+            parent(s') := parent(s);
+            g(s') := g(parent(s)) + c(parent(s),s')
+        }
+    }
+    else
+    {
+        //Path 1
+        if(g(s) + c(s,s') < g(s'))
+        {
+            parent(s'):=s;
+            g(s'):=g(s)+c(s,s');
+        }
+    }
+
+     */
 }
