@@ -193,6 +193,11 @@ pub fn move_ai_cars(
                 **velocity += forward;
                 **velocity = velocity.clamp_length_max(PLAYER_SPEED * speed_mod);
             }
+            ThetaCommand::Reverse => {
+                let backward = -orientation.forward_vector() * (accel / 2.0);
+                **velocity += backward;
+                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 2.0));
+            }
             ThetaCommand::Stop => {
                 if velocity.length() > 0.0 {
                     let backward = -orientation.forward_vector() * (accel / 2.0);
@@ -205,8 +210,8 @@ pub fn move_ai_cars(
         }
 
 
-        // Apply friction when not accelerating forward
-        if !matches!(command, ThetaCommand::Forward) {
+        // Apply friction when not accelerating forward or reversing
+        if !matches!(command, ThetaCommand::Forward | ThetaCommand::Reverse) {
             let decel_rate = decel_mod * fric_mod * deltat;
             let curr_speed = velocity.length();
             if curr_speed > 0.0 {

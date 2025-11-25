@@ -8,6 +8,7 @@ pub enum ThetaCommand {
     #[default]
     Stop,
     Forward,
+    Reverse,
     TurnLeft,
     TurnRight,
 }
@@ -145,8 +146,11 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
 
     // Give it some wiggle room so it doesn't oscillate (Greyson's idea)
     let angle_threshold = 0.1; // radians (~5.7 degrees)
+    let reverse_threshold = pi * 0.6; // ~108 degrees - reverse if target is mostly behind us
 
-    if angle_diff.abs() < angle_threshold {
+    if angle_diff.abs() > reverse_threshold {
+        ThetaCommand::Reverse
+    } else if angle_diff.abs() < angle_threshold {
         ThetaCommand::Forward
     } else if angle_diff > 0.0 {
         ThetaCommand::TurnLeft
@@ -155,7 +159,7 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
     }
 }
 
-//psuedocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
+//pseudocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
 pub fn theta_star()
 {
     /*
