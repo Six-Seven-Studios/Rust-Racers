@@ -1,5 +1,7 @@
-use crate::game_logic::{LapCounter, GameMap, bad_pure_pursuit, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision};
-use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
+use crate::game_logic::{
+    LapCounter, GameMap, ThetaCheckpointList, ThetaCommand, TILE_SIZE, bad_pure_pursuit,
+    handle_collision,
+};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
@@ -7,10 +9,6 @@ use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
-};
-use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
-use crate::game_logic::{
-    GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand, handle_collision, theta_star,
 };
 use bevy::prelude::*;
 
@@ -217,13 +215,12 @@ pub fn move_ai_cars(
         let turn_mod = tile.turn_modifier;
         let decel_mod = tile.decel_modifier;
 
-        // Get command from theta_star algorithm
-        let command = theta_star(
+        // Get command from steering helper
+        let command = bad_pure_pursuit(
             (tile.x_coordinate, tile.y_coordinate),
             orientation.angle,
             &mut theta_checkpoint_list,
         );
-        let command = bad_pure_pursuit((tile.x_coordinate, tile.y_coordinate), orientation.angle, &mut theta_checkpoint_list);
 
         // Execute the command
         match command {
