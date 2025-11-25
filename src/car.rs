@@ -1,5 +1,5 @@
 
-use crate::game_logic::{LapCounter, GameMap, theta_star, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision, CpuDifficulty};
+use crate::game_logic::{LapCounter, GameMap, theta_star, bad_pure_pursuit, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision, CpuDifficulty};
 use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
