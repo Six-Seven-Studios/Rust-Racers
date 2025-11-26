@@ -7,6 +7,9 @@ pub mod physics;
 pub mod terrain;
 pub mod theta;
 pub mod theta_grid;
+pub mod lap_system;
+pub mod map;
+pub mod difficulty;
 
 pub use collisions::*;
 pub use components::*;
@@ -17,3 +20,6 @@ pub use physics::*;
 pub use terrain::*;
 pub use theta::*;
 pub use theta_grid::*;
+pub use lap_system::*;
+pub use map::*;
+pub use difficulty::*;

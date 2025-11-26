@@ -5,8 +5,8 @@ use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 
 use crate::lobby::{LobbyState, setup_lobby};
-use crate::networking_plugin::{MessageSender, NetworkClient, connect_to_server};
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use crate::networking_plugin::{NetworkClient, MessageSender, connect_to_server};
+use crate::game_logic::CpuDifficulty;
 
 #[derive(Component)]
 pub struct MainScreenEntity;
@@ -36,6 +36,9 @@ pub struct LobbyNameInput;
 pub struct ServerIpInput;
 
 #[derive(Component)]
+pub struct CpuDifficultyText;
+
+#[derive(Component)]
 pub struct LobbyListContainer;
 
 #[derive(Component)]
@@ -61,23 +64,36 @@ pub fn sync_server_address(
     }
 }
 
+use bevy::ecs::system::SystemParam;
+
+// bundling all your screen queries into one struct to save space
+#[derive(SystemParam)]
+pub struct MenuScreens<'w, 's> {
+    pub main: Query<'w, 's, Entity, With<MainScreenEntity>>,
+    pub lobby: Query<'w, 's, Entity, With<crate::lobby::LobbyScreenEntity>>,
+    pub join: Query<'w, 's, Entity, With<JoinScreenEntity>>,
+    pub settings: Query<'w, 's, Entity, With<SettingsScreenEntity>>,
+    pub customize: Query<'w, 's, Entity, With<CustomizingScreenEntity>>,
+}
+
 pub fn check_for_title_input(
     input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     current_state: Res<State<GameState>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    title_query: Query<Entity, With<MainScreenEntity>>,
-    lobby_query: Query<Entity, With<crate::lobby::LobbyScreenEntity>>,
-    join_query: Query<Entity, With<JoinScreenEntity>>,
-    settings_query: Query<Entity, With<SettingsScreenEntity>>,
-    customize_query: Query<Entity, With<CustomizingScreenEntity>>,
+    // added a menu screen to trim down this function
+    screens: MenuScreens, 
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
-    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
-    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
-    server_address: Res<ServerAddress>,
-    mut drift_settings: ResMut<DriftSettings>,
+    // Without<CpuDifficultyText> here
+    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>, Without<CpuDifficultyText>)>,
+    // Without<CpuDifficultyText> here
+    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>, Without<CpuDifficultyText>)>,
+    server_address: Res<ServerAddress>,     
+    mut cpu_difficulty: ResMut<CpuDifficulty>,
+    // Without<LobbyNameInput> and Without<ServerIpInput> here
+    mut difficulty_text_query: Query<&mut Text2d, (With<CpuDifficultyText>, Without<LobbyNameInput>, Without<ServerIpInput>)>
 ) {
     match *current_state.get() {
         GameState::Title => {
@@ -148,7 +164,7 @@ pub fn check_for_title_input(
 
                 // Transition to creating lobby
                 next_state.set(GameState::Creating);
-                destroy_screen(&mut commands, &title_query);
+                destroy_screen(&mut commands, &screens.main);
 
                 setup_create_lobby(commands, asset_server);
             } else if !is_typing_ip && input.just_pressed(KeyCode::Digit2) {
@@ -173,28 +189,28 @@ pub fn check_for_title_input(
                 }
 
                 next_state.set(GameState::Joining);
-                destroy_screen(&mut commands, &title_query);
+                destroy_screen(&mut commands, &screens.main);
 
                 setup_join_lobby(commands, asset_server);
             } else if !is_typing_ip && input.just_pressed(KeyCode::Digit3) {
                 next_state.set(GameState::Customizing);
-                destroy_screen(&mut commands, &title_query);
+                destroy_screen(&mut commands, &screens.main);
                 setup_customizing(commands, asset_server);
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Settings);
-                destroy_screen(&mut commands, &title_query);
-                setup_settings(commands, asset_server, drift_settings.easy_mode);
+                destroy_screen(&mut commands, &screens.main);
+                setup_settings(commands, asset_server, *cpu_difficulty);
             }
             // Theta* DEMO
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit4) {
                 next_state.set(GameState::PlayingDemo);
-                destroy_screen(&mut commands, &title_query);
+                destroy_screen(&mut commands, &screens.main);
             }
         }
         GameState::Customizing => {
             if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &customize_query);
+                destroy_screen(&mut commands, &screens.customize);
                 setup_title_screen(commands, asset_server, server_address);
             }
         }
@@ -203,8 +219,20 @@ pub fn check_for_title_input(
                 drift_settings.toggle();
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &settings_query);
+                destroy_screen(&mut commands, &screens.settings);
                 setup_title_screen(commands, asset_server, server_address);
+            } else if input.just_pressed(KeyCode::ArrowLeft) || input.just_pressed(KeyCode::KeyA) {
+                // cycle difficulty
+                *cpu_difficulty = cpu_difficulty.prev();
+                if let Ok(mut text) = difficulty_text_query.single_mut() {
+                    text.0 = format!("CPU Difficulty: {}", cpu_difficulty.as_str());
+                }
+            } else if input.just_pressed(KeyCode::ArrowRight) || input.just_pressed(KeyCode::KeyD) {
+                // cycle difficulty up
+                *cpu_difficulty = cpu_difficulty.next();
+                if let Ok(mut text) = difficulty_text_query.single_mut() {
+                    text.0 = format!("CPU Difficulty: {}", cpu_difficulty.as_str());
+                }
             }
         }
         _ => {
@@ -801,16 +829,54 @@ fn setup_join_lobby(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn setup_settings(mut commands: Commands, asset_server: Res<AssetServer>, easy_mode_enabled: bool) {
+fn setup_settings(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    cpu_difficulty: CpuDifficulty,
+){
+    // Title text
     commands.spawn((
-        Text2d::new("Welcome to Settings"),
+        Text2d::new("Settings"),
         TextColor(Color::BLACK),
         Transform {
-            translation: Vec3::new(0., 0., 1.),
+            translation: Vec3::new(0., 80., 1.),
             ..default()
         },
         SettingsScreenEntity,
     ));
+
+    // CPU difficulty display
+    commands.spawn((
+        Text2d::new(format!("CPU Difficulty: {}", cpu_difficulty.as_str())),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(0., 20., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 40.0,
+            ..default()
+        },
+        SettingsScreenEntity,
+        CpuDifficultyText,
+    ));
+
+    // Hint text
+    commands.spawn((
+        Text2d::new("Use A/D or Left/Right to change"),
+        TextColor(Color::srgb_u8(120, 120, 120)),
+        Transform {
+            translation: Vec3::new(0., -30., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 24.0,
+            ..default()
+        },
+        SettingsScreenEntity,
+    ));
+
+    // Back arrow and ESC key legend
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
         Transform {
@@ -827,38 +893,11 @@ fn setup_settings(mut commands: Commands, asset_server: Res<AssetServer>, easy_m
         },
         SettingsScreenEntity,
     ));
-    commands.spawn((
-        Text2d::new(format!(
-            "Easy Drift Mode: {}",
-            if easy_mode_enabled { "ON" } else { "OFF" }
-        )),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(0., -100., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 45.0,
-            ..default()
-        },
-        SettingsScreenEntity,
-        EasyDriftLabel,
-    ));
-    commands.spawn((
-        Text2d::new("Press E to toggle easier drifting"),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(0., -160., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 28.0,
-            ..default()
-        },
-        SettingsScreenEntity,
-    ));
 }
-fn setup_customizing(mut commands: Commands, asset_server: Res<AssetServer>) {
+
+fn setup_customizing(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>){
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
         Transform {

@@ -13,6 +13,14 @@ mod title_screen;
 mod victory_screen;
 mod interpolation;
 
+use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
+use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
+use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty};
+use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
+use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
+use credits::{check_for_credits_input, setup_credits, show_credits};
+use victory_screen::setup_victory_screen;
+use bevy::{prelude::*, window::PresentMode};
 use bevy::render::camera::{Projection, ScalingMode};
 use bevy::{prelude::*, window::PresentMode};
 use camera::{WIN_H, WIN_W, move_camera, reset_camera_for_credits};
@@ -31,6 +39,7 @@ use victory_screen::setup_victory_screen;
 use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity};
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 
+
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
@@ -45,6 +54,7 @@ pub enum GameState {
     Victory,
     Credits,
 }
+
 
 fn main() {
     App::new()
@@ -64,6 +74,7 @@ fn main() {
                 }),
         )
         .add_plugins(NetworkingPlugin)
+        .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
             address: String::new(),

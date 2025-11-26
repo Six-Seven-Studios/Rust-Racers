@@ -1,7 +1,6 @@
-use crate::game_logic::{
-    LapCounter, GameMap, ThetaCheckpointList, ThetaCommand, TILE_SIZE, bad_pure_pursuit,
-    handle_collision,
-};
+
+use crate::game_logic::{LapCounter, GameMap, theta_star, bad_pure_pursuit, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision, CpuDifficulty};
+use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
@@ -235,6 +234,11 @@ pub fn move_ai_cars(
                 **velocity += forward;
                 **velocity = velocity.clamp_length_max(PLAYER_SPEED * speed_mod);
             }
+            ThetaCommand::Reverse => {
+                let backward = -orientation.forward_vector() * (accel / 2.0);
+                **velocity += backward;
+                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 2.0));
+            }
             ThetaCommand::Stop => {
                 if velocity.length() > 0.0 {
                     let backward = -orientation.forward_vector() * (accel / 2.0);
@@ -246,8 +250,9 @@ pub fn move_ai_cars(
             }
         }
 
-        // Apply friction when not accelerating forward
-        if !matches!(command, ThetaCommand::Forward) {
+
+        // Apply friction when not accelerating forward or reversing
+        if !matches!(command, ThetaCommand::Forward | ThetaCommand::Reverse) {
             let decel_rate = decel_mod * fric_mod * deltat;
             let curr_speed = velocity.length();
             if curr_speed > 0.0 {
@@ -370,12 +375,27 @@ pub fn ai_car_fsm(
     >,
     other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
     mut delta_time: Res<Time>,
-) {
+    difficulty: Res<CpuDifficulty>,
+    ) {
     // define proximity threshold (in game units)
     const PROXIMITY_THRESHOLD: f32 = 300.0;
 
-    for (entity, mut car_state, mut transform, mut velocity, mut orientation) in ai_query.iter_mut()
-    {
+    // just an idea, but we COULD determine threshold based on difficulty
+    /* 
+    let proximity_threshold = match *difficulty {
+        CpuDifficulty::Easy => 200.0,   // Blind as a bat
+        CpuDifficulty::Medium => 300.0, // Normal
+        CpuDifficulty::Hard => 600.0,   // Eagle eyes
+    };
+    */
+    
+    for (entity,
+        mut car_state,
+        mut transform,
+        mut velocity,
+        mut orientation)
+        in ai_query.iter_mut() {
+        
         // check for nearby cars
         let ai_pos = transform.translation.truncate();
         let mut closest_car_distance = f32::MAX;
@@ -405,6 +425,7 @@ pub fn ai_car_fsm(
             car_nearby,
             closest_car_position,
             closest_car_distance,
+            &difficulty,
         );
     }
 }
