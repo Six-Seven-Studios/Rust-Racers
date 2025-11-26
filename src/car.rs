@@ -1,10 +1,12 @@
 
-use crate::game_logic::{LapCounter, GameMap, theta_star, bad_pure_pursuit, ThetaCommand, ThetaCheckpointList, TILE_SIZE, handle_collision, CpuDifficulty};
-use crate::game_logic::{PLAYER_SPEED, ACCEL_RATE, FRICTION, TURNING_RATE, LATERAL_FRICTION, CAR_SIZE};
-use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
+use crate::game_logic::{
+    bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
+    ThetaCommand, TILE_SIZE,
+};
+use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,

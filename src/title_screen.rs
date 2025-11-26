@@ -92,6 +92,7 @@ pub fn check_for_title_input(
     mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>, Without<CpuDifficultyText>)>,
     server_address: Res<ServerAddress>,     
     mut cpu_difficulty: ResMut<CpuDifficulty>,
+    mut drift_settings: ResMut<DriftSettings>,
     // Without<LobbyNameInput> and Without<ServerIpInput> here
     mut difficulty_text_query: Query<&mut Text2d, (With<CpuDifficultyText>, Without<LobbyNameInput>, Without<ServerIpInput>)>
 ) {
