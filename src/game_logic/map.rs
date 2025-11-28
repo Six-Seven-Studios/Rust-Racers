@@ -1,7 +1,10 @@
-use std::fs::File;
-use std::io::{BufReader, BufRead};
+use crate::game_logic::{
+    DIRT, GRASS, OIL, ROAD, SAND, TILES, TerrainTile, ThetaCheckpoint, ThetaCheckpointList, WALL,
+    WET,
+};
 use bevy::prelude::*;
-use crate::game_logic::{TerrainTile, TILES, ROAD, WET, DIRT, GRASS, SAND, OIL, WALL, ThetaCheckpoint, ThetaCheckpointList};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 #[derive(Resource)]
 pub struct GameMap {
@@ -10,11 +13,10 @@ pub struct GameMap {
 
     // logical terrain for physics
     pub terrain_layer: Vec<Vec<TerrainTile>>,
-    
+
     // visual only layers
     pub visual_layers: Vec<Vec<Vec<u8>>>, // Vec<Layer<Rows<Tiles>>>
 }
-
 
 //I gave it an argument called "filename" in order to make it WAY easier for us to do multiple maps if we want
 pub fn load_map_from_file(filename: &str) -> GameMap {
@@ -94,13 +96,12 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
             .filter(|s| !s.is_empty()) // filter to handle potential extra spaces
             .map(|s| u8::from_str_radix(s, 16).unwrap()) // changing this to interpet HEX
             .collect();
-        
+
         // avoid adding empty rows if the line was blank
         if !row.is_empty() {
             current_layer.push(row);
         }
     }
-
 
     GameMap {
         width,
@@ -110,21 +111,17 @@ pub fn load_map_from_file(filename: &str) -> GameMap {
     }
 }
 
-
-
-/*  
+/*
     rendering the map from the GameMap and tile atlas
-*/ 
+*/
 pub fn spawn_map(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut atlases: ResMut<Assets<TextureAtlasLayout>>,
     game_map: Res<GameMap>,
-) { 
+) {
     // using nearest neighbor filtering so that there isn't weird gaps between tiles
-    let texture_handle = asset_server.load(
-        "aseprite-tiles/tiles.png"
-    );
+    let texture_handle = asset_server.load("aseprite-tiles/tiles.png");
 
     // create the atlas based on the dimension of tiles.png
     let layout = TextureAtlasLayout::from_grid(UVec2::new(64, 64), 16, 16, None, None);
@@ -135,7 +132,9 @@ pub fn spawn_map(
     // rendering the terrain (logical) layer first
     for (y, row) in game_map.terrain_layer.iter().enumerate() {
         for (x, tile_id) in row.iter().enumerate() {
-            if tile_id.tile_id == 255 { continue; }
+            if tile_id.tile_id == 255 {
+                continue;
+            }
             commands.spawn((
                 Sprite::from_atlas_image(
                     texture_handle.clone(),
@@ -157,7 +156,9 @@ pub fn spawn_map(
     for (layer_index, layer) in game_map.visual_layers.iter().enumerate() {
         for (y, row) in layer.iter().enumerate() {
             for (x, tile_id) in row.iter().enumerate() {
-                if *tile_id == 255 { continue; } // assume 255 is empty.
+                if *tile_id == 255 {
+                    continue;
+                } // assume 255 is empty.
                 commands.spawn((
                     Sprite::from_atlas_image(
                         texture_handle.clone(),
@@ -180,7 +181,8 @@ pub fn spawn_map(
 
 impl GameMap {
     // get tile from a world position
-    pub fn get_tile(&self, world_x: f32, world_y: f32, tile_size: f32) -> &TerrainTile { // Or whatever your Tile struct is
+    pub fn get_tile(&self, world_x: f32, world_y: f32, tile_size: f32) -> &TerrainTile {
+        // Or whatever your Tile struct is
         // translate from world origin (center) to map origin (top-left)
         // this shifts the coordinates so that (0,0) is the top-left of the map.
         let map_x = world_x + self.width / 2.0;

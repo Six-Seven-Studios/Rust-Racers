@@ -3,7 +3,6 @@ use crate::game_logic::{Velocity, Orientation, CpuDifficulty};
 use rand::prelude::*;
 use std::time::Duration;
 
-
 // defining some states for our car
 // https://doc.rust-lang.org/book/ch18-03-oo-design-patterns.html
 #[derive(Component)]
@@ -34,11 +33,9 @@ Random generator
 **/
 
 pub fn generate_number() -> i32 {
-
     // Generates a value between 1 and 10
     let mut rng = rand::rng();
     return rng.random_range(1..=10);
-
 }
 
 impl CarState {
@@ -60,7 +57,7 @@ impl CarState {
         }
     }
 
-    
+
     pub fn execute(&self) -> Transition {
         self.state.as_ref().unwrap().execute(self)
     }
@@ -90,7 +87,7 @@ impl CarState {
                 closest_car_distance,
                 difficulty,
             );
-            
+
             // transition based off of what each state returns
             self.state = Some(match transition {
                 Transition::None => s,
@@ -124,9 +121,7 @@ trait State: Send + Sync {
 }
 
 // the state objects are aggressive, Neutral, etc.
-struct Aggressive {
-    
-}
+struct Aggressive {}
 
 impl State for Aggressive {
     // TRANSITIONS BETWEEN STATES
@@ -169,7 +164,6 @@ impl State for Aggressive {
             Transition::None
         }
     }
-    
 }
 
 struct Neutral {
@@ -215,7 +209,10 @@ impl State for Neutral {
 
         // check if a car is nearby - if so, immediately switch to aggressive
         if car_nearby {
-            info!("[+] car detected at distance {:.1}! Switching to aggressive mode!", closest_car_distance);
+            info!(
+                "[+] car detected at distance {:.1}! Switching to aggressive mode!",
+                closest_car_distance
+            );
             return Transition::ToAggressive;
         }
 
@@ -262,7 +259,6 @@ impl State for Neutral {
 //         }
 //     }
 // }
-
 
 // // this is doing some weird rust ownership stuff I don't fully understand
 // // i just sort of copied the structure from the rust book and added extra bevy functions

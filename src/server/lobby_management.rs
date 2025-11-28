@@ -1,6 +1,6 @@
 use serde_json::json;
-use std::time::Instant;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crate::types::*;
 
@@ -29,7 +29,9 @@ pub fn broadcast_lobby_state(
     let payload = json!({
         "lobby": lobby.name.clone(),
         "players": players
-    }).to_string() + "\n";
+    })
+    .to_string()
+        + "\n";
 
     // Get target addresses and send
     let addrs = connected_clients.addrs.lock().unwrap();
@@ -41,24 +43,26 @@ pub fn broadcast_lobby_state(
 }
 
 /// Broadcast the list of active lobbies to all connected clients
-pub fn broadcast_active_lobbies(
-    connected_clients: &ConnectedClients,
-    lobbies: &LobbyList,
-) {
+pub fn broadcast_active_lobbies(connected_clients: &ConnectedClients, lobbies: &LobbyList) {
     let guard = lobbies.lock().unwrap();
 
-    let lobby_list: Vec<_> = guard.iter().map(|lobby| {
-        let players = lobby.players.lock().unwrap();
-        json!({
-            "name": lobby.name.clone(),
-            "players": players.len()
+    let lobby_list: Vec<_> = guard
+        .iter()
+        .map(|lobby| {
+            let players = lobby.players.lock().unwrap();
+            json!({
+                "name": lobby.name.clone(),
+                "players": players.len()
+            })
         })
-    }).collect();
+        .collect();
 
     let payload = json!({
         "type": "active_lobbies",
         "lobbies": lobby_list
-    }).to_string() + "\n";
+    })
+    .to_string()
+        + "\n";
 
     // Send to all connected clients
     let addrs = connected_clients.addrs.lock().unwrap();
@@ -77,7 +81,9 @@ pub fn broadcast_game_start(
         "type": "game_started",
         "lobby": lobby_name,
         "time": 1000
-    }).to_string() + "\n";
+    })
+    .to_string()
+        + "\n";
 
     // Send to all players in the lobby
     let addrs = connected_clients.addrs.lock().unwrap();
@@ -90,18 +96,24 @@ pub fn broadcast_game_start(
 
 /// Clean up when a client disconnects
 pub fn disconnect_cleanup(
-    id: u32, 
-    connected: &ConnectedClients, 
-    lobbies: &LobbyList, 
+    id: u32,
+    connected: &ConnectedClients,
+    lobbies: &LobbyList,
     cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) {
     // Get the address before removing
     let addr = connected.addrs.lock().unwrap().get(&id).copied();
 
     // Remove from all maps
-    if let Ok(mut m) = connected.addrs.lock() { m.remove(&id); }
-    if let Ok(mut ids) = connected.ids.lock() { ids.retain(|x| *x != id); }
-    if let Ok(mut last_seen) = connected.last_seen.lock() { last_seen.remove(&id); }
+    if let Ok(mut m) = connected.addrs.lock() {
+        m.remove(&id);
+    }
+    if let Ok(mut ids) = connected.ids.lock() {
+        ids.retain(|x| *x != id);
+    }
+    if let Ok(mut last_seen) = connected.last_seen.lock() {
+        last_seen.remove(&id);
+    }
     if let Some(addr) = addr {
         if let Ok(mut addr_to_id) = connected.addr_to_id.lock() {
             addr_to_id.remove(&addr);
@@ -128,9 +140,7 @@ pub fn disconnect_cleanup(
 
         let sender = cmd_sender.lock().unwrap();
         if lobby.started {
-            let _ = sender.send(ServerCommand::DespawnPlayer {
-                player_id: id,
-            });
+            let _ = sender.send(ServerCommand::DespawnPlayer { player_id: id });
         }
     }
 

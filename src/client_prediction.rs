@@ -1,8 +1,13 @@
-use bevy::prelude::*;
-use bevy::input::ButtonInput;
-use crate::game_logic::{Velocity, Orientation, PlayerControlled, PhysicsInput, TILE_SIZE, CLIENT_TIMESTEP};
-use crate::networking_plugin::NetworkClient;
+use crate::drift_settings::DriftSettings;
+use crate::game_logic::{
+    CAR_SIZE, CLIENT_TIMESTEP, Orientation, PhysicsInput, PlayerControlled, TILE_SIZE, Velocity,
+    handle_collision,
+};
+use crate::multiplayer::NetworkPlayer;
 use crate::networking::InputData;
+use crate::networking_plugin::NetworkClient;
+use bevy::input::ButtonInput;
+use bevy::prelude::*;
 
 #[derive(Resource, Default)]
 pub struct InputSequence {
@@ -41,10 +46,22 @@ pub fn send_keyboard_input(
     input: Res<ButtonInput<KeyCode>>,
     mut input_sequence: ResMut<InputSequence>,
     mut input_buffer: ResMut<InputBuffer>,
-    mut player_car: Query<(&mut Transform, &mut Velocity, &mut Orientation, &mut PredictionBuffer), With<PlayerControlled>>,
+    mut player_car: Query<
+        (
+            &mut Transform,
+            &mut Velocity,
+            &mut Orientation,
+            &mut PredictionBuffer,
+        ),
+        With<PlayerControlled>,
+    >,
+    other_cars: Query<(&Transform, &Velocity), (With<NetworkPlayer>, Without<PlayerControlled>)>,
     game_map: Res<crate::game_logic::GameMap>,
+    drift_settings: Res<DriftSettings>,
 ) {
-    let Some(client) = network_client.client.as_mut() else { return };
+    let Some(client) = network_client.client.as_mut() else {
+        return;
+    };
 
     let forward = input.pressed(KeyCode::KeyW);
     let backward = input.pressed(KeyCode::KeyS);
@@ -56,6 +73,7 @@ pub fn send_keyboard_input(
     let sequence = input_sequence.current;
 
     // Buffer this input to send later
+    let easy_drift = drift_settings.easy_mode;
     input_buffer.pending_inputs.push(InputData {
         sequence,
         forward,
@@ -63,6 +81,7 @@ pub fn send_keyboard_input(
         left,
         right,
         drift,
+        easy_drift,
     });
 
     // Send buffered inputs to server (client sends at 60 Hz)
@@ -72,8 +91,17 @@ pub fn send_keyboard_input(
     }
 
     // Predict movement locally for instant feedback
-    if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) = player_car.get_single_mut() {
-        let physics_input = PhysicsInput { forward, backward, left, right, drift };
+    if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) =
+        player_car.get_single_mut()
+    {
+        let physics_input = PhysicsInput {
+            forward,
+            backward,
+            left,
+            right,
+            drift,
+            easy_drift,
+        };
 
         let old_pos = transform.translation.truncate();
         let mut pos = old_pos;
@@ -92,15 +120,42 @@ pub fn send_keyboard_input(
             tile.decel_modifier,
         );
 
-        // Update visuals immediately
-        transform.translation = pos.extend(transform.translation.z);
+        // Clamp to map bounds to stay in the playable area
+        let half_width = game_map.width / 2.0;
+        let half_height = game_map.height / 2.0;
+        let car_half_size = (CAR_SIZE as f32) / 2.0;
+        pos.x = pos
+            .x
+            .clamp(-half_width + car_half_size, half_width - car_half_size);
+        pos.y = pos
+            .y
+            .clamp(-half_height + car_half_size, half_height - car_half_size);
+
+        // Handle collisions against walls/other cars so prediction matches authoritative sim
+        let new_position = pos.extend(transform.translation.z);
+        let other_cars_iter = other_cars
+            .iter()
+            .map(|(t, v)| (t.translation.truncate(), v.velocity));
+        let should_update = handle_collision(
+            new_position,
+            old_pos,
+            &mut velocity.velocity,
+            &game_map,
+            other_cars_iter,
+        );
+
+        if should_update {
+            transform.translation = new_position;
+        } else {
+            pos = old_pos;
+        }
         transform.rotation = Quat::from_rotation_z(orientation.angle);
 
         // Store prediction
         buffer.states.push(PredictedState {
             sequence,
             input: physics_input,
-            position: pos,
+            position: transform.translation.truncate(),
             velocity: velocity.velocity,
             angle: orientation.angle,
         });

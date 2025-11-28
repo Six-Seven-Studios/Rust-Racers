@@ -1,14 +1,16 @@
+use crate::GameState;
+use crate::lobby::{LobbyInfo, LobbyList, LobbyListDirty, LobbyState, setup_lobby};
+use crate::networking::{
+    Client, IncomingMessage, PlayerPositionData, ServerMessage, spawn_listener_thread,
+};
+use crate::title_screen::destroy_screen;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
+use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
-use crate::networking::{Client, IncomingMessage, ServerMessage, PlayerPositionData, spawn_listener_thread};
-use crate::lobby::{LobbyState, setup_lobby, LobbyList, LobbyListDirty, LobbyInfo};
-use crate::GameState;
-use crate::title_screen::destroy_screen;
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 // Resource to hold the client connection
 #[derive(Resource)]
@@ -64,14 +66,18 @@ impl Plugin for NetworkingPlugin {
         // Create the message channel
         let (sender, receiver) = mpsc::channel();
 
-        app
-            .insert_resource(NetworkClient::default())
-            .insert_resource(MessageReceiver { receiver: Mutex::new(receiver) })
+        app.insert_resource(NetworkClient::default())
+            .insert_resource(MessageReceiver {
+                receiver: Mutex::new(receiver),
+            })
             .insert_resource(MessageSender { sender })
             .insert_resource(PlayerPositions::default())
             .insert_resource(Latency::default())
             .add_systems(Update, process_network_messages)
-            .add_systems(Update, ping_server_system.run_if(on_timer(Duration::from_secs(5))));
+            .add_systems(
+                Update,
+                ping_server_system.run_if(on_timer(Duration::from_secs(5))),
+            );
     }
 }
 
@@ -153,14 +159,17 @@ fn process_network_messages(
 
                         let mut average_latency = latency.average_latency.lock().unwrap();
                         *average_latency += (new_latency as f32 - *average_latency) / *count as f32;
-                        
+
                         println!("Received Pong");
                     }
                 }
             }
 
             IncomingMessage::LobbyState(state) => {
-                println!("Lobby state update: {} - {:?} players", state.lobby, state.players);
+                println!(
+                    "Lobby state update: {} - {:?} players",
+                    state.lobby, state.players
+                );
 
                 // Update the lobby state resource
                 lobby_state.name = state.lobby.clone();
@@ -198,11 +207,12 @@ pub fn connect_to_server(
     sender: &MessageSender,
     address: &str,
 ) -> Result<(), String> {
-    let client = Client::connect(address.to_string())
-        .map_err(|e| format!("Failed to connect: {}", e))?;
+    let client =
+        Client::connect(address.to_string()).map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Clone the socket for the listener thread
-    let socket_clone = client.get_socket_clone()
+    let socket_clone = client
+        .get_socket_clone()
         .map_err(|e| format!("Failed to clone socket: {}", e))?;
 
     // Spawn the listener thread
@@ -227,8 +237,7 @@ pub fn ping_server_system(mut network_client: ResMut<NetworkClient>, latency: Re
         if let Err(e) = client.send_ping() {
             println!("Failed to send ping: {}", e);
             return;
-        }
-        else {
+        } else {
             println!("Pinged server");
         }
     }

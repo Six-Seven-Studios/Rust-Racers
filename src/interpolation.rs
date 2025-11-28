@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::game_logic::{Velocity, Orientation};
+use crate::game_logic::{Orientation, Velocity};
 use crate::multiplayer::NetworkPlayer;
+use bevy::prelude::*;
 
 // Resource to track adaptive interpolation delay
 #[derive(Resource)]
@@ -119,7 +119,15 @@ impl InterpolationBuffer {
 
 // Interpolates networked car positions between server updates
 pub fn interpolate_networked_cars(
-    mut network_cars: Query<(&InterpolationBuffer, &mut Transform, &mut Orientation, &mut Velocity), With<NetworkPlayer>>,
+    mut network_cars: Query<
+        (
+            &InterpolationBuffer,
+            &mut Transform,
+            &mut Orientation,
+            &mut Velocity,
+        ),
+        With<NetworkPlayer>,
+    >,
     time: Res<Time>,
     mut interp_delay: ResMut<InterpolationDelay>,
 ) {
@@ -156,7 +164,7 @@ pub fn interpolate_networked_cars(
             buffer.prev_velocity,
             buffer.curr_velocity,
             alpha,
-            target_duration
+            target_duration,
         );
 
         transform.translation.x = interpolated_pos.x;

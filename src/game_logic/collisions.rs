@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game_logic::{CAR_SIZE, GameMap, TILE_SIZE};
+use bevy::prelude::*;
 
 // Generic collision handler that uses any iterator of (position, velocity) pairs
 // Returns true if position should still be updated, false to indicate wall
@@ -19,7 +19,8 @@ where
     for (other_position, other_velocity) in other_cars {
         // Skip self (positions are very close)
         if (other_position.x - current_position.x).abs() < 0.01
-            && (other_position.y - current_position.y).abs() < 0.01 {
+            && (other_position.y - current_position.y).abs() < 0.01
+        {
             continue;
         }
 

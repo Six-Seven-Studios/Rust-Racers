@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use crate::car::Background;
 use crate::game_logic::GameMap;
 use crate::game_logic::{Car, PlayerControlled};
-use crate::car::Background;
+use bevy::prelude::*;
 
 // Camera-related constants
 pub const WIN_W: f32 = 1280.;
@@ -13,7 +13,11 @@ pub fn move_camera(
     player_car: Single<&Transform, With<PlayerControlled>>,
     mut camera: Single<&mut Transform, (With<Camera>, Without<PlayerControlled>)>,
 ) {
-    let max = Vec3::new(game_map.width / 2. - WIN_W / 2., game_map.height / 2. - WIN_H / 2., 0.);
+    let max = Vec3::new(
+        game_map.width / 2. - WIN_W / 2.,
+        game_map.height / 2. - WIN_H / 2.,
+        0.,
+    );
     let min = -max.clone();
 
     // clamp to map bounds
@@ -31,7 +35,6 @@ pub fn reset_camera_for_credits(
     mut cars: Query<&mut Visibility, (With<Car>, Without<Background>)>,
     // mut background_query: Query<&mut Visibility, (With<Background>, Without<Car>)>,
 ) {
-
     if let Ok(mut camera) = camera_query.get_single_mut() {
         camera.translation = Vec3::ZERO;
     } else {

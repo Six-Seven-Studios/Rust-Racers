@@ -1,8 +1,8 @@
 // Stub module for server compilation
 // Server doesn't need client prediction, but shared modules (car.rs, multiplayer.rs) import it
 
-use bevy::prelude::*;
 use crate::game_logic::physics::PhysicsInput;
+use bevy::prelude::*;
 
 #[derive(Resource, Default)]
 pub struct InputSequence {

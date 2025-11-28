@@ -3,14 +3,11 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    CAR_SIZE, TILE_SIZE, SERVER_TIMESTEP,
-    GameMap,
+    CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, TILE_SIZE, Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
-    Velocity, Orientation,
-    handle_collision,
 };
-use crate::types::*;
 use crate::lobby_management::timeout_cleanup;
+use crate::types::*;
 
 /// System to apply physics simulation to all active players
 /// Processes all buffered inputs and generates position snapshots
@@ -30,14 +27,30 @@ pub fn physics_simulation_system(
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
         let guard = lobbies.list.lock().unwrap();
-        guard.iter()
+        guard
+            .iter()
             .filter(|l| l.started)
             .map(|l| l.name.clone())
             .collect()
     };
 
+    // Snapshot positions/velocities for collision checks without aliasing the query
+    let player_snapshots: Vec<(u32, String, Vec2, Vec2)> = query
+        .iter()
+        .map(|(player_id, pos, vel, _, _, lobby_member)| {
+            (
+                player_id.0,
+                lobby_member.lobby_name.clone(),
+                Vec2::new(pos.x, pos.y),
+                vel.velocity,
+            )
+        })
+        .collect();
+
     // Process each player
-    for (player_id, mut pos, mut vel, mut orient, mut input_component, lobby_member) in query.iter_mut() {
+    for (player_id, mut pos, mut vel, mut orient, mut input_component, lobby_member) in
+        query.iter_mut()
+    {
         // Only simulate physics for players in started lobbies
         if !started_lobbies.contains(&lobby_member.lobby_name) {
             continue;
@@ -52,9 +65,12 @@ pub fn physics_simulation_system(
 
             if let Some(player_state) = states.get_mut(&player_id.0) {
                 // Process all inputs in the queue
-                let inputs_to_process: Vec<InputData> = player_state.input_queue.drain(..).collect();
+                let inputs_to_process: Vec<InputData> =
+                    player_state.input_queue.drain(..).collect();
 
                 for input_data in inputs_to_process {
+                    let prev_pos = Vec2::new(pos.x, pos.y);
+
                     // Get current tile and terrain modifiers
                     let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
@@ -65,6 +81,7 @@ pub fn physics_simulation_system(
                         left: input_data.left,
                         right: input_data.right,
                         drift: input_data.drift,
+                        easy_drift: input_data.easy_drift,
                     };
 
                     // Apply physics for this input (using CLIENT_TIMESTEP since inputs are at 60 Hz)
@@ -74,7 +91,7 @@ pub fn physics_simulation_system(
                         &mut vel,
                         &mut orient,
                         &physics_input,
-                        crate::game_logic::CLIENT_TIMESTEP,  // Use client timestep for each input
+                        crate::game_logic::CLIENT_TIMESTEP, // Use client timestep for each input
                         tile.speed_modifier,
                         tile.friction_modifier,
                         tile.turn_modifier,
@@ -86,12 +103,33 @@ pub fn physics_simulation_system(
                     let half_height = game_map.height / 2.0;
                     let car_half_size = (CAR_SIZE as f32) / 2.0;
 
-                    position_vec.x = position_vec.x.clamp(-half_width + car_half_size, half_width - car_half_size);
-                    position_vec.y = position_vec.y.clamp(-half_height + car_half_size, half_height - car_half_size);
+                    position_vec.x = position_vec
+                        .x
+                        .clamp(-half_width + car_half_size, half_width - car_half_size);
+                    position_vec.y = position_vec
+                        .y
+                        .clamp(-half_height + car_half_size, half_height - car_half_size);
+
+                    // Resolve collisions against walls/other cars (same lobby only)
+                    let other_cars_iter = player_snapshots
+                        .iter()
+                        .filter(|(other_id, lobby_name, _, _)| {
+                            *other_id != player_id.0 && *lobby_name == lobby_member.lobby_name
+                        })
+                        .map(|(_, _, other_pos, other_vel)| (*other_pos, *other_vel));
+                    let should_update = handle_collision(
+                        position_vec.extend(0.0),
+                        prev_pos,
+                        &mut vel.velocity,
+                        &game_map,
+                        other_cars_iter,
+                    );
 
                     // Update position
-                    pos.x = position_vec.x;
-                    pos.y = position_vec.y;
+                    if should_update {
+                        pos.x = position_vec.x;
+                        pos.y = position_vec.y;
+                    }
 
                     // Update player state with processed input
                     player_state.last_processed_sequence = input_data.sequence;
@@ -105,6 +143,7 @@ pub fn physics_simulation_system(
                         left: input_data.left,
                         right: input_data.right,
                         drift: input_data.drift,
+                        easy_drift: input_data.easy_drift,
                     };
                 }
 
@@ -115,6 +154,7 @@ pub fn physics_simulation_system(
                 input_component.left = player_state.inputs.left;
                 input_component.right = player_state.inputs.right;
                 input_component.drift = player_state.inputs.drift;
+                input_component.easy_drift = player_state.inputs.easy_drift;
             }
         }
     }
@@ -134,7 +174,16 @@ pub fn broadcast_state_system(
     lobbies: Res<Lobbies>,
 ) {
     // Group players by lobby
-    let mut lobby_players: HashMap<String, Vec<(u32, &Position, &Velocity, &Orientation, &PlayerInputComponent)>> = HashMap::new();
+    let mut lobby_players: HashMap<
+        String,
+        Vec<(
+            u32,
+            &Position,
+            &Velocity,
+            &Orientation,
+            &PlayerInputComponent,
+        )>,
+    > = HashMap::new();
 
     for (player_id, pos, vel, orient, input, lobby_member) in query.iter() {
         lobby_players
@@ -152,22 +201,27 @@ pub fn broadcast_state_system(
 
         if let Some(players_data) = lobby_players.get(&lobby.name) {
             // Build positions payload
-            let positions_json: Vec<_> = players_data.iter().map(|(id, pos, vel, orient, input)| {
-                json!({
-                    "id": id,
-                    "x": pos.x,
-                    "y": pos.y,
-                    "vx": vel.x,
-                    "vy": vel.y,
-                    "angle": orient.angle,
-                    "last_processed_sequence": input.last_processed_sequence
+            let positions_json: Vec<_> = players_data
+                .iter()
+                .map(|(id, pos, vel, orient, input)| {
+                    json!({
+                        "id": id,
+                        "x": pos.x,
+                        "y": pos.y,
+                        "vx": vel.x,
+                        "vy": vel.y,
+                        "angle": orient.angle,
+                        "last_processed_sequence": input.last_processed_sequence
+                    })
                 })
-            }).collect();
+                .collect();
 
             let payload = json!({
                 "type": "game_state_update",
                 "players": positions_json
-            }).to_string() + "\n";
+            })
+            .to_string()
+                + "\n";
 
             // Get player IDs in this lobby
             let lobby_player_ids: Vec<u32> = lobby.players.lock().unwrap().clone();
@@ -217,17 +271,24 @@ pub fn process_server_commands_system(
     let recv = receiver.receiver.lock().unwrap();
     while let Ok(command) = recv.try_recv() {
         match command {
-            ServerCommand::SpawnPlayer { player_id, lobby_name, x, y } => {
+            ServerCommand::SpawnPlayer {
+                player_id,
+                lobby_name,
+                x,
+                y,
+            } => {
                 println!("Spawning player {} in lobby {}", player_id, lobby_name);
 
-                let entity = commands.spawn((
-                    PlayerId(player_id),
-                    Position { x, y },
-                    Velocity::new(),
-                    Orientation::new(0.0),
-                    PlayerInputComponent::default(),
-                    LobbyMember { lobby_name },
-                )).id();
+                let entity = commands
+                    .spawn((
+                        PlayerId(player_id),
+                        Position { x, y },
+                        Velocity::new(),
+                        Orientation::new(0.0),
+                        PlayerInputComponent::default(),
+                        LobbyMember { lobby_name },
+                    ))
+                    .id();
 
                 player_entities.map.insert(player_id, entity);
             }
@@ -248,5 +309,10 @@ pub fn timeout_cleanup_system(
     cmd_sender: Res<ServerCommandSender>,
 ) {
     const TIMEOUT_SECONDS: u64 = 10;
-    timeout_cleanup(&connected_clients, &lobbies.list, TIMEOUT_SECONDS, &cmd_sender.sender);
+    timeout_cleanup(
+        &connected_clients,
+        &lobbies.list,
+        TIMEOUT_SECONDS,
+        &cmd_sender.sender,
+    );
 }

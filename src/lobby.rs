@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::GameState;
-use crate::title_screen::{LobbyListContainer, LobbyRow, JoinButton};
+use crate::title_screen::{JoinButton, LobbyListContainer, LobbyRow};
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct LobbyScreenEntity;
@@ -41,7 +41,7 @@ pub fn setup_lobby(
     mut commands: &mut Commands,
     asset_server: AssetServer,
     lobby_state: &LobbyState,
-){
+) {
     commands.spawn((
         Text2d::new("Lobby"),
         TextColor(Color::BLACK),
@@ -75,7 +75,7 @@ pub fn setup_lobby(
             translation: Vec3::new(-570., 300., 1.),
             ..default()
         },
-        LobbyScreenEntity
+        LobbyScreenEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/keys/keyEsc.png")),
@@ -83,7 +83,7 @@ pub fn setup_lobby(
             translation: Vec3::new(-570., 220., 1.),
             ..default()
         },
-        LobbyScreenEntity
+        LobbyScreenEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/slantedButton.png")),
@@ -91,7 +91,7 @@ pub fn setup_lobby(
             translation: Vec3::new(0., -300., 1.),
             ..default()
         },
-        LobbyScreenEntity
+        LobbyScreenEntity,
     ));
     commands.spawn((
         Text2d::new("GO!"),
@@ -112,7 +112,7 @@ pub fn setup_lobby(
             translation: Vec3::new(-250., -300., 1.),
             ..default()
         },
-        LobbyScreenEntity
+        LobbyScreenEntity,
     ));
 
     // Spawn player slots dynamically based on connected players
@@ -189,13 +189,21 @@ pub fn update_lobby_display(
 
     // Update existing player name texts
     for (mut text, player_name_text) in name_text_query.iter_mut() {
-        if let Some(player_name) = lobby_state.connected_players.get(player_name_text.slot_index) {
+        if let Some(player_name) = lobby_state
+            .connected_players
+            .get(player_name_text.slot_index)
+        {
             text.0 = player_name.clone();
         }
     }
 
     // Count how many slots currently exist
-    let existing_slots = slot_query.iter().map(|(_, slot)| slot.slot_index).max().map(|i| i + 1).unwrap_or(0);
+    let existing_slots = slot_query
+        .iter()
+        .map(|(_, slot)| slot.slot_index)
+        .max()
+        .map(|i| i + 1)
+        .unwrap_or(0);
     let needed_slots = lobby_state.connected_players.len();
 
     // Spawn new slots if need more
@@ -253,8 +261,8 @@ pub fn populate_lobby_list(
     container_q: Query<Entity, With<LobbyListContainer>>,
     row_q: Query<Entity, With<LobbyRow>>,
 ) {
-    if !dirty.0 { 
-        return; 
+    if !dirty.0 {
+        return;
     }
     dirty.0 = false;
 
@@ -263,8 +271,8 @@ pub fn populate_lobby_list(
         commands.entity(e).despawn_recursive();
     }
 
-    let Ok(container) = container_q.get_single() else { 
-        return; 
+    let Ok(container) = container_q.get_single() else {
+        return;
     };
 
     for lobby in &list.0 {
@@ -290,14 +298,20 @@ pub fn populate_lobby_list(
                 // Lobby name
                 row.spawn((
                     Text::new(name.clone()),
-                    TextFont { font_size: 24.0, ..default() },
+                    TextFont {
+                        font_size: 24.0,
+                        ..default()
+                    },
                     TextColor(Color::BLACK),
                 ));
 
                 // Player count
                 row.spawn((
                     Text::new(players_label),
-                    TextFont { font_size: 22.0, ..default() },
+                    TextFont {
+                        font_size: 22.0,
+                        ..default()
+                    },
                     TextColor(Color::BLACK),
                 ));
 
@@ -310,12 +324,17 @@ pub fn populate_lobby_list(
                     },
                     BackgroundColor(Color::srgb_u8(230, 240, 255)),
                     BorderRadius::all(Val::Px(8.0)),
-                    JoinButton { lobby_name: name.clone() },
+                    JoinButton {
+                        lobby_name: name.clone(),
+                    },
                 ))
                 .with_children(|b| {
                     b.spawn((
                         Text::new("Join"),
-                        TextFont { font_size: 22.0, ..default() },
+                        TextFont {
+                            font_size: 22.0,
+                            ..default()
+                        },
                         TextColor(Color::srgb_u8(10, 60, 140)),
                     ));
                 });

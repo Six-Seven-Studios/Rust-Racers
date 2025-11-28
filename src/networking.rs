@@ -1,9 +1,9 @@
-use serde::{Serialize, Deserialize};
-use std::{io, thread};
-use std::net::{UdpSocket, SocketAddr};
-use std::sync::mpsc::Sender;
 use bevy::tasks::IoTaskPool;
+use serde::{Deserialize, Serialize};
+use std::net::{SocketAddr, UdpSocket};
+use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
+use std::{io, thread};
 
 // Single input with sequence number
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -14,6 +14,7 @@ pub struct InputData {
     pub left: bool,
     pub right: bool,
     pub drift: bool,
+    pub easy_drift: bool,
 }
 
 // Single position snapshot with sequence number
@@ -30,17 +31,31 @@ pub struct PositionSnapshot {
 #[derive(Serialize)]
 #[serde(tag = "type")]
 pub enum MessageType {
-    CreateLobby { name: String },
+    CreateLobby {
+        name: String,
+    },
 
-    JoinLobby { name: String },
+    JoinLobby {
+        name: String,
+    },
 
-    LeaveLobby { name: String },
+    LeaveLobby {
+        name: String,
+    },
 
     ListLobbies,
 
-    StartLobby { name: String },
+    StartLobby {
+        name: String,
+    },
 
-    CarPosition { x: f32, y: f32, vx: f32, vy: f32, angle: f32 },
+    CarPosition {
+        x: f32,
+        y: f32,
+        vx: f32,
+        vy: f32,
+        angle: f32,
+    },
 
     PlayerInput {
         sequence: u64,
@@ -49,6 +64,7 @@ pub enum MessageType {
         left: bool,
         right: bool,
         drift: bool,
+        easy_drift: bool,
     },
 
     // New buffered input message
@@ -121,14 +137,21 @@ pub struct Client {
 impl Client {
     pub fn connect(address: String) -> io::Result<Self> {
         // Parse the server address
-        let server_addr: SocketAddr = address.parse()
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid address: {}", e)))?;
+        let server_addr: SocketAddr = address.parse().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Invalid address: {}", e),
+            )
+        })?;
 
         // Bind to any available local port
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         println!("Connected to server at {}", address);
 
-        Ok(Self { socket, server_addr })
+        Ok(Self {
+            socket,
+            server_addr,
+        })
     }
 
     // Get a cloned socket for the listener thread
@@ -169,8 +192,25 @@ impl Client {
         self.send(MessageType::StartLobby { name })
     }
 
-    pub fn send_player_input(&mut self, sequence: u64, forward: bool, backward: bool, left: bool, right: bool, drift: bool) -> io::Result<()> {
-        self.send(MessageType::PlayerInput { sequence, forward, backward, left, right, drift })
+    pub fn send_player_input(
+        &mut self,
+        sequence: u64,
+        forward: bool,
+        backward: bool,
+        left: bool,
+        right: bool,
+        drift: bool,
+        easy_drift: bool,
+    ) -> io::Result<()> {
+        self.send(MessageType::PlayerInput {
+            sequence,
+            forward,
+            backward,
+            left,
+            right,
+            drift,
+            easy_drift,
+        })
     }
 
     pub fn send_player_input_buffer(&mut self, inputs: Vec<InputData>) -> io::Result<()> {
@@ -194,57 +234,59 @@ pub enum IncomingMessage {
 // Function to spawn a listener thread that continuously reads from server
 pub fn spawn_listener_thread(socket: UdpSocket, sender: Sender<IncomingMessage>) {
     let task_pool = IoTaskPool::get();
-    task_pool.spawn(async move {
-        let mut buf = [0u8; 65536]; // UDP buffer
+    task_pool
+        .spawn(async move {
+            let mut buf = [0u8; 65536]; // UDP buffer
 
-        loop {
-            match socket.recv_from(&mut buf) {
-                Ok((len, _addr)) => {
-                    let data = &buf[..len];
+            loop {
+                match socket.recv_from(&mut buf) {
+                    Ok((len, _addr)) => {
+                        let data = &buf[..len];
 
-                    // Convert bytes to string
-                    if let Ok(message_str) = std::str::from_utf8(data) {
-                        let trimmed = message_str.trim();
-                        if trimmed.is_empty() {
-                            continue;
-                        }
-
-                        // Try to parse welcome message
-                        if trimmed.starts_with("WELCOME PLAYER ") {
-                            if let Some(id_str) = trimmed.strip_prefix("WELCOME PLAYER ") {
-                                if let Ok(player_id) = id_str.parse::<u32>() {
-                                    let _ = sender.send(IncomingMessage::Welcome(player_id));
-                                }
+                        // Convert bytes to string
+                        if let Ok(message_str) = std::str::from_utf8(data) {
+                            let trimmed = message_str.trim();
+                            if trimmed.is_empty() {
+                                continue;
                             }
-                            continue;
-                        }
 
-                        // Try parsing as ServerMessage
-                        if let Ok(msg) = serde_json::from_str::<ServerMessage>(trimmed) {
-                            let _ = sender.send(IncomingMessage::ServerMessage(msg));
-                            continue;
-                        }
+                            // Try to parse welcome message
+                            if trimmed.starts_with("WELCOME PLAYER ") {
+                                if let Some(id_str) = trimmed.strip_prefix("WELCOME PLAYER ") {
+                                    if let Ok(player_id) = id_str.parse::<u32>() {
+                                        let _ = sender.send(IncomingMessage::Welcome(player_id));
+                                    }
+                                }
+                                continue;
+                            }
 
-                        // Try parsing as LobbyStateMessage
-                        if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
-                            let _ = sender.send(IncomingMessage::LobbyState(msg));
-                            continue;
-                        }
+                            // Try parsing as ServerMessage
+                            if let Ok(msg) = serde_json::from_str::<ServerMessage>(trimmed) {
+                                let _ = sender.send(IncomingMessage::ServerMessage(msg));
+                                continue;
+                            }
 
-                        // Try parsing as PositionsMessage
-                        if let Ok(msg) = serde_json::from_str::<PositionsMessage>(trimmed) {
-                            let _ = sender.send(IncomingMessage::Positions(msg));
-                            continue;
-                        }
+                            // Try parsing as LobbyStateMessage
+                            if let Ok(msg) = serde_json::from_str::<LobbyStateMessage>(trimmed) {
+                                let _ = sender.send(IncomingMessage::LobbyState(msg));
+                                continue;
+                            }
 
-                        println!("Unknown message from server: {}", trimmed);
+                            // Try parsing as PositionsMessage
+                            if let Ok(msg) = serde_json::from_str::<PositionsMessage>(trimmed) {
+                                let _ = sender.send(IncomingMessage::Positions(msg));
+                                continue;
+                            }
+
+                            println!("Unknown message from server: {}", trimmed);
+                        }
+                    }
+                    Err(e) => {
+                        println!("Error receiving from server: {}", e);
+                        break;
                     }
                 }
-                Err(e) => {
-                    println!("Error receiving from server: {}", e);
-                    break;
-                }
             }
-        }
-    }).detach();
+        })
+        .detach();
 }
