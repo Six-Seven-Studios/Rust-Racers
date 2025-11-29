@@ -222,6 +222,12 @@ pub enum ServerCommand {
         x: f32,
         y: f32,
     },
+    SpawnAI {
+        ai_id: u32,
+        lobby_name: String,
+        x: f32,
+        y: f32,
+    },
     DespawnPlayer {
         player_id: u32,
     },
