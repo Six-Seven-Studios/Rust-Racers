@@ -113,6 +113,7 @@ fn main() {
                 process_server_commands_system,
                 sync_input_from_lobbies_system,
                 physics_simulation_system,
+                ai_movement_system,
                 broadcast_state_system,
                 timeout_cleanup_system,
             )

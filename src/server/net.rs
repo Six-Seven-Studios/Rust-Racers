@@ -341,6 +341,22 @@ fn handle_client_message(
                     });
                 }
 
+                // Spawn AI cars to fill empty slots (up to 4 total)
+                let num_players = players.len();
+                let num_ai = 4 - num_players;
+                for i in 0..num_ai {
+                    let ai_id = 1000 + i as u32;
+                    let spawn_x = 2752.0 + ((num_players + i) as f32) * 100.0;
+                    let spawn_y = 960.0;
+
+                    let _ = sender.send(ServerCommand::SpawnAI {
+                        ai_id,
+                        lobby_name: name.clone(),
+                        x: spawn_x,
+                        y: spawn_y,
+                    });
+                }
+
                 let _ = send_to_client(
                     id,
                     connected_clients,
