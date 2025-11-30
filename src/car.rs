@@ -1,7 +1,7 @@
-
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
+use crate::speed::SpeedBoost;
 use crate::game_logic::{
     bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
     ThetaCommand, TILE_SIZE,
@@ -11,7 +11,7 @@ use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
 };
-use bevy::prelude::*;
+use bevy::{color, prelude::*};
 
 // Car-related components
 #[derive(Component)]
@@ -24,12 +24,12 @@ pub fn move_player_car(
     input: Res<ButtonInput<KeyCode>>,
     drift_settings: Res<DriftSettings>,
     player_car: Single<
-        (&mut Transform, &mut Velocity, &mut Orientation),
+        (&mut Transform, &mut Velocity, &mut Orientation, &mut Sprite, Option<&SpeedBoost>),
         (With<PlayerControlled>, Without<Background>),
-    >,
+    >,  
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
-    let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
+    let (mut transform, mut velocity, mut orientation, mut sprite, speed_boost) = player_car.into_inner();
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
@@ -53,11 +53,11 @@ pub fn move_player_car(
     // Get the current tile
     let pos = transform.translation.truncate();
     let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-
+    // println!("title id: {}",tile.tile_id);
     // Modifiers from terrain
-    let fric_mod = tile.friction_modifier;
-    let speed_mod = tile.speed_modifier;
-    let turn_mod = tile.turn_modifier;
+    let mut fric_mod = tile.friction_modifier;
+    let mut speed_mod = tile.speed_modifier;
+    let mut turn_mod = tile.turn_modifier;
     let decel_mod = tile.decel_modifier;
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
@@ -88,6 +88,26 @@ pub fn move_player_car(
     gizmos.circle_2d(world_pos1, 8.0, color);
     gizmos.circle_2d(world_pos2, 8.0, color);
     */
+
+    // Speed boost override
+
+    // if tile.speed_boost {
+    //     **velocity = orientation.forward_vector() * PLAYER_SPEED * 1.5;
+    // }
+
+    if speed_boost.is_some(){
+    
+        fric_mod = 10.0;
+        speed_mod = 3.0;
+        turn_mod = 1.5;
+        // print!("Speed boost on tile at {}, {}\n", x, y);
+        // ADD SPEED BOOST COLOR CHANGE HERE
+        let hue = (time.elapsed_secs() * 180.0) % 360.0; // Speed of 180 degrees/sec
+        sprite.color = Color::hsl(hue, 1.0, 0.7); // Full saturation, 70% lightness
+
+    } else {
+        sprite.color = Color::WHITE; // Normal color (no tint)
+    }
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
@@ -183,6 +203,7 @@ pub fn move_player_car(
         transform.translation = new_position;
     }
 }
+
 
 pub fn move_ai_cars(
     game_map: Res<GameMap>,
@@ -342,7 +363,7 @@ pub fn spawn_cars(
     if *state.get() == crate::GameState::PlayingDemo {
         commands.spawn((
             Sprite::from_atlas_image(
-                car_sheet_handle.clone(),
+                asset_server.load("CPU.png"),
                 TextureAtlas {
                     layout: car_layout_handle.clone(),
                     index: 0,
