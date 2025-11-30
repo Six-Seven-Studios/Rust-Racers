@@ -1,4 +1,5 @@
 mod camera;
+mod speed;
 mod car;
 mod car_state;
 mod client_prediction;
@@ -12,8 +13,9 @@ mod networking_plugin;
 mod title_screen;
 mod victory_screen;
 mod interpolation;
-mod speed;
 
+
+pub use speed::{spawn_speed_powerups, collect_powerups, update_speed_boost, spawn_boost_ui, remove_boost_ui, SpeedBoost, SpeedPowerup};
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
@@ -26,7 +28,6 @@ use bevy::{prelude::*, window::PresentMode, color::palettes::basic::*, input_foc
 use bevy::render::camera::{Projection, ScalingMode};
 use networking_plugin::NetworkingPlugin;
 use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity};
-pub use speed::{spawn_speed_powerups, collect_powerups, update_speed_boost, SpeedBoost, SpeedPowerup};
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
@@ -152,6 +153,8 @@ fn main() {
             spawn_speed_powerups,
             collect_powerups,
             update_speed_boost, 
+            spawn_boost_ui,     // Add this
+            remove_boost_ui,        
         ).run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))))
         .run();
 }

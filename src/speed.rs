@@ -13,6 +13,9 @@ pub struct SpeedBoost {
     pub timer: Timer,
 }
 
+#[derive(Component)]
+pub struct ShowBoostBox;
+
 // System to spawn powerups on road tiles
 pub fn spawn_speed_powerups(
     mut commands: Commands,
@@ -70,16 +73,24 @@ pub fn collect_powerups(
     mut commands: Commands,
     player_query: Query<(Entity, &Transform), With<PlayerControlled>>,
     powerup_query: Query<(Entity, &Transform), With<SpeedPowerup>>,
+    asset_server: Res<AssetServer>,
+    boost_query: Query<&SpeedBoost, With<PlayerControlled>>,
 ) {
     const PICKUP_DISTANCE: f32 = 64.0;
     
-    if let Ok((player_entity, player_transform)) = player_query.single() {
+    if let Ok((player_entity, player_transform)) = player_query.single(){
+
+        if boost_query.get(player_entity).is_ok() {
+            // Player already has a boost, don't pick up more
+            return;
+        }
+
         let player_pos = player_transform.translation.truncate();
         
         for (powerup_entity, powerup_transform) in powerup_query.iter() {
             let powerup_pos = powerup_transform.translation.truncate();
             let distance = player_pos.distance(powerup_pos);
-            
+                    
             if distance < PICKUP_DISTANCE {
                 // Despawn the powerup
                 commands.entity(powerup_entity).despawn();
@@ -109,6 +120,61 @@ pub fn update_speed_boost(
             sprite.color = Color::WHITE;
             commands.entity(entity).remove::<SpeedBoost>();
             println!("Speed boost expired!");
+        }
+    }
+}
+
+pub fn spawn_boost_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    // Get players that have a boost
+    player_query: Query<Entity, (With<PlayerControlled>, With<SpeedBoost>)>,
+    existing_ui: Query<Entity, With<ShowBoostBox>>,
+) {
+    // spawn if no power up ui exists
+    if existing_ui.is_empty() {
+        if player_query.single().is_ok() {
+            commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        // Top right corner of screen
+                        right: Val::Px(20.0),
+                        top: Val::Px(20.0),
+                        width: Val::Px(150.0),
+                        height: Val::Px(150.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), // Semi-transparent black
+                    ZIndex(-1000),
+                    ShowBoostBox,
+                ))
+                .with_children(|parent| {
+                    // Add the powerup image inside the box
+                    parent.spawn((
+                        ImageNode::new(asset_server.load("GasCanPowerUp.png")),
+                        Node {
+                            width: Val::Px(100.0),
+                            height: Val::Px(100.0),
+                            ..default()
+                        },
+                    ));
+                });
+        }
+    }
+}
+
+pub fn remove_boost_ui(
+    mut commands: Commands,
+    player_query: Query<Entity, (With<PlayerControlled>, Without<SpeedBoost>)>,
+    ui_query: Query<Entity, With<ShowBoostBox>>,
+) {
+    // If player doesn't have boost anymore, remove the UI
+    if player_query.single().is_ok() {
+        for ui_entity in ui_query.iter() {
+            commands.entity(ui_entity).despawn();
         }
     }
 }

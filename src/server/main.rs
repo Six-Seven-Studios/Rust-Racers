@@ -3,6 +3,8 @@
 mod game_logic;
 
 // Client modules needed because game_logic/lap_system imports them
+#[path = "../speed.rs"]
+mod speed;
 #[path = "../car.rs"]
 mod car;
 #[path = "../car_state.rs"]

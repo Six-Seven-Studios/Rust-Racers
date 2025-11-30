@@ -1,6 +1,7 @@
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
+use crate::speed::SpeedBoost;
 use crate::game_logic::{
     bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
     ThetaCommand, TILE_SIZE,
@@ -11,7 +12,6 @@ use crate::game_logic::{
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
 };
 use bevy::{color, prelude::*};
-use crate::speed::SpeedBoost;
 
 // Car-related components
 #[derive(Component)]
@@ -95,7 +95,7 @@ pub fn move_player_car(
     //     **velocity = orientation.forward_vector() * PLAYER_SPEED * 1.5;
     // }
 
-    if /*speed_boost.is_some()*/ true{
+    if speed_boost.is_some(){
     
         fric_mod = 10.0;
         speed_mod = 3.0;
@@ -363,7 +363,7 @@ pub fn spawn_cars(
     if *state.get() == crate::GameState::PlayingDemo {
         commands.spawn((
             Sprite::from_atlas_image(
-                car_sheet_handle.clone(),
+                asset_server.load("CPU.png"),
                 TextureAtlas {
                     layout: car_layout_handle.clone(),
                     index: 0,
