@@ -71,7 +71,7 @@ fn main() {
         .insert_resource(Time::<Fixed>::from_hz(60.0)) // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
-        .add_systems(OnEnter(GameState::PlayingDemo), load_map_demo) // THETA* DEMO (but could support our second map)
+        .add_systems(OnEnter(GameState::PlayingDemo), load_map2) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
@@ -85,7 +85,7 @@ fn main() {
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map_demo),
+            (car_setup, spawn_map, spawn_lap_triggers).after(load_map2),
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
