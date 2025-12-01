@@ -257,6 +257,6 @@ impl GameMap {
 
 impl Default for GameMap {
     fn default() -> Self {
-        load_map_from_file("assets/map.txt")
+        load_map_from_file("assets/big-map.txt")
     }
 }

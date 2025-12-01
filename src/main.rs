@@ -32,6 +32,7 @@ use game_logic::{
 };
 use lobby::{LobbyList, LobbyListDirty, LobbyState, populate_lobby_list, update_lobby_display};
 use networking_plugin::NetworkingPlugin;
+use networking::SelectedMap;
 use title_screen::{
     ServerAddress, check_for_lobby_input, check_for_title_input, pause, setup_title_screen,
     sync_server_address,
@@ -72,6 +73,8 @@ fn main() {
         )
         .add_plugins(NetworkingPlugin)
         .init_resource::<car_skins::CarSkinSelection>()
+        .init_resource::<networking::SelectedMap>()
+        .init_resource::<title_screen::IpTypingMode>()
         .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
@@ -82,7 +85,10 @@ fn main() {
         .init_resource::<client_prediction::InputBuffer>()
         .insert_resource(Time::<Fixed>::from_hz(60.0)) // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
-        .add_systems(OnEnter(GameState::Playing), load_map1)
+        .add_systems(
+            OnEnter(GameState::Playing),
+            (load_selected_map, car_setup, spawn_map, spawn_lap_triggers).chain(),
+        )
         .add_systems(OnEnter(GameState::PlayingDemo), load_map2) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
@@ -92,10 +98,6 @@ fn main() {
         .init_resource::<interpolation::InterpolationDelay>()
         .add_systems(Startup, camera_setup)
         .add_systems(OnEnter(GameState::Title), setup_title_screen)
-        .add_systems(
-            OnEnter(GameState::Playing),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map1),
-        )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
             (car_setup, spawn_map, spawn_lap_triggers).after(load_map2),
@@ -208,13 +210,8 @@ fn ai_car_setup(
     }
 }
 
-fn load_map1(mut commands: Commands) {
-    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
-}
-
-//THETA* DEMO
-fn load_map_demo(mut commands: Commands) {
-    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
+fn load_selected_map(mut commands: Commands, selected_map: Res<SelectedMap>) {
+    commands.insert_resource(load_map_from_file(selected_map.choice.path()));
 }
 
 // map2
