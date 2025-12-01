@@ -149,6 +149,7 @@ pub struct Lobby {
     pub name: String,
     pub started: bool,
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
+    pub map: GameMap,
 }
 
 impl Default for Lobby {

@@ -143,6 +143,21 @@ fn handle_client_message(
             new_lobby.name = name.clone();
             new_lobby.host = id;
             new_lobby.players.lock().unwrap().push(id);
+            // add game_map to new_lobby's data
+            let mut rng = rand::rng();
+            let map_num = rng.random_range(1..=2);
+            let game_map;
+            if map_num == 1 {
+                println!("Server loading map 1 (small)");
+                game_map = load_map_from_file("assets/map.txt");
+                println!("Server loaded map: {}x{}", game_map.width, game_map.height);
+            } else {
+                println!("Server loading map 2 (big)");
+                game_map = load_map_from_file("assets/big-map.txt");
+                println!("Server loaded map: {}x{}", game_map.width, game_map.height);
+            }
+            new_lobby.map = game_map;
+
             guard.push(new_lobby);
 
             let lobby_index = guard.len() - 1;

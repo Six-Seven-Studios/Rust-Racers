@@ -46,7 +46,6 @@ use net::*;
 use simulation::*;
 use types::*;
 use utils::*;
-use rand::prelude::*;
 
 use speed::{
     SpeedBoost, SpeedPowerup, collect_powerups, remove_boost_ui, spawn_boost_ui,
@@ -97,20 +96,6 @@ fn main() {
         Arc::clone(&cmd_sender),
     );
 
-    // Load the game map for server-side physics
-    let mut rng = rand::rng();
-    let map_num = rng.random_range(1..=2);
-    let game_map;
-    if map_num == 1 {
-        println!("Server loading map 1 (small)");
-        game_map = load_map_from_file("assets/map.txt");
-        println!("Server loaded map: {}x{}", game_map.width, game_map.height);
-    } else {
-        println!("Server loading map 2 (big)");
-        game_map = load_map_from_file("assets/big-map.txt");
-        println!("Server loaded map: {}x{}", game_map.width, game_map.height);
-    }
-
     // Create headless server with 20 Hz timestep
     // Using Update schedule since run_loop already controls the rate
     App::new()
@@ -126,7 +111,6 @@ fn main() {
             receiver: cmd_receiver,
         })
         .insert_resource(ServerCommandSender { sender: cmd_sender })
-        .insert_resource(game_map)
         .add_systems(
             Update,
             (

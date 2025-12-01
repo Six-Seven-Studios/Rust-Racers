@@ -24,8 +24,8 @@ pub fn physics_simulation_system(
         &LobbyMember,
     )>,
     lobbies: Res<Lobbies>,
-    game_map: Res<GameMap>,
 ) {
+
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
         let guard = lobbies.list.lock().unwrap();
@@ -48,6 +48,9 @@ pub fn physics_simulation_system(
             )
         })
         .collect();
+
+    // set the map to this lobby's map
+    let game_map = &lobby.map;
 
     // Process each player
     for (player_id, mut pos, mut vel, mut orient, mut input_component, lobby_member) in
