@@ -20,7 +20,7 @@ use speed::{
     spawn_speed_powerups, update_speed_boost,
 };
 
-use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity};
+use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity, MapLevelData};
 use bevy::render::camera::{Projection, ScalingMode};
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, window::PresentMode};
 use camera::{WIN_H, WIN_W, move_camera, reset_camera_for_credits};
@@ -83,6 +83,7 @@ fn main() {
         .init_resource::<drift_settings::DriftSettings>()
         .init_resource::<client_prediction::InputSequence>()
         .init_resource::<client_prediction::InputBuffer>()
+        .init_resource::<MapLevelData>()
         .insert_resource(Time::<Fixed>::from_hz(60.0)) // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
@@ -191,6 +192,7 @@ fn car_setup(
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<GameState>>,
+    map_data: Res<MapLevelData>,
     skin_selection: Res<car_skins::CarSkinSelection>,
 ) {
     // spawn_cars now detects the game mode and spawns accordingly
@@ -212,12 +214,56 @@ fn ai_car_setup(
     }
 }
 
+// Merged Function: Loads map file AND sets up MapLevelData based on selection
 fn load_selected_map(mut commands: Commands, selected_map: Res<SelectedMap>) {
-    commands.insert_resource(load_map_from_file(selected_map.choice.path()));
+    let map_path = selected_map.choice.path();
+    commands.insert_resource(load_map_from_file(map_path));
+
+    // Define data for Map 1 (Default/Big Map)
+    let map1_data = MapLevelData {
+        start_position: Vec3::new(0.0, 0.0, 5.0),
+        finish_line_pos: Vec3::new(2752., 960., 5.),
+        checkpoints: vec![
+            (Vec3::new(2752., 1500., 10.), 0.0),
+            (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-2044., -1493., 10.), 0.0),
+            (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(2100., -150., 10.), 0.0),
+        ],
+    };
+
+    // Define data for Map 2
+    let map2_data = MapLevelData {
+        start_position: Vec3::new(1300.0, -1131.0, 5.0), 
+        finish_line_pos: Vec3::new(1300.0, -1131.0, 5.0), 
+        checkpoints: vec![
+            (Vec3::new(1386., 974., 10.), 0.0),
+            (Vec3::new(3175., 1949., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(-1891., 2167., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-471., 2146., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(862., 1907., 10.), 0.0),
+            (Vec3::new(-1834., 30., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(-2841., 2059., 10.), 0.0),
+            (Vec3::new(-3738., 1465., 10.), 0.0),
+            (Vec3::new(-91., -2441., 10.), 0.0),
+            (Vec3::new(3117., -2376., 10.), 0.0),
+        ],
+    };
+
+    // Determine which data to inject
+    if map_path.contains("map2") {
+        commands.insert_resource(map2_data);
+    } else {
+        commands.insert_resource(map1_data);
+    }
 }
 
-// map2
+// Map 2 Loader for PlayingDemo state
 fn load_map2(mut commands: Commands) {
+    // load grid
     commands.insert_resource(load_map_from_file("assets/map2.txt"));
 }
 
@@ -226,4 +272,25 @@ fn initialize_theta_grid(mut commands: Commands, game_map: Res<GameMap>) {
     use game_logic::theta_grid::ThetaGrid;
     let theta_grid = ThetaGrid::create_theta_grid(&game_map, TILE_SIZE as f32);
     commands.insert_resource(theta_grid);
+}
+
+    // define triggers and positions
+    let map2_data = MapLevelData {
+        start_position: Vec3::new(1300.0, -1131.0, 5.0), 
+        finish_line_pos: Vec3::new(1300.0, -1131.0, 5.0), 
+        checkpoints: vec![
+            (Vec3::new(1386., 974., 10.), 0.0),
+            (Vec3::new(3175., 1949., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(-1891., 2167., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-471., 2146., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(862., 1907., 10.), 0.0),
+            (Vec3::new(-1834., 30., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(-2841., 2059., 10.), 0.0),
+            (Vec3::new(-3738., 1465., 10.), 0.0),
+            (Vec3::new(-91., -2441., 10.), 0.0),
+            (Vec3::new(3117., -2376., 10.), 0.0),
+        ],
+    };
+
+    commands.insert_resource(map2_data);
 }
