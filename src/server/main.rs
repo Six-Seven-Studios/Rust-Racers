@@ -25,6 +25,8 @@ mod networking_plugin;
 mod title_screen;
 
 // Server modules
+
+
 mod client_prediction;
 mod lobby_management;
 mod net;
@@ -44,6 +46,9 @@ use net::*;
 use simulation::*;
 use types::*;
 use utils::*;
+
+use speed::{spawn_speed_powerups, collect_powerups, update_speed_boost, spawn_boost_ui, remove_boost_ui, SpeedBoost, SpeedPowerup};
+
 
 fn main() {
     // Display the local IP address
@@ -121,5 +126,12 @@ fn main() {
             )
                 .chain(),
         )
+        .add_systems(Update, (
+            spawn_speed_powerups,
+            collect_powerups,
+            update_speed_boost, 
+            spawn_boost_ui,     
+            remove_boost_ui,        
+        ).run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))))
         .run();
 }
