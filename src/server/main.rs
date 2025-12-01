@@ -5,6 +5,8 @@ mod game_logic;
 // Client modules needed because game_logic/lap_system imports them
 #[path = "../car.rs"]
 mod car;
+#[path = "../car_skins.rs"]
+mod car_skins;
 #[path = "../car_state.rs"]
 mod car_state;
 #[path = "../drift_settings.rs"]
@@ -25,7 +27,6 @@ mod speed;
 mod title_screen;
 
 // Server modules
-
 mod client_prediction;
 mod lobby_management;
 mod net;

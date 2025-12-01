@@ -1,5 +1,7 @@
 use crate::GameState;
+use crate::car_skins::CarSkinSelection;
 use crate::drift_settings::DriftSettings;
+use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
@@ -28,6 +30,12 @@ pub struct CustomizingScreenEntity;
 
 #[derive(Component)]
 pub struct TitleScreenAudio;
+
+#[derive(Component)]
+pub struct SkinPreview;
+
+#[derive(Component)]
+pub struct SkinLabel;
 
 #[derive(Component)]
 pub struct LobbyNameInput;
@@ -64,16 +72,31 @@ pub fn sync_server_address(
     }
 }
 
-use bevy::ecs::system::SystemParam;
-
-// bundling all your screen queries into one struct to save space
 #[derive(SystemParam)]
-pub struct MenuScreens<'w, 's> {
-    pub main: Query<'w, 's, Entity, With<MainScreenEntity>>,
-    pub lobby: Query<'w, 's, Entity, With<crate::lobby::LobbyScreenEntity>>,
-    pub join: Query<'w, 's, Entity, With<JoinScreenEntity>>,
-    pub settings: Query<'w, 's, Entity, With<SettingsScreenEntity>>,
-    pub customize: Query<'w, 's, Entity, With<CustomizingScreenEntity>>,
+pub struct TitleUiQueries<'w, 's> {
+    pub difficulty_text: Query<
+        'w,
+        's,
+        &'static mut Text2d,
+        (
+            With<CpuDifficultyText>,
+            Without<LobbyNameInput>,
+            Without<ServerIpInput>,
+            Without<SkinLabel>,
+        ),
+    >,
+    pub skin_preview: Query<'w, 's, &'static mut Sprite, With<SkinPreview>>,
+    pub skin_label: Query<
+        'w,
+        's,
+        &'static mut Text2d,
+        (
+            With<SkinLabel>,
+            Without<CpuDifficultyText>,
+            Without<ServerIpInput>,
+            Without<LobbyNameInput>,
+        ),
+    >,
 }
 
 pub fn check_for_title_input(
@@ -82,40 +105,25 @@ pub fn check_for_title_input(
     current_state: Res<State<GameState>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    // added a menu screen to trim down this function
-    screens: MenuScreens,
+    main_screen_query: Query<Entity, With<MainScreenEntity>>,
+    settings_screen_query: Query<Entity, With<SettingsScreenEntity>>,
+    customize_screen_query: Query<Entity, With<CustomizingScreenEntity>>,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
-    // Without<CpuDifficultyText> here
-    mut lobby_name_query: Query<
-        &mut Text2d,
-        (
-            With<LobbyNameInput>,
-            Without<ServerIpInput>,
-            Without<CpuDifficultyText>,
-        ),
-    >,
-    // Without<CpuDifficultyText> here
     mut server_ip_query: Query<
         &mut Text2d,
         (
             With<ServerIpInput>,
             Without<LobbyNameInput>,
             Without<CpuDifficultyText>,
+            Without<SkinLabel>,
         ),
     >,
     server_address: Res<ServerAddress>,
     mut cpu_difficulty: ResMut<CpuDifficulty>,
     mut drift_settings: ResMut<DriftSettings>,
-    // Without<LobbyNameInput> and Without<ServerIpInput> here
-    mut difficulty_text_query: Query<
-        &mut Text2d,
-        (
-            With<CpuDifficultyText>,
-            Without<LobbyNameInput>,
-            Without<ServerIpInput>,
-        ),
-    >,
+    mut skin_selection: ResMut<CarSkinSelection>,
+    mut ui_queries: TitleUiQueries,
 ) {
     match *current_state.get() {
         GameState::Title => {
@@ -186,7 +194,7 @@ pub fn check_for_title_input(
 
                 // Transition to creating lobby
                 next_state.set(GameState::Creating);
-                destroy_screen(&mut commands, &screens.main);
+                destroy_screen(&mut commands, &main_screen_query);
 
                 setup_create_lobby(commands, asset_server);
             } else if !is_typing_ip && input.just_pressed(KeyCode::Digit2) {
@@ -211,16 +219,16 @@ pub fn check_for_title_input(
                 }
 
                 next_state.set(GameState::Joining);
-                destroy_screen(&mut commands, &screens.main);
+                destroy_screen(&mut commands, &main_screen_query);
 
                 setup_join_lobby(commands, asset_server);
             } else if !is_typing_ip && input.just_pressed(KeyCode::Digit3) {
                 next_state.set(GameState::Customizing);
-                destroy_screen(&mut commands, &screens.main);
-                setup_customizing(commands, asset_server);
+                destroy_screen(&mut commands, &main_screen_query);
+                setup_customizing(commands, asset_server, &*skin_selection);
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Settings);
-                destroy_screen(&mut commands, &screens.main);
+                destroy_screen(&mut commands, &main_screen_query);
                 setup_settings(
                     commands,
                     asset_server,
@@ -231,14 +239,31 @@ pub fn check_for_title_input(
             // Theta* DEMO
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit4) {
                 next_state.set(GameState::PlayingDemo);
-                destroy_screen(&mut commands, &screens.main);
+                destroy_screen(&mut commands, &main_screen_query);
             }
         }
         GameState::Customizing => {
-            if input.just_pressed(KeyCode::Escape) {
+            let mut updated_skin = false;
+            if input.just_pressed(KeyCode::KeyA) || input.just_pressed(KeyCode::ArrowLeft) {
+                skin_selection.prev();
+                updated_skin = true;
+            } else if input.just_pressed(KeyCode::KeyD) || input.just_pressed(KeyCode::ArrowRight) {
+                skin_selection.next();
+                updated_skin = true;
+            } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &screens.customize);
+                destroy_screen(&mut commands, &customize_screen_query);
                 setup_title_screen(commands, asset_server, server_address);
+                return;
+            }
+
+            if updated_skin {
+                if let Ok(mut sprite) = ui_queries.skin_preview.get_single_mut() {
+                    sprite.image = asset_server.load(skin_selection.current_skin());
+                }
+                if let Ok(mut text) = ui_queries.skin_label.get_single_mut() {
+                    text.0 = format!("Skin: {}", skin_selection.current_label());
+                }
             }
         }
         GameState::Settings => {
@@ -246,18 +271,18 @@ pub fn check_for_title_input(
                 drift_settings.toggle();
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Title);
-                destroy_screen(&mut commands, &screens.settings);
+                destroy_screen(&mut commands, &settings_screen_query);
                 setup_title_screen(commands, asset_server, server_address);
             } else if input.just_pressed(KeyCode::ArrowLeft) || input.just_pressed(KeyCode::KeyA) {
                 // cycle difficulty
                 *cpu_difficulty = cpu_difficulty.prev();
-                if let Ok(mut text) = difficulty_text_query.single_mut() {
+                if let Ok(mut text) = ui_queries.difficulty_text.single_mut() {
                     text.0 = format!("CPU Difficulty: {}", cpu_difficulty.as_str());
                 }
             } else if input.just_pressed(KeyCode::ArrowRight) || input.just_pressed(KeyCode::KeyD) {
                 // cycle difficulty up
                 *cpu_difficulty = cpu_difficulty.next();
-                if let Ok(mut text) = difficulty_text_query.single_mut() {
+                if let Ok(mut text) = ui_queries.difficulty_text.single_mut() {
                     text.0 = format!("CPU Difficulty: {}", cpu_difficulty.as_str());
                 }
             }
@@ -939,7 +964,11 @@ fn setup_settings(
     ));
 }
 
-fn setup_customizing(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_customizing(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    skin_selection: &CarSkinSelection,
+) {
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
         Transform {
@@ -986,13 +1015,32 @@ fn setup_customizing(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         CustomizingScreenEntity,
     ));
+
+    // Preview sprite for the currently selected skin
     commands.spawn((
-        Sprite::from_image(asset_server.load("car.png")),
+        Sprite::from_image(asset_server.load(skin_selection.current_skin())),
         Transform {
             translation: Vec3::new(0., 0., 1.),
             ..default()
         },
         CustomizingScreenEntity,
+        SkinPreview,
+    ));
+
+    // Label for the selected skin name
+    commands.spawn((
+        Text2d::new(format!("Skin: {}", skin_selection.current_label())),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(0., -120., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 32.0,
+            ..default()
+        },
+        CustomizingScreenEntity,
+        SkinLabel,
     ));
 }
 
