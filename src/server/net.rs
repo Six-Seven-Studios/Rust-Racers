@@ -4,8 +4,10 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use crate::game_logic::{START_ORIENTATION, START_POSITIONS};
 use crate::lobby_management::*;
 use crate::types::*;
+use crate::game_logic::{GameMap, load_map_from_file};
 
 /// Spawn the UDP listener task that handles incoming client messages
 pub fn server_listener(
@@ -121,7 +123,7 @@ fn handle_client_message(
     cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) -> io::Result<()> {
     match message {
-        MessageType::CreateLobby { name } => {
+        MessageType::CreateLobby { name, map } => {
             let mut guard = lobbies.lock().unwrap();
 
             // Check if lobby already exists
@@ -142,6 +144,17 @@ fn handle_client_message(
             new_lobby.name = name.clone();
             new_lobby.host = id;
             new_lobby.players.lock().unwrap().push(id);
+            // add game_map to new_lobby's data based on selection
+            let game_map = load_map_from_file(map.path());
+            println!(
+                "Server loaded map ({:?}): {}x{}",
+                map,
+                game_map.width,
+                game_map.height
+            );
+            new_lobby.map_choice = map;
+            new_lobby.map = game_map;
+
             guard.push(new_lobby);
 
             let lobby_index = guard.len() - 1;
@@ -305,56 +318,60 @@ fn handle_client_message(
 
                 let players: Vec<u32> = lobby.players.lock().unwrap().clone();
 
-                // Initialize all players to varied spawn positions
+                // Initialize all players to fixed grid spawn positions
                 {
                     let mut states = lobby.states.lock().unwrap();
-                    for player_id in &players {
-                        states.insert(
-                            *player_id,
-                            PlayerState {
-                                x: 2752.0 + (*player_id as f32) * 100.0,
-                                y: 960.0,
-                                velocity: bevy::math::Vec2::ZERO,
-                                angle: 0.0,
-                                inputs: PlayerInput::default(),
-                                last_processed_sequence: 0,
-                                input_queue: Vec::new(),
-                            },
-                        );
+                    for (idx, player_id) in players.iter().enumerate() {
+                        if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(idx) {
+                            states.insert(
+                                *player_id,
+                                PlayerState {
+                                    x: *spawn_x,
+                                    y: *spawn_y,
+                                    velocity: bevy::math::Vec2::ZERO,
+                                    angle: START_ORIENTATION,
+                                    inputs: PlayerInput::default(),
+                                    last_processed_sequence: 0,
+                                    boost_remaining: 0.0,
+                                    input_queue: Vec::new(),
+                                },
+                            );
+                        }
                     }
                 }
 
+                let map_choice = lobby.map_choice;
                 drop(guard);
-                broadcast_game_start(connected_clients, &players, &name);
+                broadcast_game_start(connected_clients, &players, &name, map_choice);
 
                 // Spawn commands for each player
                 let sender = cmd_sender.lock().unwrap();
-                for player_id in &players {
-                    let spawn_x = 2752.0 + (*player_id as f32) * 100.0;
-                    let spawn_y = 960.0;
-
-                    let _ = sender.send(ServerCommand::SpawnPlayer {
-                        player_id: *player_id,
-                        lobby_name: name.clone(),
-                        x: spawn_x,
-                        y: spawn_y,
-                    });
+                for (idx, player_id) in players.iter().enumerate() {
+                    if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(idx) {
+                        let _ = sender.send(ServerCommand::SpawnPlayer {
+                            player_id: *player_id,
+                            lobby_name: name.clone(),
+                            x: *spawn_x,
+                            y: *spawn_y,
+                        });
+                    }
                 }
 
                 // Spawn AI cars to fill empty slots (up to 4 total)
                 let num_players = players.len();
-                let num_ai = 4 - num_players;
+                let num_ai = START_POSITIONS.len().saturating_sub(num_players);
                 for i in 0..num_ai {
                     let ai_id = 1000 + i as u32;
-                    let spawn_x = 2752.0 + ((num_players + i) as f32) * 100.0;
-                    let spawn_y = 960.0;
-
-                    let _ = sender.send(ServerCommand::SpawnAI {
-                        ai_id,
-                        lobby_name: name.clone(),
-                        x: spawn_x,
-                        y: spawn_y,
-                    });
+                    let slot_index = num_players + i;
+                    if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(slot_index) {
+                        let _ = sender.send(ServerCommand::SpawnAI {
+                            ai_id,
+                            lobby_name: name.clone(),
+                            x: *spawn_x,
+                            y: *spawn_y,
+                            angle: START_ORIENTATION,
+                        });
+                    }
                 }
 
                 let _ = send_to_client(
@@ -387,6 +404,7 @@ fn handle_client_message(
             right,
             drift,
             easy_drift,
+            boost,
         } => handle_player_input(
             id,
             sequence,
@@ -396,6 +414,7 @@ fn handle_client_message(
             right,
             drift,
             easy_drift,
+            boost,
             connected_clients,
             lobbies,
         ),
@@ -428,6 +447,7 @@ fn handle_player_input(
     right: bool,
     drift: bool,
     easy_drift: bool,
+    boost: bool,
     _connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) -> io::Result<()> {
@@ -459,6 +479,7 @@ fn handle_player_input(
                 right,
                 drift,
                 easy_drift,
+                boost,
             };
         } else {
             panic!("Player {} does not have a current state", id);

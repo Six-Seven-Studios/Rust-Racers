@@ -1,16 +1,18 @@
-
+use crate::car_skins::{AI_SKIN, CarSkinSelection};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
-    bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
-    ThetaCommand, TILE_SIZE,
-};
-use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
-use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
+    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, START_ORIENTATION,
+    START_POSITIONS, TURNING_RATE,
 };
+use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
+use crate::game_logic::{
+    CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
+    bad_pure_pursuit, handle_collision,
+};
+use crate::speed::SpeedBoost;
 use bevy::prelude::*;
 
 // Car-related components
@@ -24,12 +26,19 @@ pub fn move_player_car(
     input: Res<ButtonInput<KeyCode>>,
     drift_settings: Res<DriftSettings>,
     player_car: Single<
-        (&mut Transform, &mut Velocity, &mut Orientation),
+        (
+            &mut Transform,
+            &mut Velocity,
+            &mut Orientation,
+            &mut Sprite,
+            Option<&SpeedBoost>,
+        ),
         (With<PlayerControlled>, Without<Background>),
     >,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
-    let (mut transform, mut velocity, mut orientation) = player_car.into_inner();
+    let (mut transform, mut velocity, mut orientation, mut sprite, speed_boost) =
+        player_car.into_inner();
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
@@ -53,11 +62,11 @@ pub fn move_player_car(
     // Get the current tile
     let pos = transform.translation.truncate();
     let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-
+    // println!("title id: {}",tile.tile_id);
     // Modifiers from terrain
-    let fric_mod = tile.friction_modifier;
-    let speed_mod = tile.speed_modifier;
-    let turn_mod = tile.turn_modifier;
+    let mut fric_mod = tile.friction_modifier;
+    let mut speed_mod = tile.speed_modifier;
+    let mut turn_mod = tile.turn_modifier;
     let decel_mod = tile.decel_modifier;
     let x = tile.x_coordinate;
     let y = tile.y_coordinate;
@@ -88,6 +97,24 @@ pub fn move_player_car(
     gizmos.circle_2d(world_pos1, 8.0, color);
     gizmos.circle_2d(world_pos2, 8.0, color);
     */
+
+    // Speed boost override
+
+    // if tile.speed_boost {
+    //     **velocity = orientation.forward_vector() * PLAYER_SPEED * 1.5;
+    // }
+
+    if speed_boost.is_some() {
+        fric_mod = 10.0;
+        speed_mod = 3.0;
+        turn_mod = 1.5;
+        // print!("Speed boost on tile at {}, {}\n", x, y);
+        // ADD SPEED BOOST COLOR CHANGE HERE
+        let hue = (time.elapsed_secs() * 180.0) % 360.0; // Speed of 180 degrees/sec
+        sprite.color = Color::hsl(hue, 1.0, 0.7); // Full saturation, 70% lightness
+    } else {
+        sprite.color = Color::WHITE; // Normal color (no tint)
+    }
 
     // Turning
     if input.pressed(KeyCode::KeyA) {
@@ -252,7 +279,6 @@ pub fn move_ai_cars(
             }
         }
 
-
         // Apply friction when not accelerating forward or reversing
         if !matches!(command, ThetaCommand::Forward | ThetaCommand::Reverse) {
             let decel_rate = decel_mod * fric_mod * deltat;
@@ -312,10 +338,13 @@ pub fn spawn_cars(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<crate::GameState>>,
+    skin_selection: Res<CarSkinSelection>,
 ) {
-    let car_sheet_handle = asset_server.load("red-car.png");
+    let car_sheet_handle = asset_server.load(skin_selection.current_skin());
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
+
+    let player_start = START_POSITIONS[0];
 
     // Spawn player car
     commands.spawn((
@@ -327,11 +356,12 @@ pub fn spawn_cars(
             },
         ),
         Transform {
-            translation: Vec3::new(2752., 960., 10.),
+            translation: Vec3::new(player_start.0, player_start.1, 10.),
+            rotation: Quat::from_rotation_z(START_ORIENTATION),
             ..default()
         },
         Velocity::new(),
-        Orientation::new(0.0),
+        Orientation::new(START_ORIENTATION),
         Car,
         PlayerControlled,
         LapCounter::default(),
@@ -340,20 +370,22 @@ pub fn spawn_cars(
 
     // Spawn AI car IF in demo mode
     if *state.get() == crate::GameState::PlayingDemo {
+        let ai_start = START_POSITIONS.get(1).copied().unwrap_or(player_start);
         commands.spawn((
             Sprite::from_atlas_image(
-                car_sheet_handle.clone(),
+                asset_server.load(AI_SKIN),
                 TextureAtlas {
                     layout: car_layout_handle.clone(),
                     index: 0,
                 },
             ),
             Transform {
-                translation: Vec3::new(2752., 960., 10.),
+                translation: Vec3::new(ai_start.0, ai_start.1, 10.),
+                rotation: Quat::from_rotation_z(START_ORIENTATION),
                 ..default()
             },
             Velocity::new(),
-            Orientation::new(0.0),
+            Orientation::new(START_ORIENTATION),
             Car,
             AIControlled,
             LapCounter::default(),
@@ -378,26 +410,21 @@ pub fn ai_car_fsm(
     other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
     mut delta_time: Res<Time>,
     difficulty: Res<CpuDifficulty>,
-    ) {
+) {
     // define proximity threshold (in game units)
     const PROXIMITY_THRESHOLD: f32 = 300.0;
 
     // just an idea, but we COULD determine threshold based on difficulty
-    /* 
+    /*
     let proximity_threshold = match *difficulty {
         CpuDifficulty::Easy => 200.0,   // Blind as a bat
         CpuDifficulty::Medium => 300.0, // Normal
         CpuDifficulty::Hard => 600.0,   // Eagle eyes
     };
     */
-    
-    for (entity,
-        mut car_state,
-        mut transform,
-        mut velocity,
-        mut orientation)
-        in ai_query.iter_mut() {
-        
+
+    for (entity, mut car_state, mut transform, mut velocity, mut orientation) in ai_query.iter_mut()
+    {
         // check for nearby cars
         let ai_pos = transform.translation.truncate();
         let mut closest_car_distance = f32::MAX;

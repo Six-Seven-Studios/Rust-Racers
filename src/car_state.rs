@@ -1,5 +1,5 @@
+use crate::game_logic::{CpuDifficulty, Orientation, Velocity};
 use bevy::prelude::*;
-use crate::game_logic::{Velocity, Orientation, CpuDifficulty};
 use rand::prelude::*;
 use std::time::Duration;
 
@@ -73,7 +73,7 @@ impl CarState {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
-    ){
+    ) {
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
 
@@ -150,7 +150,7 @@ impl State for Aggressive {
                 let ai_pos = transform.translation.truncate();
                 let direction = (target_pos - ai_pos).normalize_or_zero();
                 // info!("[+] AGGRESSIVE MODE: Going towards car at distance {:.1}!", closest_car_distance);
-                info!("cpu difficulty: {:?}", difficulty);
+                // info!("cpu difficulty: {:?}", difficulty);
                 // TODO: use theta* to pursue the target position
                 // TODO: increase velocity and adjust orientation to ram the target
             }
@@ -158,7 +158,7 @@ impl State for Aggressive {
 
         // transition back to neutral if no car is nearby
         if !car_nearby {
-            info!("[+] No cars nearby, switching back to neutral driving");
+            // info!("[+] No cars nearby, switching back to neutral driving");
             Transition::ToNeutral
         } else {
             Transition::None
@@ -210,7 +210,7 @@ impl State for Neutral {
         // check if a car is nearby - if so, immediately switch to aggressive
         if car_nearby {
             info!(
-                "[+] car detected at distance {:.1}! Switching to aggressive mode!",
+                // "[+] car detected at distance {:.1}! Switching to aggressive mode!",
                 closest_car_distance
             );
             return Transition::ToAggressive;
@@ -218,7 +218,7 @@ impl State for Neutral {
 
         // using theta* here to drive normally
         if self.decision_timer.just_finished() {
-            info!("[+] Neutral driving - no cars nearby");
+            // info!("[+] Neutral driving - no cars nearby");
         }
         Transition::None
     }

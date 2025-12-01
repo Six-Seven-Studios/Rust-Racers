@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct GameMap {
     pub height: f32,
     pub width: f32,
@@ -208,8 +208,7 @@ impl GameMap {
     }
 
     // Based on Wikipedia pseudocode https://en.wikipedia.org/wiki/Theta*
-    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool
-    {
+    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool {
         let mut x0 = point1.0 as usize;
         let mut y0 = point1.1 as usize;
         let x1 = point2.0 as usize;
@@ -253,5 +252,11 @@ impl GameMap {
         let world_x = tile_x * tile_size - self.width / 2.0 + tile_size / 2.0;
         let world_y = -(tile_y * tile_size) + self.height / 2.0 - tile_size / 2.0;
         Vec2::new(world_x, world_y)
+    }
+}
+
+impl Default for GameMap {
+    fn default() -> Self {
+        load_map_from_file("assets/big-map.txt")
     }
 }

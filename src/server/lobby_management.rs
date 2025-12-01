@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::types::*;
+use crate::networking::MapChoice;
 
 /// Broadcast the current lobby state to all players in the lobby
 pub fn broadcast_lobby_state(
@@ -52,7 +53,8 @@ pub fn broadcast_active_lobbies(connected_clients: &ConnectedClients, lobbies: &
             let players = lobby.players.lock().unwrap();
             json!({
                 "name": lobby.name.clone(),
-                "players": players.len()
+                "players": players.len(),
+                "map": lobby.map_choice,
             })
         })
         .collect();
@@ -76,11 +78,13 @@ pub fn broadcast_game_start(
     connected_clients: &ConnectedClients,
     players: &[u32],
     lobby_name: &str,
+    map: MapChoice,
 ) {
     let payload = json!({
         "type": "game_started",
         "lobby": lobby_name,
-        "time": 1000
+        "time": 1000,
+        "map": map
     })
     .to_string()
         + "\n";

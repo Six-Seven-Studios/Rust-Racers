@@ -5,6 +5,8 @@ mod game_logic;
 // Client modules needed because game_logic/lap_system imports them
 #[path = "../car.rs"]
 mod car;
+#[path = "../car_skins.rs"]
+mod car_skins;
 #[path = "../car_state.rs"]
 mod car_state;
 #[path = "../drift_settings.rs"]
@@ -19,6 +21,8 @@ mod multiplayer;
 mod networking;
 #[path = "../networking_plugin.rs"]
 mod networking_plugin;
+#[path = "../speed.rs"]
+mod speed;
 #[path = "../title_screen.rs"]
 mod title_screen;
 
@@ -42,6 +46,11 @@ use net::*;
 use simulation::*;
 use types::*;
 use utils::*;
+
+use speed::{
+    SpeedBoost, SpeedPowerup, collect_powerups, remove_boost_ui, spawn_boost_ui,
+    spawn_speed_powerups, update_speed_boost,
+};
 
 fn main() {
     // Display the local IP address
@@ -87,10 +96,6 @@ fn main() {
         Arc::clone(&cmd_sender),
     );
 
-    // Load the game map for server-side physics
-    let game_map = load_map_from_file("assets/big-map.txt");
-    println!("Server loaded map: {}x{}", game_map.width, game_map.height);
-
     // Create headless server with 20 Hz timestep
     // Using Update schedule since run_loop already controls the rate
     App::new()
@@ -106,7 +111,6 @@ fn main() {
             receiver: cmd_receiver,
         })
         .insert_resource(ServerCommandSender { sender: cmd_sender })
-        .insert_resource(game_map)
         .add_systems(
             Update,
             (
@@ -118,6 +122,17 @@ fn main() {
                 timeout_cleanup_system,
             )
                 .chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                spawn_speed_powerups,
+                collect_powerups,
+                update_speed_boost,
+                spawn_boost_ui,
+                remove_boost_ui,
+            )
+                .run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))),
         )
         .run();
 }
