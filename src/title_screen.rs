@@ -4,9 +4,9 @@ use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 
-use crate::lobby::{LobbyState, setup_lobby};
-use crate::networking_plugin::{NetworkClient, MessageSender, connect_to_server};
 use crate::game_logic::CpuDifficulty;
+use crate::lobby::{LobbyState, setup_lobby};
+use crate::networking_plugin::{MessageSender, NetworkClient, connect_to_server};
 
 #[derive(Component)]
 pub struct MainScreenEntity;
@@ -83,18 +83,39 @@ pub fn check_for_title_input(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     // added a menu screen to trim down this function
-    screens: MenuScreens, 
+    screens: MenuScreens,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
     // Without<CpuDifficultyText> here
-    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>, Without<CpuDifficultyText>)>,
+    mut lobby_name_query: Query<
+        &mut Text2d,
+        (
+            With<LobbyNameInput>,
+            Without<ServerIpInput>,
+            Without<CpuDifficultyText>,
+        ),
+    >,
     // Without<CpuDifficultyText> here
-    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>, Without<CpuDifficultyText>)>,
-    server_address: Res<ServerAddress>,     
+    mut server_ip_query: Query<
+        &mut Text2d,
+        (
+            With<ServerIpInput>,
+            Without<LobbyNameInput>,
+            Without<CpuDifficultyText>,
+        ),
+    >,
+    server_address: Res<ServerAddress>,
     mut cpu_difficulty: ResMut<CpuDifficulty>,
     mut drift_settings: ResMut<DriftSettings>,
     // Without<LobbyNameInput> and Without<ServerIpInput> here
-    mut difficulty_text_query: Query<&mut Text2d, (With<CpuDifficultyText>, Without<LobbyNameInput>, Without<ServerIpInput>)>
+    mut difficulty_text_query: Query<
+        &mut Text2d,
+        (
+            With<CpuDifficultyText>,
+            Without<LobbyNameInput>,
+            Without<ServerIpInput>,
+        ),
+    >,
 ) {
     match *current_state.get() {
         GameState::Title => {
@@ -200,7 +221,12 @@ pub fn check_for_title_input(
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Settings);
                 destroy_screen(&mut commands, &screens.main);
-                setup_settings(commands, asset_server, *cpu_difficulty);
+                setup_settings(
+                    commands,
+                    asset_server,
+                    *cpu_difficulty,
+                    drift_settings.clone(),
+                );
             }
             // Theta* DEMO
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit4) {
@@ -834,7 +860,8 @@ fn setup_settings(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     cpu_difficulty: CpuDifficulty,
-){
+    drift_settings: DriftSettings,
+) {
     // Title text
     commands.spawn((
         Text2d::new("Settings"),
@@ -862,12 +889,28 @@ fn setup_settings(
         CpuDifficultyText,
     ));
 
-    // Hint text
+    // Easy drift toggle display
     commands.spawn((
-        Text2d::new("Use A/D or Left/Right to change"),
-        TextColor(Color::srgb_u8(120, 120, 120)),
+        Text2d::new(format!("Easy Drift Mode: {}", drift_settings.mode_label())),
+        TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., -30., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 32.0,
+            ..default()
+        },
+        SettingsScreenEntity,
+        EasyDriftLabel,
+    ));
+
+    // Hint text
+    commands.spawn((
+        Text2d::new("Use A/D or Left/Right to change, E to toggle Easy Drift"),
+        TextColor(Color::srgb_u8(120, 120, 120)),
+        Transform {
+            translation: Vec3::new(0., -70., 1.),
             ..default()
         },
         TextFont {
@@ -896,9 +939,7 @@ fn setup_settings(
     ));
 }
 
-fn setup_customizing(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>){
+fn setup_customizing(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
         Transform {

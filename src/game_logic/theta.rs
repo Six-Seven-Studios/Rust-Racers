@@ -112,7 +112,11 @@ pub fn theta_star(
 }
 */
 
-pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
+pub fn bad_pure_pursuit(
+    start_pos: (f32, f32),
+    current_angle: f32,
+    checkpoints: &mut ThetaCheckpointList,
+) -> ThetaCommand {
     if checkpoints.checkpoints.is_empty() {
         return ThetaCommand::Stop;
     }
@@ -171,8 +175,7 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
 }
 
 //pseudocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
-pub fn theta_star()
-{
+pub fn theta_star() {
     /*
     open:=closed:=emptyset
     g(s_start):=0;
@@ -204,8 +207,7 @@ pub fn theta_star()
     */
 }
 
-pub fn update_vertex(s: f32, s_prime: f32)
-{
+pub fn update_vertex(s: f32, s_prime: f32) {
     /*
 
     g_old:=g(s');
@@ -223,8 +225,7 @@ pub fn update_vertex(s: f32, s_prime: f32)
     */
 }
 
-pub fn compute_cost(s: f32, s_prime: f32)
-{
+pub fn compute_cost(s: f32, s_prime: f32) {
     /*
 
     if gamemap.lineofsight(parent(s),s')

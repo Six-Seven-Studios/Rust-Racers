@@ -208,8 +208,7 @@ impl GameMap {
     }
 
     // Based on Wikipedia pseudocode https://en.wikipedia.org/wiki/Theta*
-    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool
-    {
+    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool {
         let mut x0 = point1.0 as usize;
         let mut y0 = point1.1 as usize;
         let x1 = point2.0 as usize;
