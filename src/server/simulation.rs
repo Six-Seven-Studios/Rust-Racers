@@ -71,6 +71,16 @@ pub fn physics_simulation_system(
                     player_state.input_queue.drain(..).collect();
 
                 for input_data in inputs_to_process {
+                    // Refresh boost timer when client reports a pickup
+                    if input_data.boost && player_state.boost_remaining <= 0.0 {
+                        player_state.boost_remaining = 5.0;
+                    }
+                    if player_state.boost_remaining > 0.0 {
+                        player_state.boost_remaining = (player_state.boost_remaining
+                            - crate::game_logic::CLIENT_TIMESTEP)
+                            .max(0.0);
+                    }
+
                     let prev_pos = Vec2::new(pos.x, pos.y);
 
                     // Get current tile and terrain modifiers
@@ -84,6 +94,7 @@ pub fn physics_simulation_system(
                         right: input_data.right,
                         drift: input_data.drift,
                         easy_drift: input_data.easy_drift,
+                        boost: player_state.boost_remaining > 0.0,
                     };
 
                     // Apply physics for this input (using CLIENT_TIMESTEP since inputs are at 60 Hz)
@@ -146,6 +157,7 @@ pub fn physics_simulation_system(
                         right: input_data.right,
                         drift: input_data.drift,
                         easy_drift: input_data.easy_drift,
+                        boost: player_state.boost_remaining > 0.0,
                     };
                 }
 
@@ -157,6 +169,7 @@ pub fn physics_simulation_system(
                 input_component.right = player_state.inputs.right;
                 input_component.drift = player_state.inputs.drift;
                 input_component.easy_drift = player_state.inputs.easy_drift;
+                input_component.boost = player_state.inputs.boost;
             }
         }
     }

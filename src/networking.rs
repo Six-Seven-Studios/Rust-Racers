@@ -15,6 +15,8 @@ pub struct InputData {
     pub right: bool,
     pub drift: bool,
     pub easy_drift: bool,
+    #[serde(default)]
+    pub boost: bool,
 }
 
 // Single position snapshot with sequence number
@@ -65,6 +67,7 @@ pub enum MessageType {
         right: bool,
         drift: bool,
         easy_drift: bool,
+        boost: bool,
     },
 
     // New buffered input message
@@ -201,6 +204,7 @@ impl Client {
         right: bool,
         drift: bool,
         easy_drift: bool,
+        boost: bool,
     ) -> io::Result<()> {
         self.send(MessageType::PlayerInput {
             sequence,
@@ -210,6 +214,7 @@ impl Client {
             right,
             drift,
             easy_drift,
+            boost,
         })
     }
 
