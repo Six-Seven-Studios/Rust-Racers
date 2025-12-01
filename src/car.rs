@@ -1,3 +1,4 @@
+use crate::car_skins::{AI_SKIN, CarSkinSelection};
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
@@ -337,8 +338,9 @@ pub fn spawn_cars(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<crate::GameState>>,
+    skin_selection: Res<CarSkinSelection>,
 ) {
-    let car_sheet_handle = asset_server.load("red-car.png");
+    let car_sheet_handle = asset_server.load(skin_selection.current_skin());
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
 
@@ -371,7 +373,7 @@ pub fn spawn_cars(
         let ai_start = START_POSITIONS.get(1).copied().unwrap_or(player_start);
         commands.spawn((
             Sprite::from_atlas_image(
-                asset_server.load("CPU.png"),
+                asset_server.load(AI_SKIN),
                 TextureAtlas {
                     layout: car_layout_handle.clone(),
                     index: 0,

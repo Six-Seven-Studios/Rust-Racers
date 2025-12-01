@@ -1,3 +1,4 @@
+use crate::car_skins::{AI_SKIN, CarSkinSelection};
 use crate::client_prediction::PredictionBuffer;
 use crate::game_logic::{
     CAR_SIZE, CLIENT_TIMESTEP, Car, GameMap, LapCounter, Orientation, PlayerControlled, TILE_SIZE,
@@ -33,6 +34,7 @@ pub fn get_car_positions(
     time: Res<Time>,
     game_map: Res<GameMap>,
     mut interp_delay: ResMut<InterpolationDelay>,
+    skin_selection: Res<CarSkinSelection>,
 ) {
     if network_client.client.is_none() {
         return;
@@ -128,6 +130,7 @@ pub fn get_car_positions(
             &asset_server,
             &mut texture_atlases,
             &mut interp_delay,
+            &skin_selection,
         );
     }
 }
@@ -145,6 +148,7 @@ fn buffer_networked_car(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlasLayout>>,
     interp_delay: &mut InterpolationDelay,
+    skin_selection: &CarSkinSelection,
 ) {
     // Try to find existing car and buffer the new state
     for (net_player, mut buffer) in network_cars.iter_mut() {
@@ -161,9 +165,15 @@ fn buffer_networked_car(
 
     // Spawn new car for this player with interpolation buffer
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
+    let skin_path = if id >= 1000 {
+        AI_SKIN
+    } else {
+        skin_selection.random_other()
+    };
+    let texture = asset_server.load(skin_path);
     commands.spawn((
         Sprite::from_atlas_image(
-            asset_server.load("red-car.png"),
+            texture,
             TextureAtlas {
                 layout: texture_atlases.add(car_layout),
                 index: 0,

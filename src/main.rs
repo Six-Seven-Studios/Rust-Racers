@@ -1,5 +1,6 @@
 mod camera;
 mod car;
+mod car_skins;
 mod car_state;
 mod client_prediction;
 mod credits;
@@ -70,6 +71,7 @@ fn main() {
                 }),
         )
         .add_plugins(NetworkingPlugin)
+        .init_resource::<car_skins::CarSkinSelection>()
         .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
@@ -88,7 +90,8 @@ fn main() {
         .init_resource::<LobbyList>()
         .init_resource::<LobbyListDirty>()
         .init_resource::<interpolation::InterpolationDelay>()
-        .add_systems(Startup, (camera_setup, setup_title_screen))
+        .add_systems(Startup, camera_setup)
+        .add_systems(OnEnter(GameState::Title), setup_title_screen)
         .add_systems(
             OnEnter(GameState::Playing),
             (car_setup, spawn_map, spawn_lap_triggers).after(load_map1),
@@ -103,15 +106,10 @@ fn main() {
         )
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
-        .add_systems(
-            Update,
-            (
-                sync_server_address,
-                check_for_title_input,
-                check_for_lobby_input,
-                check_for_credits_input,
-            ),
-        )
+        .add_systems(Update, sync_server_address)
+        .add_systems(Update, check_for_title_input)
+        .add_systems(Update, check_for_lobby_input)
+        .add_systems(Update, check_for_credits_input)
         .add_systems(
             Update,
             title_screen::update_easy_drift_label.run_if(in_state(GameState::Settings)),
@@ -189,11 +187,18 @@ fn car_setup(
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<GameState>>,
+    skin_selection: Res<car_skins::CarSkinSelection>,
 ) {
     // spawn_cars now detects the game mode and spawns accordingly
     // - Playing (multiplayer): Only player car
     // - PlayingDemo: Player car + AI car
-    spawn_cars(commands, asset_server, texture_atlases, state);
+    spawn_cars(
+        commands,
+        asset_server,
+        texture_atlases,
+        state,
+        skin_selection,
+    );
 }
 fn ai_car_setup(
     mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
