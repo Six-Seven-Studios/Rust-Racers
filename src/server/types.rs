@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use crate::game_logic::GameMap;
 
 // Single input with sequence number (shared with client)
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -149,6 +150,7 @@ pub struct Lobby {
     pub name: String,
     pub started: bool,
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
+    pub map: GameMap,
 }
 
 impl Default for Lobby {
@@ -159,6 +161,7 @@ impl Default for Lobby {
             name: String::from(""),
             started: false,
             states: Arc::new(Mutex::new(HashMap::new())),
+            map: GameMap::default(),
         }
     }
 }

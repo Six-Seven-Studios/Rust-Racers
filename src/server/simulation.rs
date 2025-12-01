@@ -24,8 +24,8 @@ pub fn physics_simulation_system(
         &LobbyMember,
     )>,
     lobbies: Res<Lobbies>,
-    game_map: Res<GameMap>,
 ) {
+
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
         let guard = lobbies.list.lock().unwrap();
@@ -64,6 +64,9 @@ pub fn physics_simulation_system(
 
         if let Some(lobby) = lobby_opt {
             let mut states = lobby.states.lock().unwrap();
+            
+            // set the map to this lobby's map
+            let game_map = &lobby.map;
 
             if let Some(player_state) = states.get_mut(&player_id.0) {
                 // Process all inputs in the queue
@@ -362,7 +365,6 @@ pub fn timeout_cleanup_system(
 
 /// System to move AI cars using bad pure pursuit pathfinding
 pub fn ai_movement_system(
-    game_map: Res<GameMap>,
     lobbies: Res<Lobbies>,
     mut ai_cars: Query<
         (
@@ -401,6 +403,18 @@ pub fn ai_movement_system(
         if !started_lobbies.contains(&lobby_member.lobby_name) {
             continue;
         }
+
+        // Find the lobby to access input queue (same thing as above basically)
+        let game_map = {
+            let guard = lobbies.list.lock().unwrap();
+            let lobby_opt = guard.iter().find(|l| l.name == lobby_member.lobby_name);
+            
+            if let Some(lobby) = lobby_opt {
+                lobby.map.clone() 
+            } else {
+                GameMap::default()
+            }
+        };
 
         // Get the current tile
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
