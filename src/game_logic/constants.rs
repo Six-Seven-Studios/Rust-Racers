@@ -2,7 +2,7 @@
 pub const CLIENT_TIMESTEP: f32 = 1.0 / 60.0; // 16.67ms - 60 Hz
 
 // Server runs at 20 Hz for authoritative simulation
-pub const SERVER_TIMESTEP: f32 = 1.0 / 60.0; // 50ms - 20 Hz
+pub const SERVER_TIMESTEP: f32 = 1.0 / 60.0; // 16.67ms - 60 Hz
 
 pub const FRICTION: f32 = 0.95;
 pub const ACCEL_RATE: f32 = 600.0;
