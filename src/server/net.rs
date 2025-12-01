@@ -320,6 +320,7 @@ fn handle_client_message(
                                     angle: START_ORIENTATION,
                                     inputs: PlayerInput::default(),
                                     last_processed_sequence: 0,
+                                    boost_remaining: 0.0,
                                     input_queue: Vec::new(),
                                 },
                             );
