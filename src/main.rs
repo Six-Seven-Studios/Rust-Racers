@@ -63,7 +63,7 @@ fn main() {
         .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
-            address: String::new(),
+            address: "167.172.23.173".to_string(),
         })
         .init_resource::<drift_settings::DriftSettings>()
         .init_resource::<client_prediction::InputSequence>()
