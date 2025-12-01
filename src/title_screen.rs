@@ -59,7 +59,7 @@ pub fn sync_server_address(
     server_ip_query: Query<&Text2d, (With<ServerIpInput>, Changed<Text2d>)>,
     mut server_address: ResMut<ServerAddress>,
 ) {
-    if let Ok(text) = server_ip_query.get_single() {
+    if let Ok(text) = server_ip_query.single() {
         server_address.address = text.0.trim().to_string();
     }
 }
