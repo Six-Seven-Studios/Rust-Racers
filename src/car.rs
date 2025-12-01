@@ -10,18 +10,10 @@ use crate::game_logic::theta_grid::ThetaGrid;
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_TURN_MULTIPLIER, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
-};
-use bevy::{prelude::*};
-    ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, START_ORIENTATION,
     START_POSITIONS, TURNING_RATE,
 };
-use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
-use crate::game_logic::{
-    CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
-    bad_pure_pursuit, handle_collision,
-};
+use bevy::{prelude::*};
 use crate::speed::SpeedBoost;
 use bevy::prelude::*;
 
