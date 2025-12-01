@@ -1,16 +1,16 @@
 use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
-use crate::speed::SpeedBoost;
-use crate::game_logic::{
-    bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
-    ThetaCommand, TILE_SIZE,
-};
-use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
 };
+use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
+use crate::game_logic::{
+    CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
+    bad_pure_pursuit, handle_collision,
+};
+use crate::speed::SpeedBoost;
 use bevy::{color, prelude::*};
 
 // Car-related components
@@ -24,12 +24,19 @@ pub fn move_player_car(
     input: Res<ButtonInput<KeyCode>>,
     drift_settings: Res<DriftSettings>,
     player_car: Single<
-        (&mut Transform, &mut Velocity, &mut Orientation, &mut Sprite, Option<&SpeedBoost>),
+        (
+            &mut Transform,
+            &mut Velocity,
+            &mut Orientation,
+            &mut Sprite,
+            Option<&SpeedBoost>,
+        ),
         (With<PlayerControlled>, Without<Background>),
-    >,  
+    >,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
-    let (mut transform, mut velocity, mut orientation, mut sprite, speed_boost) = player_car.into_inner();
+    let (mut transform, mut velocity, mut orientation, mut sprite, speed_boost) =
+        player_car.into_inner();
 
     let deltat = time.delta_secs();
     let accel = ACCEL_RATE * deltat;
@@ -95,8 +102,7 @@ pub fn move_player_car(
     //     **velocity = orientation.forward_vector() * PLAYER_SPEED * 1.5;
     // }
 
-    if speed_boost.is_some(){
-    
+    if speed_boost.is_some() {
         fric_mod = 10.0;
         speed_mod = 3.0;
         turn_mod = 1.5;
@@ -104,7 +110,6 @@ pub fn move_player_car(
         // ADD SPEED BOOST COLOR CHANGE HERE
         let hue = (time.elapsed_secs() * 180.0) % 360.0; // Speed of 180 degrees/sec
         sprite.color = Color::hsl(hue, 1.0, 0.7); // Full saturation, 70% lightness
-
     } else {
         sprite.color = Color::WHITE; // Normal color (no tint)
     }
@@ -204,7 +209,6 @@ pub fn move_player_car(
     }
 }
 
-
 pub fn move_ai_cars(
     game_map: Res<GameMap>,
     time: Res<Time>,
@@ -272,7 +276,6 @@ pub fn move_ai_cars(
                 }
             }
         }
-
 
         // Apply friction when not accelerating forward or reversing
         if !matches!(command, ThetaCommand::Forward | ThetaCommand::Reverse) {
@@ -399,26 +402,21 @@ pub fn ai_car_fsm(
     other_cars: Query<&Transform, (With<Car>, Without<AIControlled>)>,
     mut delta_time: Res<Time>,
     difficulty: Res<CpuDifficulty>,
-    ) {
+) {
     // define proximity threshold (in game units)
     const PROXIMITY_THRESHOLD: f32 = 300.0;
 
     // just an idea, but we COULD determine threshold based on difficulty
-    /* 
+    /*
     let proximity_threshold = match *difficulty {
         CpuDifficulty::Easy => 200.0,   // Blind as a bat
         CpuDifficulty::Medium => 300.0, // Normal
         CpuDifficulty::Hard => 600.0,   // Eagle eyes
     };
     */
-    
-    for (entity,
-        mut car_state,
-        mut transform,
-        mut velocity,
-        mut orientation)
-        in ai_query.iter_mut() {
-        
+
+    for (entity, mut car_state, mut transform, mut velocity, mut orientation) in ai_query.iter_mut()
+    {
         // check for nearby cars
         let ai_pos = transform.translation.truncate();
         let mut closest_car_distance = f32::MAX;

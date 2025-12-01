@@ -318,6 +318,7 @@ fn handle_client_message(
                                 angle: 0.0,
                                 inputs: PlayerInput::default(),
                                 last_processed_sequence: 0,
+                                boost_remaining: 0.0,
                                 input_queue: Vec::new(),
                             },
                         );
@@ -387,6 +388,7 @@ fn handle_client_message(
             right,
             drift,
             easy_drift,
+            boost,
         } => handle_player_input(
             id,
             sequence,
@@ -396,6 +398,7 @@ fn handle_client_message(
             right,
             drift,
             easy_drift,
+            boost,
             connected_clients,
             lobbies,
         ),
@@ -428,6 +431,7 @@ fn handle_player_input(
     right: bool,
     drift: bool,
     easy_drift: bool,
+    boost: bool,
     _connected_clients: &ConnectedClients,
     lobbies: &LobbyList,
 ) -> io::Result<()> {
@@ -459,6 +463,7 @@ fn handle_player_input(
                 right,
                 drift,
                 easy_drift,
+                boost,
             };
         } else {
             panic!("Player {} does not have a current state", id);

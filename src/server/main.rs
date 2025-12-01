@@ -3,8 +3,6 @@
 mod game_logic;
 
 // Client modules needed because game_logic/lap_system imports them
-#[path = "../speed.rs"]
-mod speed;
 #[path = "../car.rs"]
 mod car;
 #[path = "../car_state.rs"]
@@ -21,11 +19,12 @@ mod multiplayer;
 mod networking;
 #[path = "../networking_plugin.rs"]
 mod networking_plugin;
+#[path = "../speed.rs"]
+mod speed;
 #[path = "../title_screen.rs"]
 mod title_screen;
 
 // Server modules
-
 
 mod client_prediction;
 mod lobby_management;
@@ -47,8 +46,10 @@ use simulation::*;
 use types::*;
 use utils::*;
 
-use speed::{spawn_speed_powerups, collect_powerups, update_speed_boost, spawn_boost_ui, remove_boost_ui, SpeedBoost, SpeedPowerup};
-
+use speed::{
+    SpeedBoost, SpeedPowerup, collect_powerups, remove_boost_ui, spawn_boost_ui,
+    spawn_speed_powerups, update_speed_boost,
+};
 
 fn main() {
     // Display the local IP address
@@ -126,12 +127,16 @@ fn main() {
             )
                 .chain(),
         )
-        .add_systems(Update, (
-            spawn_speed_powerups,
-            collect_powerups,
-            update_speed_boost, 
-            spawn_boost_ui,     
-            remove_boost_ui,        
-        ).run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))))
+        .add_systems(
+            Update,
+            (
+                spawn_speed_powerups,
+                collect_powerups,
+                update_speed_boost,
+                spawn_boost_ui,
+                remove_boost_ui,
+            )
+                .run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))),
+        )
         .run();
 }
