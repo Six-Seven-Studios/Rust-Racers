@@ -171,6 +171,7 @@ fn car_setup(
     // - Playing (multiplayer): Only player car
     // - PlayingDemo: Player car + AI car
     spawn_cars(commands, asset_server, texture_atlases, state);
+    // have to adjust spawning position for map2.
 }
 fn ai_car_setup(
     mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
@@ -236,12 +237,19 @@ fn load_map2(mut commands: Commands) {
     // define triggers and positions
     // TODO: update these coordinates to match Map 2's layout
     let map2_data = MapLevelData {
-        start_position: Vec3::new(100.0, 100.0, 5.0), 
-        finish_line_pos: Vec3::new(0.0, 500.0, 5.), 
+        start_position: Vec3::new(1300.0, -1131.0, 5.0), 
+        finish_line_pos: Vec3::new(1300.0, -1131.0, 5.0), 
         checkpoints: vec![
-            (Vec3::new(0.0, 1000., 10.), 0.0),
-            (Vec3::new(1000., 1000., 10.), std::f32::consts::PI / 2.0),
-            (Vec3::new(1000., 0., 10.), std::f32::consts::PI),
+            (Vec3::new(1386., 974., 10.), 0.0),
+            (Vec3::new(3175., 1949., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(-1891., 2167., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-471., 2146., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(862., 1907., 10.), 0.0),
+            (Vec3::new(-1834., 30., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(-2841., 2059., 10.), 0.0),
+            (Vec3::new(-3738., 1465., 10.), 0.0),
+            (Vec3::new(-91., -2441., 10.), 0.0),
+            (Vec3::new(3117., -2376., 10.), 0.0),
         ],
     };
 

@@ -46,7 +46,7 @@ pub fn spawn_lap_triggers(
 ) {
     let finish_line_handle = asset_server.load("finish_line.png");
     
-    // Spawn Finish Line from Resource
+    // spawn finish line from resource
     commands.spawn((
         FinishLine,
         Sprite::from_image(finish_line_handle),
@@ -58,7 +58,7 @@ pub fn spawn_lap_triggers(
 
     let checkpoint_handle = asset_server.load("twoBarrels.png");
 
-    // Spawn Checkpoints from Resource
+    // spawn checkpoints from resource
     for (i, (pos, rotation)) in map_data.checkpoints.iter().enumerate() {
         commands.spawn((
             Checkpoint { index: i },
@@ -96,8 +96,9 @@ pub fn update_laps(
     // sort to ensure 0, 1, 2, 3
     checkpoint_data.sort_by_key(|(_, i)| *i);
 
-    for (car_transform, mut lap_counter, _player_flag) in query_cars.iter_mut() {
+    for (car_transform, mut lap_counter, player_flag) in query_cars.iter_mut() {
         let car_pos = car_transform.translation.truncate();
+        
 
         // check next checkpoint
         if let Some((checkpoint_pos, index)) = checkpoint_data
