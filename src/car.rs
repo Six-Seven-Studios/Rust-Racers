@@ -3,15 +3,16 @@ use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
 use crate::speed::SpeedBoost;
 use crate::game_logic::{
-    bad_pure_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
+    theta_star_pursuit, handle_collision, CpuDifficulty, LapCounter, GameMap, ThetaCheckpointList,
     ThetaCommand, TILE_SIZE,
 };
+use crate::game_logic::theta_grid::ThetaGrid;
 use crate::game_logic::{Car, PlayerControlled, AIControlled, Orientation, Velocity};
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
+    EASY_DRIFT_TURN_MULTIPLIER, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
 };
-use bevy::{color, prelude::*};
+use bevy::{prelude::*};
 
 // Car-related components
 #[derive(Component)]
@@ -59,8 +60,6 @@ pub fn move_player_car(
     let mut speed_mod = tile.speed_modifier;
     let mut turn_mod = tile.turn_modifier;
     let decel_mod = tile.decel_modifier;
-    let x = tile.x_coordinate;
-    let y = tile.y_coordinate;
 
     //LOS DEBUG, ADD 'mut gizmos: Gizmos' to function input
     /*
@@ -207,6 +206,7 @@ pub fn move_player_car(
 
 pub fn move_ai_cars(
     game_map: Res<GameMap>,
+    theta_grid: Res<ThetaGrid>,
     time: Res<Time>,
     mut ai_cars: Query<
         (
@@ -237,11 +237,12 @@ pub fn move_ai_cars(
         let turn_mod = tile.turn_modifier;
         let decel_mod = tile.decel_modifier;
 
-        // Get command from steering helper
-        let command = bad_pure_pursuit(
-            (tile.x_coordinate, tile.y_coordinate),
+        // Get command from steering helper using Theta* pathfinding
+        let command = theta_star_pursuit(
+            (pos.x, pos.y),
             orientation.angle,
             &mut theta_checkpoint_list,
+            &theta_grid,
         );
 
         // Execute the command
@@ -258,9 +259,9 @@ pub fn move_ai_cars(
                 **velocity = velocity.clamp_length_max(PLAYER_SPEED * speed_mod);
             }
             ThetaCommand::Reverse => {
-                let backward = -orientation.forward_vector() * (accel / 2.0);
+                let backward = -orientation.forward_vector() * (accel / 4.0);
                 **velocity += backward;
-                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 2.0));
+                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 4.0));
             }
             ThetaCommand::Stop => {
                 if velocity.length() > 0.0 {

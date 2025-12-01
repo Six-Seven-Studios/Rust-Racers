@@ -98,6 +98,12 @@ fn main() {
     let game_map = load_map_from_file("assets/big-map.txt");
     println!("Server loaded map: {}x{}", game_map.width, game_map.height);
 
+    // Create ThetaGrid for AI pathfinding
+    use game_logic::theta_grid::ThetaGrid;
+    use game_logic::TILE_SIZE;
+    let theta_grid = ThetaGrid::create_theta_grid(&game_map, TILE_SIZE as f32);
+    println!("Server initialized Theta* grid: {}x{}", theta_grid.width, theta_grid.height);
+
     // Create headless server with 20 Hz timestep
     // Using Update schedule since run_loop already controls the rate
     App::new()
@@ -114,6 +120,7 @@ fn main() {
         })
         .insert_resource(ServerCommandSender { sender: cmd_sender })
         .insert_resource(game_map)
+        .insert_resource(theta_grid)
         .add_systems(
             Update,
             (

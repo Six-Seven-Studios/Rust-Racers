@@ -1,6 +1,9 @@
-use crate::game_logic::{Car, Checkpoint, GameMap};
+use crate::game_logic::theta_grid::ThetaGrid;
 use bevy::prelude::Component;
 use rand::Rng;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::cmp::Ordering;
+use crate::game_logic::TILE_SIZE;
 
 #[derive(Default)]
 pub enum ThetaCommand {
@@ -28,6 +31,9 @@ impl ThetaCheckpoint {
 pub struct ThetaCheckpointList {
     pub checkpoints: Vec<ThetaCheckpoint>,
     pub current_checkpoint_index: usize,
+    pub cached_path: Vec<(usize, usize)>,
+    pub path_index: usize,
+    pub target_world_pos: Option<(f32, f32)>,
 }
 
 impl ThetaCheckpointList {
@@ -35,6 +41,9 @@ impl ThetaCheckpointList {
         ThetaCheckpointList {
             checkpoints,
             current_checkpoint_index: 0,
+            cached_path: Vec::new(),
+            path_index: 0,
+            target_world_pos: None,
         }
     }
 
@@ -81,64 +90,44 @@ impl ThetaCheckpointList {
     }
 }
 
-pub fn get_next_point(list: &ThetaCheckpointList) -> (f32, f32) {
+pub fn get_next_point(list: &ThetaCheckpointList, grid: &ThetaGrid) -> (f32, f32) {
     let mut rng = rand::thread_rng();
 
     let curr_checkpoint: ThetaCheckpoint = list.checkpoints[list.current_checkpoint_index].clone();
 
-    let rand_x: f32 = if (curr_checkpoint.point1.0 < curr_checkpoint.point2.0) {
+    let rand_x_tile: f32 = if curr_checkpoint.point1.0 < curr_checkpoint.point2.0 {
         rng.gen_range(curr_checkpoint.point1.0..=curr_checkpoint.point2.0)
     } else {
         rng.gen_range(curr_checkpoint.point2.0..=curr_checkpoint.point1.0)
     };
 
-    let rand_y: f32 = if (curr_checkpoint.point1.1 < curr_checkpoint.point2.1) {
+    let rand_y_tile: f32 = if curr_checkpoint.point1.1 < curr_checkpoint.point2.1 {
         rng.gen_range(curr_checkpoint.point1.1..=curr_checkpoint.point2.1)
     } else {
         rng.gen_range(curr_checkpoint.point2.1..=curr_checkpoint.point1.1)
     };
 
-    return (rand_x, rand_y);
+    // Convert tile coordinates to world coordinates
+    let world_x = (rand_x_tile * TILE_SIZE as f32) - (grid.width as f32 * TILE_SIZE as f32 / 2.0) + (TILE_SIZE as f32 / 2.0);
+    let world_y = -((rand_y_tile * TILE_SIZE as f32) - (grid.height as f32 * TILE_SIZE as f32 / 2.0) + (TILE_SIZE as f32 / 2.0));
+
+
+    return (world_x, world_y);
 }
 
-//Super basic starter implementation that only finds the shortest path to a goal and goes directly towards it
-/*
-pub fn theta_star(
+// Helper function to calculate steering command toward a target position
+fn calculate_steering_command(
     start_pos: (f32, f32),
+    target_pos: (f32, f32),
     current_angle: f32,
-    checkpoints: &mut ThetaCheckpointList,
 ) -> ThetaCommand {
-
-}
-*/
-
-pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList) -> ThetaCommand {
-    if checkpoints.checkpoints.is_empty() {
-        return ThetaCommand::Stop;
-    }
-
-    //Grab the current checkpoint from the checkpoint list
-    let current_cp = get_next_point(&checkpoints);
-    let end_pos = (current_cp.0, current_cp.1);
-    // println!("Current: {}, {}", start_pos.0, start_pos.1);
-    // println!("Goal: {}, {}", end_pos.0, end_pos.1);
-    //Calc that distance rq
-    let dx = end_pos.0 - start_pos.0;
-    let dy = end_pos.1 - start_pos.1;
-
-    let distance = (dx * dx + dy * dy).sqrt();
-    //end of distance formula (will probably need this later)
-
-    let goal_threshold = 5.0; // pixels
-    if distance < goal_threshold {
-        println!("ADVANCE");
-        checkpoints.advance_checkpoint();
-    }
+    let dx = target_pos.0 - start_pos.0;
+    let dy = target_pos.1 - start_pos.1;
 
     // Negate dy because tile Y-axis is flipped (increasing Y goes down in world space)
-    let target_angle = (-dy).atan2(dx);
+    let target_angle = dy.atan2(dx);
 
-    //Normalize, so it knows which way to turn
+    // Normalize current angle
     let pi = std::f32::consts::PI;
     let mut current_normalized = current_angle % (2.0 * pi);
     if current_normalized > pi {
@@ -157,7 +146,7 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
 
     // Give it some wiggle room so it doesn't oscillate (Greyson's idea)
     let angle_threshold = 0.1; // radians (~5.7 degrees)
-    let reverse_threshold = pi * 0.6; // ~108 degrees - reverse if target is mostly behind us
+    let reverse_threshold = pi * 0.85; // ~153 degrees - only reverse if target is almost directly behind
 
     if angle_diff.abs() > reverse_threshold {
         ThetaCommand::Reverse
@@ -170,81 +159,302 @@ pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: 
     }
 }
 
-//pseudocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
-pub fn theta_star()
-{
-    /*
-    open:=closed:=emptyset
-    g(s_start):=0;
-    parent(s_start):=s_start;
-    open.Insert(s_start,s_start)+h(s_start);
+pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
+    if checkpoints.checkpoints.is_empty() {
+        return ThetaCommand::Stop;
+    }
 
-    While open != emptyset
-    {
-        s:=open.Pop();
-        if s=s_goal
-        {
-            return "path found";
+    //Grab the current checkpoint from the checkpoint list
+    let end_pos = get_next_point(&checkpoints, &grid);
+
+    //Calc that distance
+    let dx = end_pos.0 - start_pos.0;
+    let dy = end_pos.1 - start_pos.1;
+    let distance = (dx * dx + dy * dy).sqrt();
+
+    let goal_threshold = 5.0; // pixels
+    if distance < goal_threshold {
+        println!("ADVANCE");
+        checkpoints.advance_checkpoint();
+    }
+
+    calculate_steering_command(start_pos, end_pos, current_angle)
+}
+
+// Node for priority queue in Theta*
+#[derive(Clone, Copy, PartialEq)]
+struct Node {
+    pos: (usize, usize),
+    f_score: f32,
+}
+
+impl Eq for Node {}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        other.f_score.partial_cmp(&self.f_score)
+    }
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+    }
+}
+
+// Euclidean distance
+fn heuristic(pos: (usize, usize), goal: (usize, usize)) -> f32 {
+    let dx = (pos.0 as f32 - goal.0 as f32).abs();
+    let dy = (pos.1 as f32 - goal.1 as f32).abs();
+    (dx * dx + dy * dy).sqrt()
+}
+
+// Compute the cost between two grid positions considering terrain
+fn movement_cost(grid: &ThetaGrid, from: (usize, usize), to: (usize, usize)) -> f32 {
+    if let Some(node) = grid.get_node(to.0, to.1) {
+        let dx = (to.0 as f32 - from.0 as f32).abs();
+        let dy = (to.1 as f32 - from.1 as f32).abs();
+        let distance = (dx * dx + dy * dy).sqrt();
+        distance * node.cost
+    } else {
+        f32::INFINITY
+    }
+}
+
+// Theta* pathfinding algorithm
+pub fn theta_star(
+    grid: &ThetaGrid,
+    start: (usize, usize),
+    goal: (usize, usize),
+) -> Option<Vec<(usize, usize)>> {
+    let mut open = BinaryHeap::new();
+    let mut closed = HashSet::new();
+    let mut g_score: HashMap<(usize, usize), f32> = HashMap::new();
+    let mut parent: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+
+    // Initialize start node
+    g_score.insert(start, 0.0);
+    parent.insert(start, start);
+    open.push(Node {
+        pos: start,
+        f_score: heuristic(start, goal),
+    });
+
+    while let Some(current_node) = open.pop() {
+        let current = current_node.pos;
+
+        // Goal reached
+        if current == goal {
+            return Some(reconstruct_path(&parent, current));
         }
-        closed:=closed (union) {s};
-        foreach s' is a member of neighbor_visible(s)
-        {
-            if s' isn't a member of closed
-            {
-                if s' isnt a member of open
-                {
-                    g(s'):=infinity
-                    parent(s'):=NULL;
-                }
-                UpdateVertex(s,s');
+
+        // Skip if already processed
+        if closed.contains(&current) {
+            continue;
+        }
+        closed.insert(current);
+
+        // Process neighbors
+        let neighbors = grid.get_neighbors(current.0, current.1);
+        for neighbor_node in neighbors {
+            let neighbor = (neighbor_node.x, neighbor_node.y);
+
+            if closed.contains(&neighbor) {
+                continue;
+            }
+
+            // Initialize neighbor if not seen before
+            g_score.entry(neighbor).or_insert(f32::INFINITY);
+
+            // Update vertex (Theta* logic)
+            update_vertex(grid, &mut g_score, &mut parent, &mut open, current, neighbor, goal);
+        }
+    }
+
+    None // No path found
+}
+
+// Update vertex with Theta* logic
+fn update_vertex(
+    grid: &ThetaGrid,
+    g_score: &mut HashMap<(usize, usize), f32>,
+    parent: &mut HashMap<(usize, usize), (usize, usize)>,
+    open: &mut BinaryHeap<Node>,
+    current: (usize, usize),
+    neighbor: (usize, usize),
+    goal: (usize, usize),
+) {
+    let g_old = *g_score.get(&neighbor).unwrap_or(&f32::INFINITY);
+
+    // Compute cost using Theta* logic
+    compute_cost(grid, g_score, parent, current, neighbor);
+
+    let g_new = *g_score.get(&neighbor).unwrap_or(&f32::INFINITY);
+
+    // If we found a better path, add to open set
+    if g_new < g_old {
+        let f_score = g_new + heuristic(neighbor, goal);
+        open.push(Node {
+            pos: neighbor,
+            f_score,
+        });
+    }
+}
+
+// Compute cost with line-of-sight optimization
+fn compute_cost(
+    grid: &ThetaGrid,
+    g_score: &mut HashMap<(usize, usize), f32>,
+    parent: &mut HashMap<(usize, usize), (usize, usize)>,
+    current: (usize, usize),
+    neighbor: (usize, usize),
+) {
+    let current_parent = *parent.get(&current).unwrap_or(&current);
+
+    // Path 2: Try to connect neighbor directly to current's parent (any-angle path)
+    if grid.line_of_sight((current_parent.0 as f32, current_parent.1 as f32),
+                          (neighbor.0 as f32, neighbor.1 as f32)) {
+        let g_parent = *g_score.get(&current_parent).unwrap_or(&f32::INFINITY);
+        let cost = movement_cost(grid, current_parent, neighbor);
+        let new_g = g_parent + cost;
+
+        if new_g < *g_score.get(&neighbor).unwrap_or(&f32::INFINITY) {
+            parent.insert(neighbor, current_parent);
+            g_score.insert(neighbor, new_g);
+        }
+    } else {
+        // Path 1: Connect neighbor to current (grid-aligned path)
+        let g_current = *g_score.get(&current).unwrap_or(&f32::INFINITY);
+        let cost = movement_cost(grid, current, neighbor);
+        let new_g = g_current + cost;
+
+        if new_g < *g_score.get(&neighbor).unwrap_or(&f32::INFINITY) {
+            parent.insert(neighbor, current);
+            g_score.insert(neighbor, new_g);
+        }
+    }
+}
+
+// Reconstruct the path from parent pointers
+fn reconstruct_path(
+    parent: &HashMap<(usize, usize), (usize, usize)>,
+    mut current: (usize, usize),
+) -> Vec<(usize, usize)> {
+    let mut path = vec![current];
+    while let Some(&p) = parent.get(&current) {
+        if p == current {
+            break; // Reached start
+        }
+        current = p;
+        path.push(current);
+    }
+    path.reverse();
+    path
+}
+
+// Wrapper function for Theta*
+pub fn theta_star_pursuit(
+    start_pos: (f32, f32),
+    current_angle: f32,
+    checkpoints: &mut ThetaCheckpointList,
+    grid: &ThetaGrid,
+) -> ThetaCommand {
+    if checkpoints.checkpoints.is_empty() {
+        return ThetaCommand::Stop;
+    }
+
+    // Get or use cached target position for current checkpoint
+    let target_pos = if let Some(cached_target) = checkpoints.target_world_pos {
+        cached_target
+    } else {
+        // Generate new random point for this checkpoint
+        let new_target = get_next_point(checkpoints, grid);
+        checkpoints.target_world_pos = Some(new_target);
+        new_target
+    };
+
+    // Check if we need to recompute the path
+    let needs_recompute = checkpoints.cached_path.is_empty();
+
+    if needs_recompute {
+        // Convert world positions to grid coordinates
+        let start_grid = grid.world_to_grid(start_pos.0, start_pos.1);
+        let goal_grid = grid.world_to_grid(target_pos.0, target_pos.1);
+
+        println!("Computing path from grid {:?} to grid {:?} (world: {:?} to {:?})",
+                 start_grid, goal_grid, start_pos, target_pos);
+
+        // Run Theta* pathfinding
+        if let Some(path) = theta_star(grid, start_grid, goal_grid) {
+            println!("Path found with {} waypoints", path.len());
+            checkpoints.cached_path = path;
+            checkpoints.path_index = 0;
+        } else {
+            println!("NO PATH FOUND! Falling back to pure pursuit");
+            // No path found, fall back to direct pursuit and check for checkpoint advance
+            let dx = target_pos.0 - start_pos.0;
+            let dy = target_pos.1 - start_pos.1;
+            let distance = (dx * dx + dy * dy).sqrt();
+            let goal_threshold = 128.0; // Leeway in pixels (2 tiles)
+
+            if distance < goal_threshold {
+                println!("ADVANCE");
+                checkpoints.advance_checkpoint();
+                checkpoints.cached_path.clear();
+                checkpoints.target_world_pos = None;
+            }
+            return steer_towards(start_pos, current_angle, target_pos, checkpoints);
+        }
+    }
+
+    // Follow the cached path
+    if checkpoints.path_index >= checkpoints.cached_path.len() {
+        // Reached end of path, advance checkpoint
+        println!("ADVANCE");
+        checkpoints.advance_checkpoint();
+        checkpoints.cached_path.clear();
+        checkpoints.target_world_pos = None;
+        return ThetaCommand::Forward;
+    }
+
+    // Get the next waypoint in the path
+    let next_grid_pos = checkpoints.cached_path[checkpoints.path_index];
+    if let Some(node) = grid.get_node(next_grid_pos.0, next_grid_pos.1) {
+        let waypoint = (node.world_x, node.world_y);
+
+        // Check if we're close to the current waypoint
+        let dx = waypoint.0 - start_pos.0;
+        let dy = waypoint.1 - start_pos.1;
+        let distance = (dx * dx + dy * dy).sqrt();
+
+        if distance < 128.0 { // Leeway in world units (2 tiles)
+            // Move to next waypoint
+            checkpoints.path_index += 1;
+            if checkpoints.path_index >= checkpoints.cached_path.len() {
+                // Reached final waypoint, advance checkpoint
+                println!("ADVANCE");
+                checkpoints.advance_checkpoint();
+                checkpoints.cached_path.clear();
+                checkpoints.target_world_pos = None;
+                return ThetaCommand::Forward;
             }
         }
+
+        // Steer towards current waypoint
+        steer_towards(start_pos, current_angle, waypoint, checkpoints)
+    } else {
+        // Invalid waypoint, recompute
+        checkpoints.cached_path.clear();
+        steer_towards(start_pos, current_angle, target_pos, checkpoints)
     }
-    return "no path found";
-    */
 }
 
-pub fn update_vertex(s: f32, s_prime: f32)
-{
-    /*
-
-    g_old:=g(s');
-    compute_cost(s,s');
-    if(g(s') < g_old)
-    {
-        if(s' is a member of open)
-        {
-            open.Remove(s');
-        }
-        open.Insert(s',g(s')+h(s'));
-    }
-
-
-    */
-}
-
-pub fn compute_cost(s: f32, s_prime: f32)
-{
-    /*
-
-    if gamemap.lineofsight(parent(s),s')
-    {
-        // Path 2
-        if(g(parent(s)) + c(parent(s),s') < g(s'))
-        {
-            parent(s') := parent(s);
-            g(s') := g(parent(s)) + c(parent(s),s')
-        }
-    }
-    else
-    {
-        //Path 1
-        if(g(s) + c(s,s') < g(s'))
-        {
-            parent(s'):=s;
-            g(s'):=g(s)+c(s,s');
-        }
-    }
-
-     */
+// Helper function to steer towards a target position
+fn steer_towards(
+    start_pos: (f32, f32),
+    current_angle: f32,
+    target_pos: (f32, f32),
+    _checkpoints: &ThetaCheckpointList,
+) -> ThetaCommand {
+    calculate_steering_command(start_pos, target_pos, current_angle)
 }

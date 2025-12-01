@@ -1,5 +1,6 @@
 use crate::game_logic::map::GameMap;
 use crate::game_logic::terrain::TerrainTile;
+use bevy::prelude::Resource;
 
 /// Grid node for Theta* pathfinding
 #[derive(Debug, Clone)]
@@ -12,6 +13,7 @@ pub struct GridNode {
     pub cost: f32,
 }
 
+#[derive(Resource)]
 pub struct ThetaGrid {
     pub width: usize,
     pub height: usize,
@@ -21,19 +23,19 @@ pub struct ThetaGrid {
 
 impl ThetaGrid {
     pub fn create_theta_grid(game_map: &GameMap, tile_size: f32) -> Self {
-        let width = game_map.width as usize;
-        let height = game_map.height as usize;();
+        let height = game_map.terrain_layer.len();
+        let width = if height > 0 { game_map.terrain_layer[0].len() } else { 0 };
 
         let mut nodes = Vec::with_capacity(height);
 
         for y in 0..height {
             let mut row = Vec::with_capacity(width);
             for x in 0..width {
-                let terrain = game_map.get_tile(x as f32, y as f32, 64.0);
+                let terrain = &game_map.terrain_layer[y][x];
 
                 // Convert grid coordinates to world coordinates
-                let world_x = (x as f32 * tile_size) - (width as f32 * tile_size / 2.0) + (tile_size / 2.0);
-                let world_y = -((y as f32 * tile_size) - (height as f32 * tile_size / 2.0) + (tile_size / 2.0));
+                let world_x = (x as f32 * tile_size) - (game_map.width / 2.0) + (tile_size / 2.0);
+                let world_y = -((y as f32 * tile_size) - (game_map.height / 2.0) + (tile_size / 2.0));
 
                 // Calculate movement cost from terrain modifiers
                 let cost = Self::calculate_node_cost(&terrain);
@@ -63,10 +65,18 @@ impl ThetaGrid {
             return f32::INFINITY;
         }
 
-        // tile_id is indexed by how bad it is to drive on (0=best, 5=worst, 6=wall)
-        // Add 1 to ensure ROAD=0 has some cost
-        (terrain.tile_id as f32) + 1.0
+        // Cost is inversely proportional to speed and turn modifiers
+        // Higher friction also increases cost
+        let speed_factor = 1.0 / terrain.speed_modifier.max(0.1);
+        let turn_factor = 1.0 / terrain.turn_modifier.max(0.1);
+        let friction_factor = 1.0 + terrain.friction_modifier;
+
+        // Base cost related to tile type index
+        let base_cost = (terrain.tile_id as f32) + 1.0;
+
+        base_cost * speed_factor * turn_factor * friction_factor
     }
+
 
     pub fn get_node(&self, x: usize, y: usize) -> Option<&GridNode> {
         if x < self.width && y < self.height {
@@ -113,5 +123,48 @@ impl ThetaGrid {
 
         neighbors
     }
+    
+    // Based on Wikipedia pseudocode https://en.wikipedia.org/wiki/Theta* (All Greyson's code. I just ripped it from Map.rs)
+    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool
+    {
+        let mut x0 = point1.0 as usize;
+        let mut y0 = point1.1 as usize;
+        let x1 = point2.0 as usize;
+        let y1 = point2.1 as usize;
 
+        let dx = (x1 as i32 - x0 as i32).abs();
+        let dy = (y1 as i32 - y0 as i32).abs();
+        let sx = if x0 < x1 { 1i32 } else { -1i32 };
+        let sy = if y0 < y1 { 1i32 } else { -1i32 };
+        let mut err = dx - dy;
+
+        loop {
+            // Check current tile using nodes instead of terrain_layer
+            if let Some(node) = self.get_node(x0, y0) {
+                // If we found a wall, no LOS
+                if !node.passable {
+                    return false;
+                }
+            } else {
+                // Out of bounds
+                return false;
+            }
+
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+
+            let e2 = 2 * err;
+            if e2 > -dy {
+                err -= dy;
+                x0 = (x0 as i32 + sx) as usize;
+            }
+            if e2 < dx {
+                err += dx;
+                y0 = (y0 as i32 + sy) as usize;
+            }
+        }
+
+        true
+    }
 }

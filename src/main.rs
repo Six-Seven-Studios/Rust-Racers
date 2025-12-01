@@ -74,7 +74,7 @@ fn main() {
         .insert_resource(Time::<Fixed>::from_hz(60.0)) // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
-        .add_systems(OnEnter(GameState::PlayingDemo), load_map2) // THETA* DEMO (but could support our second map)
+        .add_systems(OnEnter(GameState::PlayingDemo), load_map1) // THETA* DEMO uses map 1 (which has checkpoints defined)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
@@ -84,11 +84,11 @@ fn main() {
         .add_systems(Startup, (camera_setup, setup_title_screen))
         .add_systems(
             OnEnter(GameState::Playing),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map1),
+            (initialize_theta_grid, car_setup, spawn_map, spawn_lap_triggers).chain().after(load_map1),
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map2),
+            (initialize_theta_grid, car_setup, spawn_map, spawn_lap_triggers).chain().after(load_map1),
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
@@ -204,4 +204,11 @@ fn load_map_demo(mut commands: Commands) {
 // map2
 fn load_map2(mut commands: Commands) {
     commands.insert_resource(load_map_from_file("assets/map2.txt"));
+}
+
+// Initialize ThetaGrid from GameMap for pathfinding
+fn initialize_theta_grid(mut commands: Commands, game_map: Res<GameMap>) {
+    use game_logic::theta_grid::ThetaGrid;
+    let theta_grid = ThetaGrid::create_theta_grid(&game_map, TILE_SIZE as f32);
+    commands.insert_resource(theta_grid);
 }
