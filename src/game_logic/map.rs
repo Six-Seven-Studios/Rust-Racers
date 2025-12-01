@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct GameMap {
     pub height: f32,
     pub width: f32,
@@ -207,10 +207,56 @@ impl GameMap {
         &self.terrain_layer[tile_y][tile_x]
     }
 
+    // Based on Wikipedia pseudocode https://en.wikipedia.org/wiki/Theta*
+    pub fn line_of_sight(&self, point1: (f32, f32), point2: (f32, f32)) -> bool {
+        let mut x0 = point1.0 as usize;
+        let mut y0 = point1.1 as usize;
+        let x1 = point2.0 as usize;
+        let y1 = point2.1 as usize;
+
+        let dx = (x1 as i32 - x0 as i32).abs();
+        let dy = (y1 as i32 - y0 as i32).abs();
+        let sx = if x0 < x1 { 1i32 } else { -1i32 };
+        let sy = if y0 < y1 { 1i32 } else { -1i32 };
+        let mut err = dx - dy;
+
+        loop {
+            // Check current tile
+            let tile = &self.terrain_layer[y0][x0];
+
+            // If we found a wall, no LOS
+            if !tile.passable {
+                return false;
+            }
+
+            if x0 == x1 && y0 == y1 {
+                break;
+            }
+
+            let e2 = 2 * err;
+            if e2 > -dy {
+                err -= dy;
+                x0 = (x0 as i32 + sx) as usize;
+            }
+            if e2 < dx {
+                err += dx;
+                y0 = (y0 as i32 + sy) as usize;
+            }
+        }
+
+        true
+    }
+
     // For debug
     pub fn tile_to_world(&self, tile_x: f32, tile_y: f32, tile_size: f32) -> Vec2 {
         let world_x = tile_x * tile_size - self.width / 2.0 + tile_size / 2.0;
         let world_y = -(tile_y * tile_size) + self.height / 2.0 - tile_size / 2.0;
         Vec2::new(world_x, world_y)
+    }
+}
+
+impl Default for GameMap {
+    fn default() -> Self {
+        load_map_from_file("assets/big-map.txt")
     }
 }

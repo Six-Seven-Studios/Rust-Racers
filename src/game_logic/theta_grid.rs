@@ -23,8 +23,9 @@ pub struct ThetaGrid {
 
 impl ThetaGrid {
     pub fn create_theta_grid(game_map: &GameMap, tile_size: f32) -> Self {
-        let height = game_map.terrain_layer.len();
-        let width = if height > 0 { game_map.terrain_layer[0].len() } else { 0 };
+        let width = game_map.width as usize;
+        let height = game_map.height as usize;
+        ();
 
         let mut nodes = Vec::with_capacity(height);
 
@@ -34,8 +35,10 @@ impl ThetaGrid {
                 let terrain = &game_map.terrain_layer[y][x];
 
                 // Convert grid coordinates to world coordinates
-                let world_x = (x as f32 * tile_size) - (game_map.width / 2.0) + (tile_size / 2.0);
-                let world_y = -((y as f32 * tile_size) - (game_map.height / 2.0) + (tile_size / 2.0));
+                let world_x =
+                    (x as f32 * tile_size) - (width as f32 * tile_size / 2.0) + (tile_size / 2.0);
+                let world_y = -((y as f32 * tile_size) - (height as f32 * tile_size / 2.0)
+                    + (tile_size / 2.0));
 
                 // Calculate movement cost from terrain modifiers
                 let cost = Self::calculate_node_cost(&terrain);
