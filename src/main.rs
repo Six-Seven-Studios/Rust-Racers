@@ -15,20 +15,12 @@ mod speed;
 mod title_screen;
 mod victory_screen;
 
-use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
-use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
-use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty, LapCounter, MapLevelData, spawn_lap_triggers, update_laps};
-use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
-use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
-use credits::{check_for_credits_input, setup_credits, show_credits};
-use victory_screen::setup_victory_screen;
-use bevy::{prelude::*, window::PresentMode, color::palettes::basic::*, input_focus::InputFocus};
 use speed::{
     SpeedBoost, SpeedPowerup, collect_powerups, remove_boost_ui, spawn_boost_ui,
     spawn_speed_powerups, update_speed_boost,
 };
 
-use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity};
+use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity, MapLevelData};
 use bevy::render::camera::{Projection, ScalingMode};
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, window::PresentMode};
 use camera::{WIN_H, WIN_W, move_camera, reset_camera_for_credits};
@@ -109,7 +101,7 @@ fn main() {
         .add_systems(OnEnter(GameState::Title), setup_title_screen)
         .add_systems(
             OnEnter(GameState::PlayingDemo),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map1),
+            (car_setup, spawn_map, spawn_lap_triggers).after(load_map2),
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
