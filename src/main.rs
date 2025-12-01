@@ -15,7 +15,7 @@ mod interpolation;
 
 use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
 use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
-use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty, LapCounter, spawn_lap_triggers, update_laps};
+use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty, LapCounter, MapLevelData, spawn_lap_triggers, update_laps};
 use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
 use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
 use credits::{check_for_credits_input, setup_credits, show_credits};
@@ -68,10 +68,11 @@ fn main() {
         .init_resource::<drift_settings::DriftSettings>()
         .init_resource::<client_prediction::InputSequence>()
         .init_resource::<client_prediction::InputBuffer>()
+        .init_resource::<MapLevelData>()
         .insert_resource(Time::<Fixed>::from_hz(60.0)) // 60 Hz fixed update (60fps for input/physics)
         .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Playing), load_map1)
-        .add_systems(OnEnter(GameState::PlayingDemo), load_map2) // THETA* DEMO (but could support our second map)
+        .add_systems(OnEnter(GameState::PlayingDemo), load_map1) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
         .init_resource::<LobbyState>()
@@ -85,7 +86,7 @@ fn main() {
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
-            (car_setup, spawn_map, spawn_lap_triggers).after(load_map2),
+            (car_setup, spawn_map, spawn_lap_triggers).after(load_map1),
         )
         .add_systems(
             OnEnter(GameState::PlayingDemo),
@@ -164,6 +165,7 @@ fn car_setup(
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<GameState>>,
+    map_data: Res<MapLevelData>,
 ) {
     // spawn_cars now detects the game mode and spawns accordingly
     // - Playing (multiplayer): Only player car
@@ -178,16 +180,70 @@ fn ai_car_setup(
     }
 }
 
+// map 1 setup
 fn load_map1(mut commands: Commands) {
+    // load grid
     commands.insert_resource(load_map_from_file("assets/big-map.txt"));
+
+    // define triggers and positions
+    let map1_data = MapLevelData {
+        start_position: Vec3::new(0.0, 0.0, 5.0),
+        finish_line_pos: Vec3::new(2752., 960., 5.),
+        checkpoints: vec![
+            (Vec3::new(2752., 1500., 10.), 0.0),
+            (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-2044., -1493., 10.), 0.0),
+            (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(2100., -150., 10.), 0.0),
+        ],
+    };
+
+    commands.insert_resource(map1_data);
 }
 
 //THETA* DEMO
 fn load_map_demo(mut commands: Commands) {
+    // load grid
     commands.insert_resource(load_map_from_file("assets/big-map.txt"));
+
+    // define Triggers and Positions for Map 1
+    let map1_data = MapLevelData {
+        start_position: Vec3::new(0.0, 0.0, 5.0),
+        finish_line_pos: Vec3::new(2752., 960., 5.),
+        checkpoints: vec![
+            (Vec3::new(2752., 1500., 10.), 0.0),
+            (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),
+            (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),
+            (Vec3::new(-2044., -1493., 10.), 0.0),
+            (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(2100., -150., 10.), 0.0),
+        ],
+    };
+
+    commands.insert_resource(map1_data);
 }
 
-// map2
+// map 2
 fn load_map2(mut commands: Commands) {
+    // load grid
     commands.insert_resource(load_map_from_file("assets/map2.txt"));
+
+    // define triggers and positions
+    // TODO: update these coordinates to match Map 2's layout
+    let map2_data = MapLevelData {
+        start_position: Vec3::new(100.0, 100.0, 5.0), 
+        finish_line_pos: Vec3::new(0.0, 500.0, 5.), 
+        checkpoints: vec![
+            (Vec3::new(0.0, 1000., 10.), 0.0),
+            (Vec3::new(1000., 1000., 10.), std::f32::consts::PI / 2.0),
+            (Vec3::new(1000., 0., 10.), std::f32::consts::PI),
+        ],
+    };
+
+    commands.insert_resource(map2_data);
 }

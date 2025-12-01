@@ -31,63 +31,35 @@ pub struct Checkpoint {
     pub index: usize, // order of checkpoints
 }
 
-pub fn spawn_lap_triggers(mut commands: Commands, asset_server: Res<AssetServer>) {
+// map level component
+#[derive(Resource, Clone, Default)]
+pub struct MapLevelData {
+    pub start_position: Vec3, // Where the player spawns
+    pub finish_line_pos: Vec3,
+    pub checkpoints: Vec<(Vec3, f32)>, // Position, Rotation (radians)
+}
+
+pub fn spawn_lap_triggers(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>,
+    map_data: Res<MapLevelData>
+) {
     let finish_line_handle = asset_server.load("finish_line.png");
+    
+    // Spawn Finish Line from Resource
     commands.spawn((
         FinishLine,
         Sprite::from_image(finish_line_handle),
         Transform {
-            translation: Vec3::new(2752., 960., 5.),
+            translation: map_data.finish_line_pos,
             ..default()
         },
     ));
 
-    // spawning checkpoints via a list
-    // let checkpoint_handle = asset_server.load("twoBarrels.png");
-    // let checkpoint_positions = vec![
-    //     // first check
-    //     Vec3::new(2752., 1500., 10.),
-
-    //     Vec3::new(2752., 2800., 10.),
-
-    //     Vec3::new(400., 2800., 10.),
-
-    //     Vec3::new(-1600., 400., 10.),
-
-    //     Vec3::new(-2044., -1493., 10.),
-
-    //     Vec3::new(-1979., -2794., 10.),
-
-    //     Vec3::new(1515., -2736., 10.),
-
-    //     Vec3::new(2099., -150., 10.),
-    // ];
-
-    // for (i, pos) in checkpoint_positions.iter().enumerate() {
-    //     commands.spawn((
-    //         Checkpoint { index: i },
-    //         Sprite::from_image(checkpoint_handle.clone()),
-    //         Transform {
-    //             translation: *pos,
-    //             ..default()
-    //         },
-    //     ));
-    // }
-
     let checkpoint_handle = asset_server.load("twoBarrels.png");
-    let checkpoint_data = vec![
-        // (position, rotation in radians)
-        (Vec3::new(2752., 1500., 10.), 0.0),
-        (Vec3::new(2700., 2700., 10.), std::f32::consts::PI / 4.0),
-        (Vec3::new(425., 2725., 10.), std::f32::consts::PI / -4.0),
-        (Vec3::new(-1600., 400., 10.), std::f32::consts::PI / -4.0),
-        (Vec3::new(-2044., -1493., 10.), 0.0),
-        (Vec3::new(-1979., -2750., 10.), std::f32::consts::PI / 2.0),
-        (Vec3::new(1515., -2750., 10.), std::f32::consts::PI / 2.0),
-        (Vec3::new(2100., -150., 10.), 0.0),
-    ];
 
-    for (i, (pos, rotation)) in checkpoint_data.iter().enumerate() {
+    // Spawn Checkpoints from Resource
+    for (i, (pos, rotation)) in map_data.checkpoints.iter().enumerate() {
         commands.spawn((
             Checkpoint { index: i },
             Sprite::from_image(checkpoint_handle.clone()),
@@ -99,6 +71,7 @@ pub fn spawn_lap_triggers(mut commands: Commands, asset_server: Res<AssetServer>
         ));
     }
 }
+
 
 pub fn update_laps(
     mut query_cars: Query<(&Transform, &mut LapCounter, Option<&PlayerControlled>), With<Car>>,
@@ -123,7 +96,7 @@ pub fn update_laps(
     // sort to ensure 0, 1, 2, 3
     checkpoint_data.sort_by_key(|(_, i)| *i);
 
-    for (car_transform, mut lap_counter, player_flag) in query_cars.iter_mut() {
+    for (car_transform, mut lap_counter, _player_flag) in query_cars.iter_mut() {
         let car_pos = car_transform.translation.truncate();
 
         // check next checkpoint
@@ -139,17 +112,6 @@ pub fn update_laps(
                 info!("Reached checkpoint {}", index);
                 lap_counter.next_checkpoint += 1;
             }
-            // debug
-            /*
-            if player_flag.is_some() {
-                info!(
-                    "PLAYER car: ({:.0}, {:.0})  chk: ({:.0}, {:.0})  delta: ({:.0}, {:.0})",
-                    car_pos.x, car_pos.y,
-                    checkpoint_pos.x, checkpoint_pos.y,
-                    delta.x, delta.y
-                );
-            }
-            */
         }
         // check finish line
         if lap_counter.next_checkpoint >= checkpoint_data.len() {
