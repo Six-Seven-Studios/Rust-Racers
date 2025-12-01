@@ -3,9 +3,11 @@ use serde_json::json;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use rand::prelude::*;
 
 use crate::lobby_management::*;
 use crate::types::*;
+use crate::game_logic::{GameMap, load_map_from_file};
 
 /// Spawn the UDP listener task that handles incoming client messages
 pub fn server_listener(
