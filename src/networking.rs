@@ -1,4 +1,4 @@
-use bevy::tasks::IoTaskPool;
+use bevy::{prelude::Resource, tasks::IoTaskPool};
 use serde::{Deserialize, Serialize};
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::mpsc::Sender;
@@ -30,11 +30,49 @@ pub struct PositionSnapshot {
     pub angle: f32,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MapChoice {
+    #[serde(rename = "small")]
+    Small,
+    #[serde(rename = "big")]
+    Big,
+}
+
+impl MapChoice {
+    pub fn label(self) -> &'static str {
+        match self {
+            MapChoice::Small => "Small Map",
+            MapChoice::Big => "Big Map",
+        }
+    }
+
+    pub fn path(self) -> &'static str {
+        match self {
+            MapChoice::Small => "assets/big-map.txt",
+            MapChoice::Big => "assets/map2.txt",
+        }
+    }
+}
+
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SelectedMap {
+    pub choice: MapChoice,
+}
+
+impl Default for SelectedMap {
+    fn default() -> Self {
+        Self {
+            choice: MapChoice::Small,
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(tag = "type")]
 pub enum MessageType {
     CreateLobby {
         name: String,
+        map: MapChoice,
     },
 
     JoinLobby {
@@ -92,7 +130,7 @@ pub enum ServerMessage {
     ActiveLobbies { lobbies: Vec<LobbyInfo> },
 
     #[serde(rename = "game_started")]
-    GameStarted { lobby: String, time: u64 },
+    GameStarted { lobby: String, time: u64, map: MapChoice },
 
     #[serde(rename = "pong")]
     Pong,
@@ -102,6 +140,7 @@ pub enum ServerMessage {
 pub struct LobbyInfo {
     pub name: String,
     pub players: usize,
+    pub map: MapChoice,
 }
 
 // Lobby state broadcast message
@@ -175,8 +214,8 @@ impl Client {
         Ok(())
     }
 
-    pub fn create_lobby(&mut self, name: String) -> io::Result<()> {
-        self.send(MessageType::CreateLobby { name })
+    pub fn create_lobby(&mut self, name: String, map: MapChoice) -> io::Result<()> {
+        self.send(MessageType::CreateLobby { name, map })
     }
 
     pub fn join_lobby(&mut self, name: String) -> io::Result<()> {

@@ -5,6 +5,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use crate::game_logic::GameMap;
+use crate::networking::MapChoice;
 
 // Single input with sequence number (shared with client)
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -53,6 +54,7 @@ pub enum GameState {
 pub enum MessageType {
     CreateLobby {
         name: String,
+        map: MapChoice,
     },
     JoinLobby {
         name: String,
@@ -150,6 +152,7 @@ pub struct Lobby {
     pub name: String,
     pub started: bool,
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
+    pub map_choice: MapChoice,
     pub map: GameMap,
 }
 
@@ -161,6 +164,7 @@ impl Default for Lobby {
             name: String::from(""),
             started: false,
             states: Arc::new(Mutex::new(HashMap::new())),
+            map_choice: MapChoice::Small,
             map: GameMap::default(),
         }
     }

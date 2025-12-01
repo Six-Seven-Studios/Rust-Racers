@@ -3,7 +3,6 @@ use serde_json::json;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use rand::prelude::*;
 
 use crate::game_logic::{START_ORIENTATION, START_POSITIONS};
 use crate::lobby_management::*;
@@ -124,7 +123,7 @@ fn handle_client_message(
     cmd_sender: &Arc<Mutex<std::sync::mpsc::Sender<ServerCommand>>>,
 ) -> io::Result<()> {
     match message {
-        MessageType::CreateLobby { name } => {
+        MessageType::CreateLobby { name, map } => {
             let mut guard = lobbies.lock().unwrap();
 
             // Check if lobby already exists
@@ -145,19 +144,15 @@ fn handle_client_message(
             new_lobby.name = name.clone();
             new_lobby.host = id;
             new_lobby.players.lock().unwrap().push(id);
-            // add game_map to new_lobby's data
-            let mut rng = rand::rng();
-            let map_num = rng.random_range(1..=2);
-            let game_map;
-            if map_num == 1 {
-                println!("Server loading map 1 (small)");
-                game_map = load_map_from_file("assets/map.txt");
-                println!("Server loaded map: {}x{}", game_map.width, game_map.height);
-            } else {
-                println!("Server loading map 2 (big)");
-                game_map = load_map_from_file("assets/big-map.txt");
-                println!("Server loaded map: {}x{}", game_map.width, game_map.height);
-            }
+            // add game_map to new_lobby's data based on selection
+            let game_map = load_map_from_file(map.path());
+            println!(
+                "Server loaded map ({:?}): {}x{}",
+                map,
+                game_map.width,
+                game_map.height
+            );
+            new_lobby.map_choice = map;
             new_lobby.map = game_map;
 
             guard.push(new_lobby);
@@ -345,8 +340,9 @@ fn handle_client_message(
                     }
                 }
 
+                let map_choice = lobby.map_choice;
                 drop(guard);
-                broadcast_game_start(connected_clients, &players, &name);
+                broadcast_game_start(connected_clients, &players, &name, map_choice);
 
                 // Spawn commands for each player
                 let sender = cmd_sender.lock().unwrap();

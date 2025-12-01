@@ -1,6 +1,7 @@
 use crate::GameState;
 use crate::car_skins::CarSkinSelection;
 use crate::drift_settings::DriftSettings;
+use crate::networking::{MapChoice, SelectedMap};
 use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
@@ -43,6 +44,11 @@ pub struct LobbyNameInput;
 #[derive(Component)]
 pub struct ServerIpInput;
 
+#[derive(Resource, Default)]
+pub struct IpTypingMode {
+    pub enabled: bool,
+}
+
 #[derive(Component)]
 pub struct CpuDifficultyText;
 
@@ -53,8 +59,12 @@ pub struct LobbyListContainer;
 pub struct LobbyRow;
 
 #[derive(Component)]
+pub struct CreateMapLabel;
+
+#[derive(Component)]
 pub struct JoinButton {
     pub lobby_name: String,
+    pub map: MapChoice,
 }
 
 #[derive(Resource)]
@@ -74,6 +84,17 @@ pub fn sync_server_address(
 
 #[derive(SystemParam)]
 pub struct TitleUiQueries<'w, 's> {
+    pub server_ip: Query<
+        'w,
+        's,
+        &'static mut Text2d,
+        (
+            With<ServerIpInput>,
+            Without<LobbyNameInput>,
+            Without<CpuDifficultyText>,
+            Without<SkinLabel>,
+        ),
+    >,
     pub difficulty_text: Query<
         'w,
         's,
@@ -110,15 +131,7 @@ pub fn check_for_title_input(
     customize_screen_query: Query<Entity, With<CustomizingScreenEntity>>,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
-    mut server_ip_query: Query<
-        &mut Text2d,
-        (
-            With<ServerIpInput>,
-            Without<LobbyNameInput>,
-            Without<CpuDifficultyText>,
-            Without<SkinLabel>,
-        ),
-    >,
+    selected_map: Res<SelectedMap>,
     server_address: Res<ServerAddress>,
     mut cpu_difficulty: ResMut<CpuDifficulty>,
     mut drift_settings: ResMut<DriftSettings>,
@@ -151,7 +164,7 @@ pub fn check_for_title_input(
             // Only handle text input when in typing mode
             if is_typing_ip {
                 for key in input.get_just_pressed() {
-                    if let Ok(mut text) = server_ip_query.get_single_mut() {
+                    if let Ok(mut text) = ui_queries.server_ip.get_single_mut() {
                         match key {
                             KeyCode::Tab => {
                                 // Tab handled above for toggle, skip here
@@ -196,7 +209,7 @@ pub fn check_for_title_input(
                 next_state.set(GameState::Creating);
                 destroy_screen(&mut commands, &main_screen_query);
 
-                setup_create_lobby(commands, asset_server);
+                setup_create_lobby(commands, asset_server, selected_map);
             } else if !is_typing_ip && input.just_pressed(KeyCode::Digit2) {
                 // Connect to server if not already connected
                 let server_addr = format!("{}:4000", server_address.address);
@@ -305,10 +318,25 @@ pub fn check_for_lobby_input(
     mut lobby_state: ResMut<LobbyState>,
     mut network_client: ResMut<NetworkClient>,
     message_sender: Res<MessageSender>,
-    mut lobby_name_query: Query<&mut Text2d, (With<LobbyNameInput>, Without<ServerIpInput>)>,
-    mut server_ip_query: Query<&mut Text2d, (With<ServerIpInput>, Without<LobbyNameInput>)>,
+    mut lobby_name_query: Query<
+        &mut Text2d,
+        (
+            With<LobbyNameInput>,
+            Without<ServerIpInput>,
+            Without<CreateMapLabel>,
+        ),
+    >,
     server_address: Res<ServerAddress>,
+    mut selected_map: ResMut<SelectedMap>,
     mut buttons: Query<(&Interaction, &JoinButton), (Changed<Interaction>, With<Button>)>,
+    mut create_map_label: Query<
+        &mut Text2d,
+        (
+            With<CreateMapLabel>,
+            Without<LobbyNameInput>,
+            Without<ServerIpInput>,
+        ),
+    >,
 ) {
     match *current_state.get() {
         GameState::Lobby => {
@@ -339,6 +367,19 @@ pub fn check_for_lobby_input(
             }
         }
         GameState::Creating => {
+            if input.just_pressed(KeyCode::ArrowLeft) || input.just_pressed(KeyCode::ArrowRight) {
+                selected_map.choice = match selected_map.choice {
+                    MapChoice::Small => MapChoice::Big,
+                    MapChoice::Big => MapChoice::Small,
+                };
+                if let Ok(mut text) = create_map_label.get_single_mut() {
+                    text.0 = format!(
+                        "Map: {} (Arrow Left/Right to toggle)",
+                        selected_map.choice.label()
+                    );
+                }
+            }
+
             // Handle text input for lobby name
             for key in input.get_just_pressed() {
                 if let Ok(mut text) = lobby_name_query.get_single_mut() {
@@ -391,7 +432,7 @@ pub fn check_for_lobby_input(
 
                 // Send join lobby message
                 if let Some(client) = &mut network_client.client {
-                    if let Err(e) = client.create_lobby(lobby_name.clone()) {
+                    if let Err(e) = client.create_lobby(lobby_name.clone(), selected_map.choice) {
                         println!("Failed to create lobby: {}", e);
                         return;
                     }
@@ -412,6 +453,7 @@ pub fn check_for_lobby_input(
                         .push("Connecting...".to_string());
                 }
                 lobby_state.name = lobby_name;
+                lobby_state.map = selected_map.choice;
 
                 setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
             }
@@ -455,6 +497,8 @@ pub fn check_for_lobby_input(
                         .connected_players
                         .push("Connecting...".to_string());
                     lobby_state.name = join_btn.lobby_name.clone();
+                    lobby_state.map = join_btn.map;
+                    selected_map.choice = join_btn.map;
                     setup_lobby(&mut commands, asset_server.clone(), &lobby_state);
                 }
             }
@@ -660,7 +704,11 @@ pub fn setup_title_screen(
     ));
 }
 
-fn setup_create_lobby(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_create_lobby(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    selected_map: Res<SelectedMap>,
+) {
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
         Transform {
@@ -724,6 +772,22 @@ fn setup_create_lobby(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         CreateScreenEntity,
         LobbyNameInput,
+    ));
+
+    // Map selection label
+    commands.spawn((
+        Text2d::new(format!("Map: {} (Arrow Left/Right to toggle)", selected_map.choice.label())),
+        TextColor(Color::BLACK),
+        Transform {
+            translation: Vec3::new(0., -100., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 26.0,
+            ..default()
+        },
+        CreateScreenEntity,
+        CreateMapLabel,
     ));
 
     commands.spawn((
