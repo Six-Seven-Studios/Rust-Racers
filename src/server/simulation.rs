@@ -3,10 +3,12 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, TILE_SIZE, Velocity, handle_collision,
+    AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE,
+    Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
     theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
     theta_grid::ThetaGrid,
+    theta::{ThetaCheckpointList, ThetaCommand, bad_pure_pursuit},
 };
 use crate::lobby_management::timeout_cleanup;
 use crate::types::*;
@@ -24,8 +26,8 @@ pub fn physics_simulation_system(
         &LobbyMember,
     )>,
     lobbies: Res<Lobbies>,
-    game_map: Res<GameMap>,
 ) {
+
     // Check which lobbies have started
     let started_lobbies: Vec<String> = {
         let guard = lobbies.list.lock().unwrap();
@@ -64,6 +66,9 @@ pub fn physics_simulation_system(
 
         if let Some(lobby) = lobby_opt {
             let mut states = lobby.states.lock().unwrap();
+            
+            // set the map to this lobby's map
+            let game_map = &lobby.map;
 
             if let Some(player_state) = states.get_mut(&player_id.0) {
                 // Process all inputs in the queue
@@ -71,6 +76,16 @@ pub fn physics_simulation_system(
                     player_state.input_queue.drain(..).collect();
 
                 for input_data in inputs_to_process {
+                    // Refresh boost timer when client reports a pickup
+                    if input_data.boost && player_state.boost_remaining <= 0.0 {
+                        player_state.boost_remaining = 5.0;
+                    }
+                    if player_state.boost_remaining > 0.0 {
+                        player_state.boost_remaining = (player_state.boost_remaining
+                            - crate::game_logic::CLIENT_TIMESTEP)
+                            .max(0.0);
+                    }
+
                     let prev_pos = Vec2::new(pos.x, pos.y);
 
                     // Get current tile and terrain modifiers
@@ -84,6 +99,7 @@ pub fn physics_simulation_system(
                         right: input_data.right,
                         drift: input_data.drift,
                         easy_drift: input_data.easy_drift,
+                        boost: player_state.boost_remaining > 0.0,
                     };
 
                     // Apply physics for this input (using CLIENT_TIMESTEP since inputs are at 60 Hz)
@@ -146,6 +162,7 @@ pub fn physics_simulation_system(
                         right: input_data.right,
                         drift: input_data.drift,
                         easy_drift: input_data.easy_drift,
+                        boost: player_state.boost_remaining > 0.0,
                     };
                 }
 
@@ -157,6 +174,7 @@ pub fn physics_simulation_system(
                 input_component.right = player_state.inputs.right;
                 input_component.drift = player_state.inputs.drift;
                 input_component.easy_drift = player_state.inputs.easy_drift;
+                input_component.boost = player_state.inputs.boost;
             }
         }
     }
@@ -286,7 +304,7 @@ pub fn process_server_commands_system(
                         PlayerId(player_id),
                         Position { x, y },
                         Velocity::new(),
-                        Orientation::new(0.0),
+                        Orientation::new(START_ORIENTATION),
                         PlayerInputComponent::default(),
                         LobbyMember { lobby_name },
                     ))
@@ -299,6 +317,7 @@ pub fn process_server_commands_system(
                 lobby_name,
                 x,
                 y,
+                angle,
             } => {
                 println!("Spawning AI {} in lobby {}", ai_id, lobby_name);
 
@@ -311,7 +330,7 @@ pub fn process_server_commands_system(
                         PlayerId(ai_id),
                         Position { x, y },
                         Velocity::new(),
-                        Orientation::new(0.0),
+                        Orientation::new(angle),
                         PlayerInputComponent::default(),
                         LobbyMember { lobby_name },
                         AIControlled,
@@ -390,6 +409,18 @@ pub fn ai_movement_system(
             continue;
         }
 
+        // Find the lobby to access input queue (same thing as above basically)
+        let game_map = {
+            let guard = lobbies.list.lock().unwrap();
+            let lobby_opt = guard.iter().find(|l| l.name == lobby_member.lobby_name);
+            
+            if let Some(lobby) = lobby_opt {
+                lobby.map.clone() 
+            } else {
+                GameMap::default()
+            }
+        };
+
         // Get the current tile
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
 
@@ -407,7 +438,7 @@ pub fn ai_movement_system(
             &theta_grid,
         );
 
-        // COPIED FROM src/car.rs 
+        // COPIED FROM src/car.rs
         // Execute the command
         match command {
             ThetaCommand::TurnLeft => {
@@ -436,7 +467,6 @@ pub fn ai_movement_system(
                 }
             }
         }
-
 
         // Apply friction when not accelerating forward or reversing
         if !matches!(command, ThetaCommand::Forward | ThetaCommand::Reverse) {

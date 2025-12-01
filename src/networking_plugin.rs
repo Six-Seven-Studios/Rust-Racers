@@ -1,5 +1,6 @@
 use crate::GameState;
 use crate::lobby::{LobbyInfo, LobbyList, LobbyListDirty, LobbyState, setup_lobby};
+use crate::networking::{MapChoice, SelectedMap};
 use crate::networking::{
     Client, IncomingMessage, PlayerPositionData, ServerMessage, spawn_listener_thread,
 };
@@ -100,6 +101,7 @@ fn process_network_messages(
     mut list: ResMut<LobbyList>,
     mut dirty: ResMut<LobbyListDirty>,
     latency: Res<Latency>,
+    mut selected_map: ResMut<SelectedMap>,
 ) {
     // Lock the receiver to access it
     let rx = receiver.receiver.lock().unwrap();
@@ -124,17 +126,24 @@ fn process_network_messages(
                         list.0.clear();
                         println!("Active lobbies:");
                         for lobby in lobbies {
-                            println!("  {} ({} players)", lobby.name, lobby.players);
+                            println!(
+                                "  {} ({} players) - {}",
+                                lobby.name,
+                                lobby.players,
+                                lobby.map.label()
+                            );
                             list.0.push(LobbyInfo {
                                 name: lobby.name,
                                 players: lobby.players,
                                 capacity: 4,
+                                map: lobby.map,
                             });
                         }
                         dirty.0 = true;
                     }
-                    ServerMessage::GameStarted { lobby, time } => {
-                        println!("Game started for lobby: {}", lobby);
+                    ServerMessage::GameStarted { lobby, time, map } => {
+                        println!("Game started for lobby: {} on {}", lobby, map.label());
+                        selected_map.choice = map;
 
                         // Destroy lobby screen entities
                         for entity in lobby_query.iter() {

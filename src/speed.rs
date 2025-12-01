@@ -1,12 +1,12 @@
+use crate::game_logic::{
+    AIControlled, Car, GameMap, Orientation, PlayerControlled, TILE_SIZE, Velocity,
+};
 use bevy::prelude::*;
 use rand::{Rng, rngs::ThreadRng};
-use crate::game_logic::{GameMap, Car, PlayerControlled, AIControlled, Orientation, Velocity, TILE_SIZE};
-
 
 // Component for the powerup
 #[derive(Component)]
 pub struct SpeedPowerup;
-
 
 #[derive(Component)]
 pub struct SpeedBoost {
@@ -21,9 +21,8 @@ pub fn spawn_speed_powerups(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     game_map: Res<GameMap>,
-    powerups: Query<Entity, With<SpeedPowerup>>
+    powerups: Query<Entity, With<SpeedPowerup>>,
 ) {
-
     let current_count = powerups.iter().count();
     let target_count = 10;
 
@@ -39,9 +38,8 @@ fn spawn_powerups(
     game_map: &Res<GameMap>,
     count: usize,
 ) {
-    
     let mut rng: ThreadRng = rand::rng();
-    
+
     // Collect all road tile positions
     let mut road_tiles = Vec::new();
 
@@ -53,7 +51,7 @@ fn spawn_powerups(
             }
         }
     }
-    
+
     // Spawn powerups at random road positions
     for _ in 0..count {
         if let Some(&(x, y)) = road_tiles.get(rng.random_range(0..road_tiles.len())) {
@@ -77,29 +75,28 @@ pub fn collect_powerups(
     boost_query: Query<&SpeedBoost, With<PlayerControlled>>,
 ) {
     const PICKUP_DISTANCE: f32 = 64.0;
-    
-    if let Ok((player_entity, player_transform)) = player_query.single(){
 
+    if let Ok((player_entity, player_transform)) = player_query.single() {
         if boost_query.get(player_entity).is_ok() {
             // Player already has a boost, don't pick up more
             return;
         }
 
         let player_pos = player_transform.translation.truncate();
-        
+
         for (powerup_entity, powerup_transform) in powerup_query.iter() {
             let powerup_pos = powerup_transform.translation.truncate();
             let distance = player_pos.distance(powerup_pos);
-                    
+
             if distance < PICKUP_DISTANCE {
                 // Despawn the powerup
                 commands.entity(powerup_entity).despawn();
-                
+
                 // Add speed boost component to player
                 commands.entity(player_entity).insert(SpeedBoost {
                     timer: Timer::from_seconds(5.0, TimerMode::Once), // 5 second boost
                 });
-                
+
                 println!("Powerup collected! Speed boost activated!");
             }
         }
@@ -114,7 +111,7 @@ pub fn update_speed_boost(
 ) {
     for (entity, mut boost, mut sprite) in query.iter_mut() {
         boost.timer.tick(time.delta());
-        
+
         if boost.timer.finished() {
             // Remove boost and reset color
             sprite.color = Color::WHITE;

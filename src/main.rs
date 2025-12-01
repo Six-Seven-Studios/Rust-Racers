@@ -1,33 +1,43 @@
 mod camera;
-mod speed;
 mod car;
+mod car_skins;
 mod car_state;
 mod client_prediction;
 mod credits;
 mod drift_settings;
 mod game_logic;
+mod interpolation;
 mod lobby;
 mod multiplayer;
 mod networking;
 mod networking_plugin;
+mod speed;
 mod title_screen;
 mod victory_screen;
-mod interpolation;
 
+use speed::{
+    SpeedBoost, SpeedPowerup, collect_powerups, remove_boost_ui, spawn_boost_ui,
+    spawn_speed_powerups, update_speed_boost,
+};
 
-use speed::{spawn_speed_powerups, collect_powerups, update_speed_boost, spawn_boost_ui, remove_boost_ui, SpeedBoost, SpeedPowerup};
-
-use title_screen::{check_for_title_input, setup_title_screen, pause, sync_server_address, ServerAddress, check_for_lobby_input};
-use lobby::{LobbyState, update_lobby_display, LobbyList, LobbyListDirty, populate_lobby_list};
-use game_logic::{load_map_from_file, GameMap, spawn_map, CpuDifficulty, LapCounter, spawn_lap_triggers, update_laps};
-use car::{Background, move_player_car, spawn_cars, move_ai_cars, ai_car_fsm};
-use camera::{move_camera, reset_camera_for_credits, WIN_W, WIN_H};
-use credits::{check_for_credits_input, setup_credits, show_credits};
-use victory_screen::setup_victory_screen;
-use bevy::{prelude::*, window::PresentMode, color::palettes::basic::*, input_focus::InputFocus};
-use bevy::render::camera::{Projection, ScalingMode};
-use networking_plugin::NetworkingPlugin;
 use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity};
+use bevy::render::camera::{Projection, ScalingMode};
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, window::PresentMode};
+use camera::{WIN_H, WIN_W, move_camera, reset_camera_for_credits};
+use car::{Background, ai_car_fsm, move_ai_cars, move_player_car, spawn_cars};
+use credits::{check_for_credits_input, setup_credits, show_credits};
+use game_logic::{
+    CpuDifficulty, GameMap, LapCounter, load_map_from_file, spawn_lap_triggers, spawn_map,
+    update_laps,
+};
+use lobby::{LobbyList, LobbyListDirty, LobbyState, populate_lobby_list, update_lobby_display};
+use networking_plugin::NetworkingPlugin;
+use networking::SelectedMap;
+use title_screen::{
+    ServerAddress, check_for_lobby_input, check_for_title_input, pause, setup_title_screen,
+    sync_server_address,
+};
+use victory_screen::setup_victory_screen;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
@@ -43,7 +53,6 @@ pub enum GameState {
     Victory,
     Credits,
 }
-
 
 fn main() {
     App::new()
@@ -63,10 +72,13 @@ fn main() {
                 }),
         )
         .add_plugins(NetworkingPlugin)
+        .init_resource::<car_skins::CarSkinSelection>()
+        .init_resource::<networking::SelectedMap>()
+        .init_resource::<title_screen::IpTypingMode>()
         .insert_resource(CpuDifficulty::default())
         .insert_resource(ClearColor(Color::WHITE))
         .insert_resource(ServerAddress {
-            address: String::new(),
+            address: "167.172.23.173".to_string(),
         })
         .init_resource::<drift_settings::DriftSettings>()
         .init_resource::<client_prediction::InputSequence>()
@@ -86,6 +98,8 @@ fn main() {
             OnEnter(GameState::Playing),
             (initialize_theta_grid, car_setup, spawn_map, spawn_lap_triggers).chain().after(load_map1),
         )
+        .add_systems(Startup, camera_setup)
+        .add_systems(OnEnter(GameState::Title), setup_title_screen)
         .add_systems(
             OnEnter(GameState::PlayingDemo),
             (initialize_theta_grid, car_setup, spawn_map, spawn_lap_triggers).chain().after(load_map1),
@@ -96,15 +110,10 @@ fn main() {
         )
         // .add_systems(Startup, intro::setup_intro)
         // .add_systems(Update, intro::check_for_intro_input)
-        .add_systems(
-            Update,
-            (
-                sync_server_address,
-                check_for_title_input,
-                check_for_lobby_input,
-                check_for_credits_input,
-            ),
-        )
+        .add_systems(Update, sync_server_address)
+        .add_systems(Update, check_for_title_input)
+        .add_systems(Update, check_for_lobby_input)
+        .add_systems(Update, check_for_credits_input)
         .add_systems(
             Update,
             title_screen::update_easy_drift_label.run_if(in_state(GameState::Settings)),
@@ -149,13 +158,17 @@ fn main() {
         //     OnEnter(GameState::PlayingDemo),
         //     spawn_speed_powerups,
         // )
-        .add_systems(Update, (
-            spawn_speed_powerups,
-            collect_powerups,
-            update_speed_boost, 
-            spawn_boost_ui,     
-            remove_boost_ui,        
-        ).run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))))
+        .add_systems(
+            Update,
+            (
+                spawn_speed_powerups,
+                collect_powerups,
+                update_speed_boost,
+                spawn_boost_ui,
+                remove_boost_ui,
+            )
+                .run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))),
+        )
         .run();
 }
 
@@ -178,11 +191,18 @@ fn car_setup(
     asset_server: Res<AssetServer>,
     texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<GameState>>,
+    skin_selection: Res<car_skins::CarSkinSelection>,
 ) {
     // spawn_cars now detects the game mode and spawns accordingly
     // - Playing (multiplayer): Only player car
     // - PlayingDemo: Player car + AI car
-    spawn_cars(commands, asset_server, texture_atlases, state);
+    spawn_cars(
+        commands,
+        asset_server,
+        texture_atlases,
+        state,
+        skin_selection,
+    );
 }
 fn ai_car_setup(
     mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
@@ -192,13 +212,8 @@ fn ai_car_setup(
     }
 }
 
-fn load_map1(mut commands: Commands) {
-    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
-}
-
-//THETA* DEMO
-fn load_map_demo(mut commands: Commands) {
-    commands.insert_resource(load_map_from_file("assets/big-map.txt"));
+fn load_selected_map(mut commands: Commands, selected_map: Res<SelectedMap>) {
+    commands.insert_resource(load_map_from_file(selected_map.choice.path()));
 }
 
 // map2
