@@ -159,13 +159,10 @@ fn calculate_steering_command(
     }
 }
 
-//pseudocode from https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter16_Theta_Star_for_Any-Angle_Pathfinding.pdf
-pub fn theta_star() {
-    /*
-    open:=closed:=emptyset
-    g(s_start):=0;
-    parent(s_start):=s_start;
-    open.Insert(s_start,s_start)+h(s_start);
+pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
+    if checkpoints.checkpoints.is_empty() {
+        return ThetaCommand::Stop;
+    }
 
     //Grab the current checkpoint from the checkpoint list
     let end_pos = get_next_point(&checkpoints, &grid);
@@ -460,45 +457,4 @@ fn steer_towards(
     _checkpoints: &ThetaCheckpointList,
 ) -> ThetaCommand {
     calculate_steering_command(start_pos, target_pos, current_angle)
-pub fn update_vertex(s: f32, s_prime: f32) {
-    /*
-
-    g_old:=g(s');
-    compute_cost(s,s');
-    if(g(s') < g_old)
-    {
-        if(s' is a member of open)
-        {
-            open.Remove(s');
-        }
-        open.Insert(s',g(s')+h(s'));
-    }
-
-
-    */
-}
-
-pub fn compute_cost(s: f32, s_prime: f32) {
-    /*
-
-    if gamemap.lineofsight(parent(s),s')
-    {
-        // Path 2
-        if(g(parent(s)) + c(parent(s),s') < g(s'))
-        {
-            parent(s') := parent(s);
-            g(s') := g(parent(s)) + c(parent(s),s')
-        }
-    }
-    else
-    {
-        //Path 1
-        if(g(s) + c(s,s') < g(s'))
-        {
-            parent(s'):=s;
-            g(s'):=g(s)+c(s,s');
-        }
-    }
-
-     */
 }
