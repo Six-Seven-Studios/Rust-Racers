@@ -3,8 +3,8 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, TILE_SIZE, Velocity,
-    handle_collision,
+    AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE,
+    Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
     theta::{ThetaCheckpointList, ThetaCommand, bad_pure_pursuit},
 };
@@ -299,7 +299,7 @@ pub fn process_server_commands_system(
                         PlayerId(player_id),
                         Position { x, y },
                         Velocity::new(),
-                        Orientation::new(0.0),
+                        Orientation::new(START_ORIENTATION),
                         PlayerInputComponent::default(),
                         LobbyMember { lobby_name },
                     ))
@@ -312,6 +312,7 @@ pub fn process_server_commands_system(
                 lobby_name,
                 x,
                 y,
+                angle,
             } => {
                 println!("Spawning AI {} in lobby {}", ai_id, lobby_name);
 
@@ -324,7 +325,7 @@ pub fn process_server_commands_system(
                         PlayerId(ai_id),
                         Position { x, y },
                         Velocity::new(),
-                        Orientation::new(0.0),
+                        Orientation::new(angle),
                         PlayerInputComponent::default(),
                         LobbyMember { lobby_name },
                         AIControlled,

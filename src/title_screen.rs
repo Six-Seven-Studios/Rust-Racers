@@ -221,7 +221,12 @@ pub fn check_for_title_input(
             } else if input.just_pressed(KeyCode::Escape) {
                 next_state.set(GameState::Settings);
                 destroy_screen(&mut commands, &screens.main);
-                setup_settings(commands, asset_server, *cpu_difficulty);
+                setup_settings(
+                    commands,
+                    asset_server,
+                    *cpu_difficulty,
+                    drift_settings.clone(),
+                );
             }
             // Theta* DEMO
             else if !is_typing_ip && input.just_pressed(KeyCode::Digit4) {
@@ -855,6 +860,7 @@ fn setup_settings(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     cpu_difficulty: CpuDifficulty,
+    drift_settings: DriftSettings,
 ) {
     // Title text
     commands.spawn((
@@ -883,12 +889,28 @@ fn setup_settings(
         CpuDifficultyText,
     ));
 
-    // Hint text
+    // Easy drift toggle display
     commands.spawn((
-        Text2d::new("Use A/D or Left/Right to change"),
-        TextColor(Color::srgb_u8(120, 120, 120)),
+        Text2d::new(format!("Easy Drift Mode: {}", drift_settings.mode_label())),
+        TextColor(Color::BLACK),
         Transform {
             translation: Vec3::new(0., -30., 1.),
+            ..default()
+        },
+        TextFont {
+            font_size: 32.0,
+            ..default()
+        },
+        SettingsScreenEntity,
+        EasyDriftLabel,
+    ));
+
+    // Hint text
+    commands.spawn((
+        Text2d::new("Use A/D or Left/Right to change, E to toggle Easy Drift"),
+        TextColor(Color::srgb_u8(120, 120, 120)),
+        Transform {
+            translation: Vec3::new(0., -70., 1.),
             ..default()
         },
         TextFont {

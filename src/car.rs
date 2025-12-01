@@ -3,7 +3,8 @@ use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
-    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, TURNING_RATE,
+    EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, START_ORIENTATION,
+    START_POSITIONS, TURNING_RATE,
 };
 use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
 use crate::game_logic::{
@@ -11,7 +12,7 @@ use crate::game_logic::{
     bad_pure_pursuit, handle_collision,
 };
 use crate::speed::SpeedBoost;
-use bevy::{color, prelude::*};
+use bevy::prelude::*;
 
 // Car-related components
 #[derive(Component)]
@@ -341,6 +342,8 @@ pub fn spawn_cars(
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
 
+    let player_start = START_POSITIONS[0];
+
     // Spawn player car
     commands.spawn((
         Sprite::from_atlas_image(
@@ -351,11 +354,12 @@ pub fn spawn_cars(
             },
         ),
         Transform {
-            translation: Vec3::new(2752., 960., 10.),
+            translation: Vec3::new(player_start.0, player_start.1, 10.),
+            rotation: Quat::from_rotation_z(START_ORIENTATION),
             ..default()
         },
         Velocity::new(),
-        Orientation::new(0.0),
+        Orientation::new(START_ORIENTATION),
         Car,
         PlayerControlled,
         LapCounter::default(),
@@ -364,6 +368,7 @@ pub fn spawn_cars(
 
     // Spawn AI car IF in demo mode
     if *state.get() == crate::GameState::PlayingDemo {
+        let ai_start = START_POSITIONS.get(1).copied().unwrap_or(player_start);
         commands.spawn((
             Sprite::from_atlas_image(
                 asset_server.load("CPU.png"),
@@ -373,11 +378,12 @@ pub fn spawn_cars(
                 },
             ),
             Transform {
-                translation: Vec3::new(2752., 960., 10.),
+                translation: Vec3::new(ai_start.0, ai_start.1, 10.),
+                rotation: Quat::from_rotation_z(START_ORIENTATION),
                 ..default()
             },
             Velocity::new(),
-            Orientation::new(0.0),
+            Orientation::new(START_ORIENTATION),
             Car,
             AIControlled,
             LapCounter::default(),

@@ -235,6 +235,7 @@ pub enum ServerCommand {
         lobby_name: String,
         x: f32,
         y: f32,
+        angle: f32,
     },
     DespawnPlayer {
         player_id: u32,
