@@ -6,7 +6,6 @@ use crate::game_logic::{
 use crate::multiplayer::NetworkPlayer;
 use crate::networking::InputData;
 use crate::networking_plugin::NetworkClient;
-use crate::speed::SpeedBoost;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
@@ -53,7 +52,6 @@ pub fn send_keyboard_input(
             &mut Velocity,
             &mut Orientation,
             &mut PredictionBuffer,
-            Option<&SpeedBoost>,
         ),
         With<PlayerControlled>,
     >,
@@ -76,11 +74,6 @@ pub fn send_keyboard_input(
 
     // Buffer this input to send later
     let easy_drift = drift_settings.easy_mode;
-    let boost_active = player_car
-        .get_single()
-        .map(|(_, _, _, _, boost)| boost.is_some())
-        .unwrap_or(false);
-
     input_buffer.pending_inputs.push(InputData {
         sequence,
         forward,
@@ -89,7 +82,6 @@ pub fn send_keyboard_input(
         right,
         drift,
         easy_drift,
-        boost: boost_active,
     });
 
     // Send buffered inputs to server (client sends at 60 Hz)
@@ -99,7 +91,7 @@ pub fn send_keyboard_input(
     }
 
     // Predict movement locally for instant feedback
-    if let Ok((mut transform, mut velocity, mut orientation, mut buffer, speed_boost)) =
+    if let Ok((mut transform, mut velocity, mut orientation, mut buffer)) =
         player_car.get_single_mut()
     {
         let physics_input = PhysicsInput {
@@ -109,7 +101,6 @@ pub fn send_keyboard_input(
             right,
             drift,
             easy_drift,
-            boost: speed_boost.is_some(),
         };
 
         let old_pos = transform.translation.truncate();

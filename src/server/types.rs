@@ -4,8 +4,6 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use crate::game_logic::GameMap;
-use crate::networking::MapChoice;
 
 // Single input with sequence number (shared with client)
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -17,8 +15,6 @@ pub struct InputData {
     pub right: bool,
     pub drift: bool,
     pub easy_drift: bool,
-    #[serde(default)]
-    pub boost: bool,
 }
 
 // Single position snapshot with sequence number
@@ -54,7 +50,6 @@ pub enum GameState {
 pub enum MessageType {
     CreateLobby {
         name: String,
-        map: MapChoice,
     },
     JoinLobby {
         name: String,
@@ -74,7 +69,6 @@ pub enum MessageType {
         right: bool,
         drift: bool,
         easy_drift: bool,
-        boost: bool,
     },
     PlayerInputBuffer {
         inputs: Vec<InputData>,
@@ -113,7 +107,6 @@ pub struct PlayerInput {
     pub right: bool,
     pub drift: bool,
     pub easy_drift: bool,
-    pub boost: bool,
 }
 
 impl Default for PlayerInput {
@@ -125,7 +118,6 @@ impl Default for PlayerInput {
             right: false,
             drift: false,
             easy_drift: false,
-            boost: false,
         }
     }
 }
@@ -139,7 +131,6 @@ pub struct PlayerState {
     pub angle: f32,
     pub inputs: PlayerInput,
     pub last_processed_sequence: u64,
-    pub boost_remaining: f32,
     // Queue of pending inputs to process
     pub input_queue: Vec<InputData>,
 }
@@ -152,8 +143,6 @@ pub struct Lobby {
     pub name: String,
     pub started: bool,
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
-    pub map_choice: MapChoice,
-    pub map: GameMap,
 }
 
 impl Default for Lobby {
@@ -164,8 +153,6 @@ impl Default for Lobby {
             name: String::from(""),
             started: false,
             states: Arc::new(Mutex::new(HashMap::new())),
-            map_choice: MapChoice::Small,
-            map: GameMap::default(),
         }
     }
 }
@@ -197,7 +184,6 @@ pub struct PlayerInputComponent {
     pub right: bool,
     pub drift: bool,
     pub easy_drift: bool,
-    pub boost: bool,
     pub last_processed_sequence: u64,
 }
 
@@ -210,7 +196,6 @@ impl Default for PlayerInputComponent {
             right: false,
             drift: false,
             easy_drift: false,
-            boost: false,
             last_processed_sequence: 0,
         }
     }
@@ -242,7 +227,6 @@ pub enum ServerCommand {
         lobby_name: String,
         x: f32,
         y: f32,
-        angle: f32,
     },
     DespawnPlayer {
         player_id: u32,

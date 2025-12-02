@@ -1,5 +1,4 @@
 use crate::GameState;
-use crate::networking::MapChoice;
 use crate::title_screen::{JoinButton, LobbyListContainer, LobbyRow};
 use bevy::prelude::*;
 
@@ -19,24 +18,10 @@ pub struct PlayerNameText {
 #[derive(Component)]
 pub struct LobbyCodeText;
 
-#[derive(Component)]
-pub struct LobbyMapLabel;
-
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct LobbyState {
     pub connected_players: Vec<String>,
     pub name: String,
-    pub map: MapChoice,
-}
-
-impl Default for LobbyState {
-    fn default() -> Self {
-        Self {
-            connected_players: Vec::new(),
-            name: String::new(),
-            map: MapChoice::Small,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -44,7 +29,6 @@ pub struct LobbyInfo {
     pub name: String,
     pub players: usize,
     pub capacity: usize,
-    pub map: MapChoice,
 }
 
 #[derive(Resource, Default)]
@@ -84,20 +68,6 @@ pub fn setup_lobby(
         },
         LobbyScreenEntity,
         LobbyCodeText,
-    ));
-    commands.spawn((
-        Text2d::new(format!("Map: {}", lobby_state.map.label())),
-        TextColor(Color::BLACK),
-        Transform {
-            translation: Vec3::new(450., 240., 1.),
-            ..default()
-        },
-        TextFont {
-            font_size: 28.0,
-            ..default()
-        },
-        LobbyScreenEntity,
-        LobbyMapLabel,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/backArrow.png")),
@@ -202,14 +172,7 @@ pub fn update_lobby_display(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     lobby_state: Res<LobbyState>,
-    mut name_text_query: Query<(&mut Text2d, &PlayerNameText), Without<LobbyMapLabel>>,
-    mut map_label_query: Query<
-        &mut Text2d,
-        (
-            With<LobbyMapLabel>,
-            Without<PlayerNameText>,
-        ),
-    >,
+    mut name_text_query: Query<(&mut Text2d, &PlayerNameText)>,
     slot_query: Query<(Entity, &PlayerSlot), With<LobbyScreenEntity>>,
 ) {
     // Only run when LobbyState changes
@@ -232,10 +195,6 @@ pub fn update_lobby_display(
         {
             text.0 = player_name.clone();
         }
-    }
-
-    if let Ok(mut text) = map_label_query.get_single_mut() {
-        text.0 = format!("Map: {}", lobby_state.map.label());
     }
 
     // Count how many slots currently exist
@@ -319,7 +278,6 @@ pub fn populate_lobby_list(
     for lobby in &list.0 {
         let name = lobby.name.clone();
         let players_label = format!("{} / {}", lobby.players, lobby.capacity);
-        let map_label = format!("Map: {}", lobby.map.label());
 
         commands.entity(container).with_children(|rows| {
             rows.spawn((
@@ -357,16 +315,6 @@ pub fn populate_lobby_list(
                     TextColor(Color::BLACK),
                 ));
 
-                // Map label
-                row.spawn((
-                    Text::new(map_label.clone()),
-                    TextFont {
-                        font_size: 20.0,
-                        ..default()
-                    },
-                    TextColor(Color::BLACK),
-                ));
-
                 // Join button
                 row.spawn((
                     Button,
@@ -378,7 +326,6 @@ pub fn populate_lobby_list(
                     BorderRadius::all(Val::Px(8.0)),
                     JoinButton {
                         lobby_name: name.clone(),
-                        map: lobby.map,
                     },
                 ))
                 .with_children(|b| {

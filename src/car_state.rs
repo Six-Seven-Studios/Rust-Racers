@@ -1,5 +1,5 @@
-use crate::game_logic::{CpuDifficulty, Orientation, Velocity};
 use bevy::prelude::*;
+use crate::game_logic::{Velocity, Orientation, CpuDifficulty};
 use rand::prelude::*;
 use std::time::Duration;
 
@@ -73,7 +73,7 @@ impl CarState {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
-    ) {
+    ){
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
 

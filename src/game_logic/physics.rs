@@ -13,7 +13,6 @@ pub struct PhysicsInput {
     pub right: bool,
     pub drift: bool,
     pub easy_drift: bool,
-    pub boost: bool,
 }
 
 /// Apply physics simulation to a single entity
@@ -30,9 +29,6 @@ pub fn apply_physics(
     decel_modifier: f32,
 ) {
     let accel = ACCEL_RATE * delta;
-    let mut speed_modifier = speed_modifier;
-    let mut friction_modifier = friction_modifier;
-    let mut turn_modifier = turn_modifier;
     let drift_turn_scale = if input.drift && input.easy_drift {
         EASY_DRIFT_TURN_MULTIPLIER
     } else {
@@ -43,13 +39,6 @@ pub fn apply_physics(
     } else {
         1.0
     };
-
-    if input.boost {
-        // Increase top speed and tweak turning/friction while boosted
-        speed_modifier *= 3.0;
-        friction_modifier = 10.0;
-        turn_modifier *= 1.5;
-    }
 
     // Apply turning
     if input.left {

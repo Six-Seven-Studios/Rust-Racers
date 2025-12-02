@@ -14,9 +14,7 @@ pub fn check_for_credits_input(
     mut next_state: ResMut<NextState<GameState>>,
     current_state: Res<State<GameState>>,
 ) {
-    if input.just_pressed(KeyCode::KeyP)
-        && (*current_state == GameState::Playing || *current_state == GameState::PlayingDemo)
-    {
+    if input.just_pressed(KeyCode::KeyP) && (*current_state == GameState::Playing || *current_state == GameState::PlayingDemo) {
         next_state.set(GameState::Credits);
     }
 }
