@@ -7,8 +7,8 @@ use crate::game_logic::{
     SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE, Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
     theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
-    theta_grid::ThetaGrid,
 };
+use crate::networking::MapChoice;
 use crate::lobby_management::timeout_cleanup;
 use crate::types::*;
 
@@ -292,6 +292,7 @@ pub fn sync_input_from_lobbies_system(
 pub fn process_server_commands_system(
     mut commands: Commands,
     receiver: Res<ServerCommandReceiver>,
+    lobbies: Res<Lobbies>,
     mut player_entities: ResMut<PlayerEntities>,
 ) {
     // Process all pending commands
@@ -328,9 +329,17 @@ pub fn process_server_commands_system(
             } => {
                 println!("Spawning AI {} in lobby {}", ai_id, lobby_name);
 
-                // Load checkpoints for map 1
+                // Load checkpoints based on the lobby's selected map
+                let map_choice = {
+                    let guard = lobbies.list.lock().unwrap();
+                    guard
+                        .iter()
+                        .find(|l| l.name == lobby_name)
+                        .map(|l| l.map_choice)
+                        .unwrap_or(MapChoice::Big)
+                };
                 let mut checkpoint_list = ThetaCheckpointList::new(Vec::new());
-                checkpoint_list = checkpoint_list.load_checkpoint_list(1);
+                checkpoint_list = checkpoint_list.load_checkpoint_list_for_choice(map_choice);
 
                 let entity = commands
                     .spawn((
@@ -374,7 +383,6 @@ pub fn timeout_cleanup_system(
 
 /// System to move AI cars using Theta* pathfinding
 pub fn ai_movement_system(
-    theta_grid: Res<ThetaGrid>,
     lobbies: Res<Lobbies>,
     mut ai_cars: Query<
         (
@@ -415,14 +423,17 @@ pub fn ai_movement_system(
         }
 
         // Find the lobby to access input queue (same thing as above basically)
-        let game_map = {
+        let (game_map, theta_grid) = {
             let guard = lobbies.list.lock().unwrap();
             let lobby_opt = guard.iter().find(|l| l.name == lobby_member.lobby_name);
             
             if let Some(lobby) = lobby_opt {
-                lobby.map.clone() 
+                (lobby.map.clone(), lobby.theta_grid.clone())
             } else {
-                GameMap::default()
+                let default_map = GameMap::default();
+                let default_grid =
+                    crate::game_logic::theta_grid::ThetaGrid::create_theta_grid(&default_map, TILE_SIZE as f32);
+                (default_map, default_grid)
             }
         };
 

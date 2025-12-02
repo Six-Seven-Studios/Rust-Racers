@@ -307,8 +307,17 @@ fn load_map2(mut commands: Commands) {
 }
 
 // Initialize ThetaGrid from GameMap for pathfinding
-fn initialize_theta_grid(mut commands: Commands, game_map: Res<GameMap>) {
+fn initialize_theta_grid(
+    mut commands: Commands,
+    game_map: Res<GameMap>,
+    map_number: Res<CurrentMapNumber>,
+) {
     use game_logic::theta_grid::ThetaGrid;
-    let theta_grid = ThetaGrid::create_theta_grid(&game_map, TILE_SIZE as f32);
+    let (w, h) = match map_number.0 {
+        2 => (125, 125),
+        _ => (100, 100),
+    };
+    let theta_grid =
+        ThetaGrid::create_theta_grid_with_size(&game_map, TILE_SIZE as f32, w, h);
     commands.insert_resource(theta_grid);
 }

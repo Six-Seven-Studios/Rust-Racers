@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use crate::game_logic::GameMap;
+use crate::game_logic::{GameMap, TILE_SIZE};
+use crate::game_logic::theta_grid::ThetaGrid;
 use crate::networking::MapChoice;
 
 // Single input with sequence number (shared with client)
@@ -155,10 +156,13 @@ pub struct Lobby {
     pub states: Arc<Mutex<HashMap<u32, PlayerState>>>,
     pub map_choice: MapChoice,
     pub map: GameMap,
+    pub theta_grid: ThetaGrid,
 }
 
 impl Default for Lobby {
     fn default() -> Self {
+        let map = GameMap::default();
+        let theta_grid = ThetaGrid::create_theta_grid_with_size(&map, TILE_SIZE as f32, 100, 100);
         Self {
             players: Arc::new(Mutex::new(Vec::new())),
             host: 0,
@@ -166,7 +170,8 @@ impl Default for Lobby {
             started: false,
             states: Arc::new(Mutex::new(HashMap::new())),
             map_choice: MapChoice::Small,
-            map: GameMap::default(),
+            map,
+            theta_grid,
         }
     }
 }

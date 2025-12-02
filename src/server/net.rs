@@ -4,11 +4,12 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::game_logic::{START_ORIENTATION, START_POSITIONS, START_POSITIONS_MAP2};
+use crate::game_logic::{START_ORIENTATION, START_POSITIONS, START_POSITIONS_MAP2, TILE_SIZE};
 use crate::networking::MapChoice;
 use crate::lobby_management::*;
 use crate::types::*;
 use crate::game_logic::{GameMap, load_map_from_file};
+use crate::game_logic::theta_grid::ThetaGrid;
 
 /// Spawn the UDP listener task that handles incoming client messages
 pub fn server_listener(
@@ -155,6 +156,16 @@ fn handle_client_message(
             );
             new_lobby.map_choice = map;
             new_lobby.map = game_map;
+            let grid_size = match map {
+                MapChoice::Small => (100, 100),
+                MapChoice::Big => (125, 125),
+            };
+            new_lobby.theta_grid = ThetaGrid::create_theta_grid_with_size(
+                &new_lobby.map,
+                TILE_SIZE as f32,
+                grid_size.0,
+                grid_size.1,
+            );
 
             guard.push(new_lobby);
 
