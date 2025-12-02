@@ -3,7 +3,7 @@ use crate::car_state::CarState;
 use crate::client_prediction::PredictionBuffer;
 use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
-    ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
+    ACCEL_RATE, CAR_SIZE, DRIFT_RELEASE_BOOST, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, START_ORIENTATION,
     TURNING_RATE,
 };
@@ -21,6 +21,11 @@ use crate::game_logic::theta_grid::ThetaGrid;
 #[derive(Component)]
 pub struct Background;
 
+#[derive(Component, Default)]
+pub struct DriftState {
+    pub was_drifting: bool,
+}
+
 // Car movement system
 pub fn move_player_car(
     game_map: Res<GameMap>,
@@ -33,13 +38,14 @@ pub fn move_player_car(
             &mut Velocity,
             &mut Orientation,
             &mut Sprite,
+            &mut DriftState,
             Option<&SpeedBoost>,
         ),
         (With<PlayerControlled>, Without<Background>),
     >,
     other_cars: Query<(&Transform, &Velocity), (With<Car>, Without<PlayerControlled>)>,
 ) {
-    let (mut transform, mut velocity, mut orientation, mut sprite, speed_boost) =
+    let (mut transform, mut velocity, mut orientation, mut sprite, mut drift_state, speed_boost) =
         player_car.into_inner();
 
     let deltat = time.delta_secs();
@@ -171,6 +177,14 @@ pub fn move_player_car(
 
         **velocity = forward * forward_speed + right * new_lateral_speed;
     }
+
+    // Drift boost
+    if drift_state.was_drifting && !is_drifting {
+        let boost_velocity = orientation.forward_vector() * PLAYER_SPEED * DRIFT_RELEASE_BOOST;
+        **velocity += boost_velocity;
+    }
+
+    drift_state.was_drifting = is_drifting;
 
     // Updated position
     let change = **velocity * deltat;
@@ -380,6 +394,7 @@ pub fn spawn_cars(
         PlayerControlled,
         LapCounter::default(),
         PredictionBuffer::new(),
+        DriftState::default(),
     ));
 
     // Spawn AI car IF in demo mode

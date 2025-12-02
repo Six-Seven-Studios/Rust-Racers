@@ -140,6 +140,7 @@ pub struct PlayerState {
     pub inputs: PlayerInput,
     pub last_processed_sequence: u64,
     pub boost_remaining: f32,
+    pub was_drifting: bool,
     // Queue of pending inputs to process
     pub input_queue: Vec<InputData>,
 }

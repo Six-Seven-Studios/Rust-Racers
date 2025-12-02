@@ -338,6 +338,7 @@ fn handle_client_message(
                                     inputs: PlayerInput::default(),
                                     last_processed_sequence: 0,
                                     boost_remaining: 0.0,
+                                    was_drifting: false,
                                     input_queue: Vec::new(),
                                 },
                             );
