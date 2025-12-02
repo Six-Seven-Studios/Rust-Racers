@@ -6,7 +6,7 @@ use crate::game_logic::{
     AIControlled, CAR_SIZE, DRIFT_RELEASE_BOOST, GameMap, Orientation, PLAYER_SPEED,
     SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE, Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
-    theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
+    theta::{ThetaCheckpointList, theta_star, ThetaCommand},
 };
 use crate::networking::MapChoice;
 use crate::lobby_management::timeout_cleanup;
@@ -447,7 +447,7 @@ pub fn ai_movement_system(
         let decel_mod = tile.decel_modifier;
 
         // Get command from Theta* pathfinding
-        let command = theta_star_pursuit(
+        let command = theta_star(
             (pos.x, pos.y),
             orientation.angle,
             &mut theta_checkpoint_list,
