@@ -687,7 +687,7 @@ pub fn setup_title_screen(
 
     // Theta* DEMO (Remove later)
     commands.spawn((
-        Sprite::from_image(asset_server.load("temp-art/theta-demo.png")),
+        Sprite::from_image(asset_server.load("single-player.png")),
         Transform {
             translation: Vec3::new(400., -200., 1.),
             ..default()
