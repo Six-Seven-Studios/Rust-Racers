@@ -1,4 +1,5 @@
 use crate::game_logic::theta_grid::ThetaGrid;
+use crate::networking::MapChoice;
 use bevy::prelude::Component;
 use rand::Rng;
 use std::collections::{BinaryHeap, HashMap, HashSet};
@@ -51,6 +52,16 @@ impl ThetaCheckpointList {
         self.current_checkpoint_index =
             (self.current_checkpoint_index + 1) % self.checkpoints.len();
     }
+
+    /// Convenience wrapper: load checkpoints based on a MapChoice instead of a numeric ID.
+    pub fn load_checkpoint_list_for_choice(&mut self, choice: MapChoice) -> ThetaCheckpointList {
+        let map_num = match choice {
+            MapChoice::Small => 1,
+            MapChoice::Big => 2,
+        };
+        self.load_checkpoint_list(map_num)
+    }
+
     pub fn load_checkpoint_list(&mut self, map_num: u8) -> ThetaCheckpointList {
         let mut checkpoints: Vec<ThetaCheckpoint> = Vec::new();
         if (map_num == 1) {
