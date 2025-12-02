@@ -35,7 +35,7 @@ use networking_plugin::NetworkingPlugin;
 use networking::SelectedMap;
 use title_screen::{
     ServerAddress, check_for_lobby_input, check_for_title_input, pause, setup_title_screen,
-    sync_server_address,
+    sync_server_address,start_music,
 };
 use victory_screen::setup_victory_screen;
 
@@ -126,6 +126,7 @@ fn main() {
         .add_systems(Update, check_for_title_input)
         .add_systems(Update, check_for_lobby_input)
         .add_systems(Update, check_for_credits_input)
+        .add_systems(Startup, start_music)
         .add_systems(
             Update,
             title_screen::update_easy_drift_label.run_if(in_state(GameState::Settings)),

@@ -12,6 +12,7 @@ use crate::game_logic::{
 use crate::lobby_management::timeout_cleanup;
 use crate::types::*;
 
+
 /// System to apply physics simulation to all active players
 /// Processes all buffered inputs and generates position snapshots
 /// Runs at 20 Hz
@@ -436,7 +437,7 @@ pub fn ai_movement_system(
 
         // Get command from Theta* pathfinding
         let command = theta_star_pursuit(
-            (tile.x_coordinate, tile.y_coordinate),
+            (pos.x, pos.y),
             orientation.angle,
             &mut theta_checkpoint_list,
             &theta_grid,

@@ -521,16 +521,25 @@ pub fn pause(keyboard_input: Res<ButtonInput<KeyCode>>, music_controller: Query<
     }
 }
 
+pub fn start_music(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    music_query: Query<&TitleScreenAudio>,
+) {
+    if music_query.single().is_err() {  
+        commands.spawn((
+            AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
+            PlaybackSettings::LOOP,
+            TitleScreenAudio,
+        ));
+    }
+}
+
 pub fn setup_title_screen(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     server_address: Res<ServerAddress>,
 ) {
-    commands.spawn((
-        AudioPlayer::new(asset_server.load("title_screen/RustRacersTitleScreenAudio.ogg")),
-        PlaybackSettings::LOOP,
-        TitleScreenAudio,
-    ));
     commands.spawn((
         Sprite::from_image(asset_server.load("title_screen/settingsGear.png")),
         Transform {
@@ -687,7 +696,7 @@ pub fn setup_title_screen(
 
     // Theta* DEMO (Remove later)
     commands.spawn((
-        Sprite::from_image(asset_server.load("temp-art/theta-demo.png")),
+        Sprite::from_image(asset_server.load("single-player.png")),
         Transform {
             translation: Vec3::new(400., -200., 1.),
             ..default()
