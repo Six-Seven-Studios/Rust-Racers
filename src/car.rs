@@ -10,10 +10,12 @@ use crate::game_logic::{
 use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
 use crate::game_logic::{
     CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
-    bad_pure_pursuit, handle_collision,
+    theta_star_pursuit, handle_collision,
 };
 use crate::speed::SpeedBoost;
 use bevy::prelude::*;
+use crate::game_logic::theta_grid::ThetaGrid;
+
 
 // Car-related components
 #[derive(Component)]
@@ -68,8 +70,6 @@ pub fn move_player_car(
     let mut speed_mod = tile.speed_modifier;
     let mut turn_mod = tile.turn_modifier;
     let decel_mod = tile.decel_modifier;
-    let x = tile.x_coordinate;
-    let y = tile.y_coordinate;
 
     //LOS DEBUG, ADD 'mut gizmos: Gizmos' to function input
     /*
@@ -213,6 +213,7 @@ pub fn move_player_car(
 
 pub fn move_ai_cars(
     game_map: Res<GameMap>,
+    theta_grid: Res<ThetaGrid>,
     time: Res<Time>,
     mut ai_cars: Query<
         (
@@ -243,11 +244,12 @@ pub fn move_ai_cars(
         let turn_mod = tile.turn_modifier;
         let decel_mod = tile.decel_modifier;
 
-        // Get command from steering helper
-        let command = bad_pure_pursuit(
-            (tile.x_coordinate, tile.y_coordinate),
+        // Get command from steering helper using Theta* pathfinding
+        let command = theta_star_pursuit(
+            (pos.x, pos.y),
             orientation.angle,
             &mut theta_checkpoint_list,
+            &theta_grid,
         );
 
         // Execute the command
@@ -264,9 +266,9 @@ pub fn move_ai_cars(
                 **velocity = velocity.clamp_length_max(PLAYER_SPEED * speed_mod);
             }
             ThetaCommand::Reverse => {
-                let backward = -orientation.forward_vector() * (accel / 2.0);
+                let backward = -orientation.forward_vector() * (accel / 4.0);
                 **velocity += backward;
-                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 2.0));
+                **velocity = velocity.clamp_length_max(PLAYER_SPEED * (speed_mod / 4.0));
             }
             ThetaCommand::Stop => {
                 if velocity.length() > 0.0 {

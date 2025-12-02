@@ -6,7 +6,8 @@ use crate::game_logic::{
     AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE,
     Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
-    theta::{ThetaCheckpointList, ThetaCommand, bad_pure_pursuit},
+    theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
+    theta_grid::ThetaGrid,
 };
 use crate::lobby_management::timeout_cleanup;
 use crate::types::*;
@@ -363,8 +364,11 @@ pub fn timeout_cleanup_system(
     );
 }
 
-/// System to move AI cars using bad pure pursuit pathfinding
+/// System to move AI cars using Theta* pathfinding
 pub fn ai_movement_system(
+    game_map: Res<GameMap>,
+    theta_grid:
+    Res<ThetaGrid>,
     lobbies: Res<Lobbies>,
     mut ai_cars: Query<
         (
@@ -425,11 +429,12 @@ pub fn ai_movement_system(
         let turn_mod = tile.turn_modifier;
         let decel_mod = tile.decel_modifier;
 
-        // Get command from bad pure pursuit algorithm
-        let command = bad_pure_pursuit(
+        // Get command from Theta* pathfinding
+        let command = theta_star_pursuit(
             (tile.x_coordinate, tile.y_coordinate),
             orientation.angle,
             &mut theta_checkpoint_list,
+            &theta_grid,
         );
 
         // COPIED FROM src/car.rs
