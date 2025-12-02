@@ -4,7 +4,8 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::game_logic::{START_ORIENTATION, START_POSITIONS};
+use crate::game_logic::{START_ORIENTATION, START_POSITIONS, START_POSITIONS_MAP2};
+use crate::networking::MapChoice;
 use crate::lobby_management::*;
 use crate::types::*;
 use crate::game_logic::{GameMap, load_map_from_file};
@@ -320,9 +321,13 @@ fn handle_client_message(
 
                 // Initialize all players to fixed grid spawn positions
                 {
+                    let start_positions = match lobby.map_choice {
+                        MapChoice::Small => &START_POSITIONS,
+                        MapChoice::Big => &START_POSITIONS_MAP2,
+                    };
                     let mut states = lobby.states.lock().unwrap();
                     for (idx, player_id) in players.iter().enumerate() {
-                        if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(idx) {
+                        if let Some((spawn_x, spawn_y)) = start_positions.get(idx) {
                             states.insert(
                                 *player_id,
                                 PlayerState {
@@ -346,8 +351,12 @@ fn handle_client_message(
 
                 // Spawn commands for each player
                 let sender = cmd_sender.lock().unwrap();
+                let start_positions = match map_choice {
+                    MapChoice::Small => &START_POSITIONS,
+                    MapChoice::Big => &START_POSITIONS_MAP2,
+                };
                 for (idx, player_id) in players.iter().enumerate() {
-                    if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(idx) {
+                    if let Some((spawn_x, spawn_y)) = start_positions.get(idx) {
                         let _ = sender.send(ServerCommand::SpawnPlayer {
                             player_id: *player_id,
                             lobby_name: name.clone(),
@@ -359,11 +368,11 @@ fn handle_client_message(
 
                 // Spawn AI cars to fill empty slots (up to 4 total)
                 let num_players = players.len();
-                let num_ai = START_POSITIONS.len().saturating_sub(num_players);
+                let num_ai = start_positions.len().saturating_sub(num_players);
                 for i in 0..num_ai {
                     let ai_id = 1000 + i as u32;
                     let slot_index = num_players + i;
-                    if let Some((spawn_x, spawn_y)) = START_POSITIONS.get(slot_index) {
+                    if let Some((spawn_x, spawn_y)) = start_positions.get(slot_index) {
                         let _ = sender.send(ServerCommand::SpawnAI {
                             ai_id,
                             lobby_name: name.clone(),

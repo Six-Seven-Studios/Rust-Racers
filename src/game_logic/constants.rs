@@ -24,5 +24,13 @@ pub const START_POSITIONS: [(f32, f32); 4] = [
     (2852.0, 860.0),
 ];
 
+// Fixed grid for map2 starting line (centered at 1300, -1131)
+pub const START_POSITIONS_MAP2: [(f32, f32); 4] = [
+    (1300.0, -1131.0),
+    (1400.0, -1131.0),
+    (1300.0, -1231.0),
+    (1400.0, -1231.0),
+];
+
 // Orientation (radians) for spawned cars so they face the track direction
 pub const START_ORIENTATION: f32 = std::f32::consts::FRAC_PI_2;

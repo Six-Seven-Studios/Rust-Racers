@@ -366,9 +366,7 @@ pub fn timeout_cleanup_system(
 
 /// System to move AI cars using Theta* pathfinding
 pub fn ai_movement_system(
-    game_map: Res<GameMap>,
-    theta_grid:
-    Res<ThetaGrid>,
+    theta_grid: Res<ThetaGrid>,
     lobbies: Res<Lobbies>,
     mut ai_cars: Query<
         (
