@@ -175,7 +175,7 @@ pub fn get_next_point(list: &ThetaCheckpointList, grid: &ThetaGrid) -> (f32, f32
 }
 
 // Helper function to calculate steering command toward a target position
-fn calculate_steering_command(
+pub fn calculate_steering_command(
     start_pos: (f32, f32),
     target_pos: (f32, f32),
     current_angle: f32,
@@ -218,7 +218,7 @@ fn calculate_steering_command(
     }
 }
 
-pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
+pub fn track_to_position(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
     if checkpoints.checkpoints.is_empty() {
         return ThetaCommand::Stop;
     }
@@ -281,7 +281,7 @@ fn movement_cost(grid: &ThetaGrid, from: (usize, usize), to: (usize, usize)) -> 
 }
 
 // Theta* pathfinding algorithm
-pub fn theta_star(
+pub fn theta_star_generator(
     grid: &ThetaGrid,
     start: (usize, usize),
     goal: (usize, usize),
@@ -412,7 +412,7 @@ fn reconstruct_path(
 }
 
 // Wrapper function for Theta*
-pub fn theta_star_pursuit(
+pub fn theta_star(
     start_pos: (f32, f32),
     current_angle: f32,
     checkpoints: &mut ThetaCheckpointList,
@@ -444,7 +444,7 @@ pub fn theta_star_pursuit(
                  start_grid, goal_grid, start_pos, target_pos);
 
         // Run Theta* pathfinding
-        if let Some(path) = theta_star(grid, start_grid, goal_grid) {
+        if let Some(path) = theta_star_generator(grid, start_grid, goal_grid) {
             println!("Path found with {} waypoints", path.len());
             checkpoints.cached_path = path;
             checkpoints.path_index = 0;
@@ -517,60 +517,3 @@ fn steer_towards(
 ) -> ThetaCommand {
     calculate_steering_command(start_pos, target_pos, current_angle)
 }
-
-// use bevy::prelude::*;
-// use crate::game_logic::{GameMap};
-// use std::fs::OpenOptions;
-// use std::io::Write;
-//
-// /// System to log player position to file when 'L' is pressed
-// pub fn log_checkpoint_system(
-//     keyboard: Res<ButtonInput<KeyCode>>,
-//     player_query: Query<&Transform, With<crate::game_logic::PlayerControlled>>,
-//     game_map: Res<GameMap>,
-// ) {
-//     if keyboard.just_pressed(KeyCode::KeyH) {
-//         if let Ok(transform) = player_query.get_single() {
-//             let pos = transform.translation.truncate();
-//             let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-//
-//             // Open file in append mode
-//             let mut file = OpenOptions::new()
-//                 .create(true)
-//                 .append(true)
-//                 .open("checkpoints.log")
-//                 .expect("Failed to open checkpoints.log");
-//
-//             // Write checkpoint
-//             writeln!(file, "checkpoints.push(ThetaCheckpoint::new(({}, {}), ({}, {})));",
-//                      tile.x_coordinate - 1.5, tile.y_coordinate,
-//                      tile.x_coordinate + 1.5, tile.y_coordinate)
-//                 .expect("Failed to write to file");
-//
-//             println!("📍 Logged checkpoint at tile ({}, {}) to checkpoints.log",
-//                      tile.x_coordinate, tile.y_coordinate);
-//         }
-//     }
-//     else if keyboard.just_pressed(KeyCode::KeyV) {
-//         if let Ok(transform) = player_query.get_single() {
-//             let pos = transform.translation.truncate();
-//             let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
-//
-//             // Open file in append mode
-//             let mut file = OpenOptions::new()
-//                 .create(true)
-//                 .append(true)
-//                 .open("checkpoints.log")
-//                 .expect("Failed to open checkpoints.log");
-//
-//             // Write checkpoint
-//             writeln!(file, "checkpoints.push(ThetaCheckpoint::new(({}, {}), ({}, {})));",
-//                      tile.x_coordinate, tile.y_coordinate - 1.5,
-//                      tile.x_coordinate, tile.y_coordinate + 1.5)
-//                 .expect("Failed to write to file");
-//
-//             println!("📍 Logged checkpoint at tile ({}, {}) to checkpoints.log",
-//                      tile.x_coordinate, tile.y_coordinate);
-//         }
-//     }
-// }
