@@ -20,7 +20,7 @@ use speed::{
     spawn_speed_powerups, update_speed_boost,
 };
 
-use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity, MapLevelData};
+use crate::game_logic::{AIControlled, Orientation, TILE_SIZE, ThetaCheckpointList, Velocity, MapLevelData, theta};
 use bevy::render::camera::{Projection, ScalingMode};
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, window::PresentMode};
 use camera::{WIN_H, WIN_W, move_camera, reset_camera_for_credits};
@@ -39,6 +39,9 @@ use title_screen::{
 };
 use victory_screen::setup_victory_screen;
 
+//use theta::log_checkpoint_system;
+//use game_logic::map::draw_checkpoint_lines;
+
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     #[default]
@@ -53,6 +56,9 @@ pub enum GameState {
     Victory,
     Credits,
 }
+
+#[derive(Resource)]
+pub struct CurrentMapNumber(pub u8);
 
 fn main() {
     App::new()
@@ -168,6 +174,8 @@ fn main() {
             )
                 .run_if(in_state(GameState::PlayingDemo).or(in_state(GameState::Playing))),
         )
+        //.add_systems(Update, log_checkpoint_system) //REMOVE THIS
+        //.add_systems(Update, draw_checkpoint_lines) // AND THIS
         .run();
 }
 
@@ -206,9 +214,10 @@ fn car_setup(
 }
 fn ai_car_setup(
     mut ai_cars: Query<(&mut ThetaCheckpointList), (With<AIControlled>, Without<Background>)>,
+    map_number: Res<CurrentMapNumber>,
 ) {
     for (mut theta_checkpoint_list) in ai_cars.iter_mut() {
-        *theta_checkpoint_list = theta_checkpoint_list.load_checkpoint_list(1);
+        *theta_checkpoint_list = theta_checkpoint_list.load_checkpoint_list(map_number.0);
     }
 }
 
@@ -254,8 +263,10 @@ fn load_selected_map(mut commands: Commands, selected_map: Res<SelectedMap>) {
     // Determine which data to inject
     if map_path.contains("map2") {
         commands.insert_resource(map2_data);
+        commands.insert_resource(CurrentMapNumber(2));
     } else {
         commands.insert_resource(map1_data);
+        commands.insert_resource(CurrentMapNumber(1));
     }
 }
 
@@ -283,6 +294,7 @@ fn load_map2(mut commands: Commands) {
     };
 
     commands.insert_resource(map2_data);
+    commands.insert_resource(CurrentMapNumber(2));
 }
 
 // Initialize ThetaGrid from GameMap for pathfinding

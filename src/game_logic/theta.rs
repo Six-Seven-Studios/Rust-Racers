@@ -81,8 +81,56 @@ impl ThetaCheckpointList {
             checkpoints.push(ThetaCheckpoint::new((91.0, 89.0), (94.0, 89.0)));
             checkpoints.push(ThetaCheckpoint::new((91.0, 34.0), (93.0, 44.0)));
         } else if (map_num == 2) {
-            // No checkpoints implemented yet!
-            panic!("Checkpoints not implemented for map 2 yet!");
+            checkpoints.push(ThetaCheckpoint::new((86.0, 71.5), (86.0, 74.5)));
+            checkpoints.push(ThetaCheckpoint::new((92.5, 67.0), (95.5, 67.0)));
+            checkpoints.push(ThetaCheckpoint::new((92.5, 56.0), (95.5, 56.0)));
+            checkpoints.push(ThetaCheckpoint::new((88.0, 49.5), (88.0, 52.5)));
+            checkpoints.push(ThetaCheckpoint::new((82.5, 49.0), (85.5, 49.0)));
+            checkpoints.push(ThetaCheckpoint::new((82.5, 36.0), (85.5, 36.0)));
+            checkpoints.push(ThetaCheckpoint::new((88.0, 29.5), (88.0, 32.5)));
+            checkpoints.push(ThetaCheckpoint::new((100.0, 29.5), (100.0, 32.5)));
+            checkpoints.push(ThetaCheckpoint::new((111.0, 30.5), (111.0, 33.5)));
+            checkpoints.push(ThetaCheckpoint::new((117.5, 24.0), (120.5, 24.0)));
+            checkpoints.push(ThetaCheckpoint::new((117.5, 11.0), (120.5, 11.0)));
+            checkpoints.push(ThetaCheckpoint::new((113.0, 4.5), (113.0, 7.5)));
+            checkpoints.push(ThetaCheckpoint::new((94.0, 4.5), (94.0, 7.5)));
+            checkpoints.push(ThetaCheckpoint::new((54.0, 4.5), (54.0, 7.5)));
+            checkpoints.push(ThetaCheckpoint::new((31.5, 22.0), (34.5, 22.0)));
+            checkpoints.push(ThetaCheckpoint::new((30.5, 33.0), (33.5, 33.0)));
+            checkpoints.push(ThetaCheckpoint::new((44.0, 43.5), (44.0, 46.5)));
+            checkpoints.push(ThetaCheckpoint::new((55.0, 42.5), (55.0, 45.5)));
+            checkpoints.push(ThetaCheckpoint::new((63.5, 31.0), (66.5, 31.0)));
+            checkpoints.push(ThetaCheckpoint::new((57.0, 26.5), (57.0, 29.5)));
+            checkpoints.push(ThetaCheckpoint::new((49.0, 26.5), (49.0, 29.5)));
+            checkpoints.push(ThetaCheckpoint::new((43.5, 23.0), (46.5, 23.0)));
+            checkpoints.push(ThetaCheckpoint::new((49.0, 16.5), (49.0, 19.5)));
+            checkpoints.push(ThetaCheckpoint::new((68.0, 17.5), (68.0, 20.5)));
+            checkpoints.push(ThetaCheckpoint::new((73.5, 27.0), (76.5, 27.0)));
+            checkpoints.push(ThetaCheckpoint::new((74.5, 40.0), (77.5, 40.0)));
+            checkpoints.push(ThetaCheckpoint::new((62.0, 51.5), (62.0, 54.5)));
+            checkpoints.push(ThetaCheckpoint::new((45.0, 59.5), (45.0, 62.5)));
+            checkpoints.push(ThetaCheckpoint::new((23.0, 59.5), (23.0, 62.5)));
+            checkpoints.push(ThetaCheckpoint::new((15.5, 52.0), (18.5, 52.0)));
+            checkpoints.push(ThetaCheckpoint::new((16.5, 32.0), (19.5, 32.0)));
+            checkpoints.push(ThetaCheckpoint::new((13.0, 20.5), (13.0, 23.5)));
+            checkpoints.push(ThetaCheckpoint::new((7.0, 20.5), (7.0, 23.5)));
+            checkpoints.push(ThetaCheckpoint::new((2.5, 30.0), (5.5, 30.0)));
+            checkpoints.push(ThetaCheckpoint::new((1.5, 53.0), (4.5, 53.0)));
+            checkpoints.push(ThetaCheckpoint::new((1.5, 63.0), (4.5, 63.0)));
+            checkpoints.push(ThetaCheckpoint::new((9.5, 72.0), (12.5, 72.0)));
+            checkpoints.push(ThetaCheckpoint::new((17.0, 73.5), (17.0, 76.5)));
+            checkpoints.push(ThetaCheckpoint::new((28.0, 83.5), (28.0, 86.5)));
+            checkpoints.push(ThetaCheckpoint::new((48.0, 68.5), (48.0, 71.5)));
+            checkpoints.push(ThetaCheckpoint::new((58.5, 83.0), (61.5, 83.0)));
+            checkpoints.push(ThetaCheckpoint::new((59.5, 97.0), (62.5, 97.0)));
+            checkpoints.push(ThetaCheckpoint::new((58.5, 108.0), (61.5, 108.0)));
+            checkpoints.push(ThetaCheckpoint::new((66.0, 112.5), (66.0, 115.5)));
+            checkpoints.push(ThetaCheckpoint::new((84.0, 112.5), (84.0, 115.5)));
+            checkpoints.push(ThetaCheckpoint::new((102.0, 111.5), (102.0, 114.5)));
+            checkpoints.push(ThetaCheckpoint::new((108.5, 106.0), (111.5, 106.0)));
+            checkpoints.push(ThetaCheckpoint::new((109.5, 89.0), (112.5, 89.0)));
+            checkpoints.push(ThetaCheckpoint::new((102.0, 81.5), (102.0, 84.5)));
+            checkpoints.push(ThetaCheckpoint::new((87.0, 80.5), (87.0, 83.5)));
         } else {
             panic!("Invalid map num: {}", map_num);
         }
@@ -458,3 +506,60 @@ fn steer_towards(
 ) -> ThetaCommand {
     calculate_steering_command(start_pos, target_pos, current_angle)
 }
+
+// use bevy::prelude::*;
+// use crate::game_logic::{GameMap};
+// use std::fs::OpenOptions;
+// use std::io::Write;
+//
+// /// System to log player position to file when 'L' is pressed
+// pub fn log_checkpoint_system(
+//     keyboard: Res<ButtonInput<KeyCode>>,
+//     player_query: Query<&Transform, With<crate::game_logic::PlayerControlled>>,
+//     game_map: Res<GameMap>,
+// ) {
+//     if keyboard.just_pressed(KeyCode::KeyH) {
+//         if let Ok(transform) = player_query.get_single() {
+//             let pos = transform.translation.truncate();
+//             let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+//
+//             // Open file in append mode
+//             let mut file = OpenOptions::new()
+//                 .create(true)
+//                 .append(true)
+//                 .open("checkpoints.log")
+//                 .expect("Failed to open checkpoints.log");
+//
+//             // Write checkpoint
+//             writeln!(file, "checkpoints.push(ThetaCheckpoint::new(({}, {}), ({}, {})));",
+//                      tile.x_coordinate - 1.5, tile.y_coordinate,
+//                      tile.x_coordinate + 1.5, tile.y_coordinate)
+//                 .expect("Failed to write to file");
+//
+//             println!("📍 Logged checkpoint at tile ({}, {}) to checkpoints.log",
+//                      tile.x_coordinate, tile.y_coordinate);
+//         }
+//     }
+//     else if keyboard.just_pressed(KeyCode::KeyV) {
+//         if let Ok(transform) = player_query.get_single() {
+//             let pos = transform.translation.truncate();
+//             let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
+//
+//             // Open file in append mode
+//             let mut file = OpenOptions::new()
+//                 .create(true)
+//                 .append(true)
+//                 .open("checkpoints.log")
+//                 .expect("Failed to open checkpoints.log");
+//
+//             // Write checkpoint
+//             writeln!(file, "checkpoints.push(ThetaCheckpoint::new(({}, {}), ({}, {})));",
+//                      tile.x_coordinate, tile.y_coordinate - 1.5,
+//                      tile.x_coordinate, tile.y_coordinate + 1.5)
+//                 .expect("Failed to write to file");
+//
+//             println!("📍 Logged checkpoint at tile ({}, {}) to checkpoints.log",
+//                      tile.x_coordinate, tile.y_coordinate);
+//         }
+//     }
+// }
