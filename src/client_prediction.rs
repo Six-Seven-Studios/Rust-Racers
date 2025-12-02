@@ -1,7 +1,7 @@
 use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
-    CAR_SIZE, CLIENT_TIMESTEP, Orientation, PhysicsInput, PlayerControlled, TILE_SIZE, Velocity,
-    handle_collision,
+    CAR_SIZE, CLIENT_TIMESTEP, DRIFT_RELEASE_BOOST, Orientation, PhysicsInput, PLAYER_SPEED,
+    PlayerControlled, TILE_SIZE, Velocity, handle_collision,
 };
 use crate::multiplayer::NetworkPlayer;
 use crate::networking::InputData;
@@ -28,6 +28,7 @@ pub struct PredictedState {
     pub position: Vec2,
     pub velocity: Vec2,
     pub angle: f32,
+    pub was_drifting: bool,
 }
 
 #[derive(Component)]
@@ -112,6 +113,10 @@ pub fn send_keyboard_input(
             boost: speed_boost.is_some(),
         };
 
+        let was_drifting = buffer.states.last()
+            .map(|s| s.was_drifting)
+            .unwrap_or(false);
+
         let old_pos = transform.translation.truncate();
         let mut pos = old_pos;
         let tile = game_map.get_tile(pos.x, pos.y, TILE_SIZE as f32);
@@ -128,6 +133,12 @@ pub fn send_keyboard_input(
             tile.turn_modifier,
             tile.decel_modifier,
         );
+
+        // Drift boost
+        if was_drifting && !drift {
+            let boost_velocity = orientation.forward_vector() * PLAYER_SPEED * DRIFT_RELEASE_BOOST;
+            velocity.velocity += boost_velocity;
+        }
 
         // Clamp to map bounds to stay in the playable area
         let half_width = game_map.width / 2.0;
@@ -167,6 +178,7 @@ pub fn send_keyboard_input(
             position: transform.translation.truncate(),
             velocity: velocity.velocity,
             angle: orientation.angle,
+            was_drifting: drift,
         });
 
         // Keep last 120 states (2 seconds at 60 Hz)

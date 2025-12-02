@@ -3,8 +3,8 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::game_logic::{
-    AIControlled, CAR_SIZE, GameMap, Orientation, SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE,
-    Velocity, handle_collision,
+    AIControlled, CAR_SIZE, DRIFT_RELEASE_BOOST, GameMap, Orientation, PLAYER_SPEED,
+    SERVER_TIMESTEP, START_ORIENTATION, TILE_SIZE, Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
     theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
 };
@@ -115,6 +115,13 @@ pub fn physics_simulation_system(
                         tile.turn_modifier,
                         tile.decel_modifier,
                     );
+
+                    // Drift boost
+                    if player_state.was_drifting && !input_data.drift {
+                        let boost_velocity = orient.forward_vector() * PLAYER_SPEED * DRIFT_RELEASE_BOOST;
+                        vel.velocity += boost_velocity;
+                    }
+                    player_state.was_drifting = input_data.drift;
 
                     // Apply map boundaries
                     let half_width = game_map.width / 2.0;
