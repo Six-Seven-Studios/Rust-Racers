@@ -5,11 +5,11 @@ use crate::drift_settings::DriftSettings;
 use crate::game_logic::{
     ACCEL_RATE, CAR_SIZE, EASY_DRIFT_LATERAL_FRICTION, EASY_DRIFT_SPEED_BONUS,
     EASY_DRIFT_TURN_MULTIPLIER, FRICTION, LATERAL_FRICTION, PLAYER_SPEED, START_ORIENTATION,
-    START_POSITIONS, TURNING_RATE,
+    TURNING_RATE,
 };
 use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
 use crate::game_logic::{
-    CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
+    CpuDifficulty, GameMap, LapCounter, MapLevelData, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
     theta_star_pursuit, handle_collision,
 };
 use crate::speed::SpeedBoost;
@@ -340,13 +340,25 @@ pub fn spawn_cars(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     state: Res<State<crate::GameState>>,
+    map_data: Res<MapLevelData>,
     skin_selection: Res<CarSkinSelection>,
 ) {
     let car_sheet_handle = asset_server.load(skin_selection.current_skin());
     let car_layout = TextureAtlasLayout::from_grid(UVec2::splat(CAR_SIZE), 2, 2, None, None);
     let car_layout_handle = texture_atlases.add(car_layout);
 
-    let player_start = START_POSITIONS[0];
+    let start_positions = {
+        let base = map_data.start_position;
+        let spacing = 100.0;
+        [
+            (base.x, base.y),
+            (base.x + spacing, base.y),
+            (base.x, base.y - spacing),
+            (base.x + spacing, base.y - spacing),
+        ]
+    };
+
+    let player_start = start_positions[0];
 
     // Spawn player car
     commands.spawn((
@@ -372,7 +384,7 @@ pub fn spawn_cars(
 
     // Spawn AI car IF in demo mode
     if *state.get() == crate::GameState::PlayingDemo {
-        let ai_start = START_POSITIONS.get(1).copied().unwrap_or(player_start);
+        let ai_start = start_positions.get(1).copied().unwrap_or(player_start);
         commands.spawn((
             Sprite::from_atlas_image(
                 asset_server.load(AI_SKIN),

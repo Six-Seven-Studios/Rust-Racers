@@ -94,7 +94,14 @@ fn main() {
         .init_state::<GameState>()
         .add_systems(
             OnEnter(GameState::Playing),
-            (load_selected_map, car_setup, spawn_map, spawn_lap_triggers).chain(),
+            (
+                load_selected_map,
+                initialize_theta_grid,
+                car_setup,
+                spawn_map,
+                spawn_lap_triggers,
+            )
+                .chain(),
         )
         .add_systems(OnEnter(GameState::PlayingDemo), load_map2) // THETA* DEMO (but could support our second map)
         //.insert_resource(load_map_from_file("assets/big-map.txt")) // to get a Res handle on GameMap
@@ -209,6 +216,7 @@ fn car_setup(
         asset_server,
         texture_atlases,
         state,
+        map_data,
         skin_selection,
     );
 }
@@ -228,7 +236,7 @@ fn load_selected_map(mut commands: Commands, selected_map: Res<SelectedMap>) {
 
     // Define data for Map 1 (Default/Big Map)
     let map1_data = MapLevelData {
-        start_position: Vec3::new(0.0, 0.0, 5.0),
+        start_position: Vec3::new(2752.0, 960.0, 5.0),
         finish_line_pos: Vec3::new(2752., 960., 5.),
         checkpoints: vec![
             (Vec3::new(2752., 1500., 10.), 0.0),
