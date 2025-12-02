@@ -159,7 +159,7 @@ fn calculate_steering_command(
     }
 }
 
-pub fn bad_pure_pursuit(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
+pub fn track_to_position(start_pos: (f32, f32), current_angle: f32, checkpoints: &mut ThetaCheckpointList, grid: &ThetaGrid) -> ThetaCommand {
     if checkpoints.checkpoints.is_empty() {
         return ThetaCommand::Stop;
     }
@@ -222,7 +222,7 @@ fn movement_cost(grid: &ThetaGrid, from: (usize, usize), to: (usize, usize)) -> 
 }
 
 // Theta* pathfinding algorithm
-pub fn theta_star(
+pub fn generate_theta_star_path(
     grid: &ThetaGrid,
     start: (usize, usize),
     goal: (usize, usize),
@@ -353,7 +353,7 @@ fn reconstruct_path(
 }
 
 // Wrapper function for Theta*
-pub fn theta_star_pursuit(
+pub fn theta_star(
     start_pos: (f32, f32),
     current_angle: f32,
     checkpoints: &mut ThetaCheckpointList,
@@ -385,7 +385,7 @@ pub fn theta_star_pursuit(
                  start_grid, goal_grid, start_pos, target_pos);
 
         // Run Theta* pathfinding
-        if let Some(path) = theta_star(grid, start_grid, goal_grid) {
+        if let Some(path) = generate_theta_star_path(grid, start_grid, goal_grid) {
             println!("Path found with {} waypoints", path.len());
             checkpoints.cached_path = path;
             checkpoints.path_index = 0;

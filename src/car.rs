@@ -10,7 +10,7 @@ use crate::game_logic::{
 use crate::game_logic::{AIControlled, Car, Orientation, PlayerControlled, Velocity};
 use crate::game_logic::{
     CpuDifficulty, GameMap, LapCounter, TILE_SIZE, ThetaCheckpointList, ThetaCommand,
-    theta_star_pursuit, handle_collision,
+    theta_star, handle_collision,
 };
 use crate::speed::SpeedBoost;
 use bevy::prelude::*;
@@ -245,7 +245,7 @@ pub fn move_ai_cars(
         let decel_mod = tile.decel_modifier;
 
         // Get command from steering helper using Theta* pathfinding
-        let command = theta_star_pursuit(
+        let command = theta_star(
             (pos.x, pos.y),
             orientation.angle,
             &mut theta_checkpoint_list,
