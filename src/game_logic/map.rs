@@ -1,7 +1,4 @@
-use crate::game_logic::{
-    DIRT, GRASS, OIL, ROAD, SAND, TILES, TerrainTile, ThetaCheckpoint, ThetaCheckpointList, WALL,
-    WET,
-};
+use crate::game_logic::{DIRT, GRASS, OIL, ROAD, SAND, TILES, TerrainTile, ThetaCheckpoint, ThetaCheckpointList, WALL, WET, AIControlled};
 use bevy::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -258,5 +255,45 @@ impl GameMap {
 impl Default for GameMap {
     fn default() -> Self {
         load_map_from_file("assets/big-map.txt")
+    }
+}
+
+pub fn draw_checkpoint_lines(
+    mut gizmos: Gizmos,
+    game_map: Res<GameMap>,
+    // You'll need to pass in your checkpoint list somehow - adjust this based on your setup
+    // For example, if it's on an AI car component:
+    checkpoints_query: Query<&ThetaCheckpointList, With<AIControlled>>,
+) {
+    let tile_size = 64.0;
+
+    // Draw checkpoints for each AI car (or just draw once if you have a global list)
+    for checkpoint_list in checkpoints_query.iter() {
+        for (i, checkpoint) in checkpoint_list.checkpoints.iter().enumerate() {
+            let world_pos1 = game_map.tile_to_world(
+                checkpoint.point1.0,
+                checkpoint.point1.1,
+                tile_size
+            );
+            let world_pos2 = game_map.tile_to_world(
+                checkpoint.point2.0,
+                checkpoint.point2.1,
+                tile_size
+            );
+
+            // Alternate colors for each checkpoint to make them easier to distinguish
+            let color = if i % 2 == 0 {
+                Color::srgb(0.0, 1.0, 1.0) // Cyan
+            } else {
+                Color::srgb(1.0, 0.5, 0.0) // Orange
+            };
+
+            // Draw the checkpoint line
+            gizmos.line_2d(world_pos1, world_pos2, color);
+
+            // Draw small circles at the endpoints
+            gizmos.circle_2d(world_pos1, 4.0, color);
+            gizmos.circle_2d(world_pos2, 4.0, color);
+        }
     }
 }
