@@ -445,19 +445,16 @@ pub fn theta_star(
 
         // Run Theta* pathfinding
         if let Some(path) = theta_star_generator(grid, start_grid, goal_grid) {
-            println!("Path found with {} waypoints", path.len());
             checkpoints.cached_path = path;
             checkpoints.path_index = 0;
         } else {
-            println!("NO PATH FOUND! Falling back to pure pursuit");
             // No path found, fall back to direct pursuit and check for checkpoint advance
             let dx = target_pos.0 - start_pos.0;
             let dy = target_pos.1 - start_pos.1;
             let distance = (dx * dx + dy * dy).sqrt();
-            let goal_threshold = 128.0; // Leeway in pixels (2 tiles)
+            let goal_threshold = 320.0; // Leeway in pixels
 
             if distance < goal_threshold {
-                println!("ADVANCE");
                 checkpoints.advance_checkpoint();
                 checkpoints.cached_path.clear();
                 checkpoints.target_world_pos = None;
@@ -469,7 +466,6 @@ pub fn theta_star(
     // Follow the cached path
     if checkpoints.path_index >= checkpoints.cached_path.len() {
         // Reached end of path, advance checkpoint
-        println!("ADVANCE");
         checkpoints.advance_checkpoint();
         checkpoints.cached_path.clear();
         checkpoints.target_world_pos = None;

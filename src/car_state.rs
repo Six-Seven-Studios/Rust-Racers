@@ -1,6 +1,6 @@
 use crate::game_logic::{
-    apply_physics, calculate_steering_command, CpuDifficulty, Orientation, PhysicsInput,
-    ThetaCommand, Velocity,
+    apply_physics, calculate_steering_command, theta_star, CpuDifficulty, Orientation,
+    PhysicsInput, ThetaCheckpointList, ThetaCommand, ThetaGrid, Velocity,
 };
 use bevy::prelude::*;
 use std::time::Duration;
@@ -39,6 +39,8 @@ impl CarState {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
+        checkpoints: &mut ThetaCheckpointList,
+        grid: &Res<ThetaGrid>,
     ) {
         if let Some(mut s) = self.state.take() {
             // do the current state's operations
@@ -52,6 +54,8 @@ impl CarState {
                 closest_car_position,
                 closest_car_distance,
                 difficulty,
+                checkpoints,
+                grid,
             );
 
             // transition based off of what each state returns
@@ -81,6 +85,8 @@ trait State: Send + Sync {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
+        checkpoints: &mut ThetaCheckpointList,
+        grid: &Res<ThetaGrid>,
     ) -> Transition;
 }
 
@@ -117,6 +123,8 @@ impl State for Aggressive {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
+        _checkpoints: &mut ThetaCheckpointList,
+        _grid: &Res<ThetaGrid>,
     ) -> Transition {
         self.ram_timer.tick(delta_time.delta());
 
@@ -158,8 +166,9 @@ impl State for Aggressive {
                 // For ramming, let's add boost.
                 input.boost = true;
 
+                let mut pos = transform.translation.truncate();
                 apply_physics(
-                    &mut transform.translation.truncate(),
+                    &mut pos,
                     velocity,
                     orientation,
                     &input,
@@ -169,6 +178,8 @@ impl State for Aggressive {
                     1.0, // turn_modifier
                     1.0, // decel_modifier
                 );
+                transform.translation.x = pos.x;
+                transform.translation.y = pos.y;
             }
         }
 
@@ -216,6 +227,8 @@ impl State for Neutral {
         closest_car_position: Option<Vec2>,
         closest_car_distance: f32,
         difficulty: &CpuDifficulty,
+        checkpoints: &mut ThetaCheckpointList,
+        grid: &Res<ThetaGrid>,
     ) -> Transition {
         // MAIN DRIVING LOGIC GOES HERE
         self.decision_timer.tick(delta_time.delta());
@@ -231,7 +244,43 @@ impl State for Neutral {
 
         // using theta* here to drive normally
         if self.decision_timer.just_finished() {
-            // info!("[+] Neutral driving - no cars nearby");
+            let start_pos = (transform.translation.x, transform.translation.y);
+            let command = theta_star(start_pos, orientation.angle, checkpoints, grid);
+
+            let mut input = PhysicsInput::default();
+            match command {
+                ThetaCommand::Forward => {
+                    input.forward = true;
+                }
+                ThetaCommand::Reverse => {
+                    input.backward = true;
+                }
+                ThetaCommand::TurnLeft => {
+                    input.left = true;
+                    input.forward = true;
+                }
+                ThetaCommand::TurnRight => {
+                    input.right = true;
+                    input.forward = true;
+                }
+                ThetaCommand::Stop => {
+                    // do nothing
+                }
+            }
+            let mut pos = transform.translation.truncate();
+            apply_physics(
+                &mut pos,
+                velocity,
+                orientation,
+                &input,
+                delta_time.delta_secs(),
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+            );
+            transform.translation.x = pos.x;
+            transform.translation.y = pos.y;
         }
         Transition::None
     }
