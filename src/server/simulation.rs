@@ -7,7 +7,6 @@ use crate::game_logic::{
     Velocity, handle_collision,
     physics::{PhysicsInput, apply_physics},
     theta::{ThetaCheckpointList, theta_star_pursuit, ThetaCommand},
-    theta_grid::ThetaGrid,
 };
 use crate::networking::MapChoice;
 use crate::lobby_management::timeout_cleanup;
@@ -377,7 +376,6 @@ pub fn timeout_cleanup_system(
 
 /// System to move AI cars using Theta* pathfinding
 pub fn ai_movement_system(
-    theta_grid: Res<ThetaGrid>,
     lobbies: Res<Lobbies>,
     mut ai_cars: Query<
         (
@@ -418,14 +416,17 @@ pub fn ai_movement_system(
         }
 
         // Find the lobby to access input queue (same thing as above basically)
-        let game_map = {
+        let (game_map, theta_grid) = {
             let guard = lobbies.list.lock().unwrap();
             let lobby_opt = guard.iter().find(|l| l.name == lobby_member.lobby_name);
             
             if let Some(lobby) = lobby_opt {
-                lobby.map.clone() 
+                (lobby.map.clone(), lobby.theta_grid.clone())
             } else {
-                GameMap::default()
+                let default_map = GameMap::default();
+                let default_grid =
+                    crate::game_logic::theta_grid::ThetaGrid::create_theta_grid(&default_map, TILE_SIZE as f32);
+                (default_map, default_grid)
             }
         };
 

@@ -13,7 +13,7 @@ pub struct GridNode {
     pub cost: f32,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct ThetaGrid {
     pub width: usize,
     pub height: usize,
@@ -26,16 +26,37 @@ impl ThetaGrid {
         let height = game_map.terrain_layer.len();
         let width = if height > 0 { game_map.terrain_layer[0].len() } else { 0 };
 
-        let mut nodes = Vec::with_capacity(height);
+        Self::create_theta_grid_with_size(game_map, tile_size, width, height)
+    }
 
-        for y in 0..height {
-            let mut row = Vec::with_capacity(width);
-            for x in 0..width {
-                let terrain = &game_map.terrain_layer[y][x];
+    /// Create a ThetaGrid with an explicit grid size (width x height in tiles), clamping lookups to the map.
+    pub fn create_theta_grid_with_size(
+        game_map: &GameMap,
+        tile_size: f32,
+        grid_width: usize,
+        grid_height: usize,
+    ) -> Self {
+        let terrain_height = game_map.terrain_layer.len().max(1);
+        let terrain_width = if terrain_height > 0 {
+            game_map.terrain_layer[0].len().max(1)
+        } else {
+            1
+        };
+
+        let mut nodes = Vec::with_capacity(grid_height);
+
+        for y in 0..grid_height {
+            let mut row = Vec::with_capacity(grid_width);
+            for x in 0..grid_width {
+                // Clamp to map dimensions to avoid OOB if requested grid is larger/smaller
+                let tx = x.min(terrain_width - 1);
+                let ty = y.min(terrain_height - 1);
+                let terrain = &game_map.terrain_layer[ty][tx];
 
                 // Convert grid coordinates to world coordinates
                 let world_x = (x as f32 * tile_size) - (game_map.width / 2.0) + (tile_size / 2.0);
-                let world_y = -((y as f32 * tile_size) - (game_map.height / 2.0) + (tile_size / 2.0));
+                let world_y =
+                    -((y as f32 * tile_size) - (game_map.height / 2.0) + (tile_size / 2.0));
 
                 // Calculate movement cost from terrain modifiers
                 let cost = Self::calculate_node_cost(&terrain);
@@ -53,8 +74,8 @@ impl ThetaGrid {
         }
 
         ThetaGrid {
-            width,
-            height,
+            width: grid_width,
+            height: grid_height,
             tile_size,
             nodes,
         }
